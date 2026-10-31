@@ -7,11 +7,11 @@ This file never contains passwords, cookies, API keys, license keys or redemptio
 
 | Platform | Signed in | Account ready | Credits / trial | API access | Blockers | Next action |
 |---|---|---|---|---|---|---|
-| **PayPal Developer** | Yes (session expired again later) | Yes, Sandbox mode | n/a (Sandbox is free) | **Verified.** Created REST app "FundCart AI" (Merchant). OAuth token from the Sandbox API works. Orders v2 create works, including a custom `payee`. | Dashboard session expired, so the extra Sandbox test accounts can't be created yet | Talal re-signs in. Then create the recipient and buyer Sandbox accounts and the webhook |
-| PayPal Sandbox accounts | — | 2 default accounts (US business that owns the app; US personal) | — | — | Buyer password is only visible in the dashboard | Create dedicated accounts after re-login |
+| **PayPal Developer** | Yes | Yes, Sandbox mode | n/a (Sandbox is free) | **Verified end to end:** REST app "FundCart AI"; real Sandbox contribution + purchase captured and confirmed via the PayPal API; webhook registered for the production URL | Webhook deliveries not yet observed | Recheck webhooks |
+| PayPal Sandbox accounts | — | 4 accounts: campaign recipient (business, new), demo store (business, app owner), supporter buyer (personal, new), creator buyer (personal) | Sandbox balances | — | — | Test passwords set via the dashboard and stored only in `.env.local` |
 | Devpost (PayPal AI Hackathon) | Yes | Registered (Edit/Create project visible) | n/a | n/a | — | Create the project draft at the end |
 | GitHub (kmt9967) | Yes (gh CLI) | Yes | n/a | Yes | — | Repo created: github.com/kmt9967/fundcart-ai |
-| Vercel (team Teqprotech, **Hobby**) | Yes (web); CLI logged out | Project `fundcart-ai` created with env vars | Free Hobby | — | **2FA re-auth required to deploy** | Talal completes the re-auth |
+| Vercel (team Teqprotech, **Hobby**) | Yes (web) | Project `fundcart-ai`, auto-deploys from GitHub | Free Hobby | — | — | Live: https://fundcart-ai.vercel.app |
 | **Channel3** | Yes | Yes | **Verified: 21,000 bonus credits, plus 1,000 free per month (0 used at check)** | **Verified:** a live `/v1/search` returns products | — | Used in the app |
 | Supabase (kmt9967's Org, Free) | Yes | New project `fundcart-ai` (us-west-2, Nano, free) | Free plan | Verified (REST 200, migrations applied) | Free projects pause after 7 days idle | Daily Vercel cron keepalive |
 | Google AI Studio (Gemini) | Google session yes | **Terms not yet accepted** | Free tier | — | Accepting Google's terms is Talal's action | Talal clicks Continue; then create the API key |
