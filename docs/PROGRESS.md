@@ -11,8 +11,11 @@
 - Unit tests 16/16 passing; typecheck and lint clean.
 - Public repo: https://github.com/kmt9967/fundcart-ai (MIT).
 
+- Deployed: https://fundcart-ai.vercel.app (auto-deploy from GitHub; production search verified).
+- E2E smoke 4/4 passing locally (pages, streaming assistant with real products, tampered-request rejection, mobile overflow).
+- Full journey Playwright spec written (needs sandbox buyer creds).
+
 **Blocked (needs Talal)**
-- Vercel 2FA re-auth to deploy.
 - PayPal developer dashboard re-login, needed to create the Sandbox recipient and buyer accounts and the webhook.
 - Google AI Studio terms acceptance (Gemini key).
 
