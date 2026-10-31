@@ -9,6 +9,7 @@ export type CaptureOutcome =
   | { state: 'completed'; captureId: string; amountCents: number; alreadyRecorded: boolean }
   | { state: 'pending'; captureId: string; status: string }
   | { state: 'not_approved'; status: string }
+  | { state: 'not_found'; message: string }
   | { state: 'failed'; message: string };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +30,7 @@ export async function logPaymentEvent(e: { paymentOrderId?: string | null; paypa
  */
 export async function captureAndRecord(paypalOrderId: string, source: 'api' | 'webhook' = 'api'): Promise<CaptureOutcome> {
   const po = await db().from('payment_orders').select('*').eq('paypal_order_id', paypalOrderId).maybeSingle();
-  if (po.error || !po.data) return { state: 'failed', message: 'Unknown order.' };
+  if (po.error || !po.data) return { state: 'not_found', message: 'Unknown order.' };
   const order = po.data;
 
   let pp: PayPalOrder;
