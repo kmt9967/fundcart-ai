@@ -1,7 +1,7 @@
 'use client';
 
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type CaptureResult =
   | { state: 'completed'; captureId: string; amountCents: number; alreadyRecorded: boolean; orderId: string }
@@ -20,17 +20,22 @@ export function PayPalCheckout({ clientId, body, disabled, onResult, label = 'pa
   label?: 'pay' | 'checkout' | 'paypal';
 }) {
   const [status, setStatus] = useState<{ kind: 'idle' | 'working' | 'error' | 'cancelled'; msg?: string }>({ kind: 'idle' });
+  // Stable options: a new object on every render makes the SDK reload and destroy the buttons.
+  const options = useMemo(() => ({ clientId, currency: 'USD', intent: 'capture', components: 'buttons', disableFunding: 'paylater,venmo' }), [clientId]);
+  // Read the latest form values at click time without re-rendering the PayPal iframe.
+  const bodyRef = useRef(body);
+  const disabledRef = useRef(disabled);
+  useEffect(() => { bodyRef.current = body; disabledRef.current = disabled; }, [body, disabled]);
 
   return (
     <div>
-      <PayPalScriptProvider options={{ clientId, currency: 'USD', intent: 'capture', components: 'buttons', disableFunding: 'paylater,venmo' }}>
+      <PayPalScriptProvider options={options}>
         <PayPalButtons
           style={{ layout: 'vertical', shape: 'rect', label, height: 45 }}
           disabled={disabled}
-          forceReRender={[disabled]}
           createOrder={async () => {
             setStatus({ kind: 'working', msg: 'Creating your PayPal Sandbox order…' });
-            const b = body();
+            const b = disabledRef.current ? null : bodyRef.current();
             if (!b) { setStatus({ kind: 'error', msg: 'Please check the amount.' }); throw new Error('invalid'); }
             const res = await fetch('/api/paypal/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
             const j = await res.json().catch(() => ({}));

@@ -34,7 +34,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
 
   // 5-6. Choose the cheapest card with a gap and create a campaign.
   await page.getByRole('link', { name: 'Fund this' }).first().click();
-  await expect(page.getByText('Fund the gap together')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fund the gap together' })).toBeVisible();
   await page.getByLabel('Your first name').fill('Maya');
   await page.getByLabel('Why do you need it?').fill('I am starting my computer science degree and my old laptop cannot run the course software.');
   await page.getByRole('button', { name: /Draft my campaign with AI/ }).click();
@@ -44,7 +44,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await page.getByRole('button', { name: 'Publish campaign' }).click();
   await page.waitForURL(/\/c\/[a-z0-9-]+/, { timeout: 60_000 });
   const campaignUrl = page.url().split('?')[0];
-  await expect(page.getByText('Your campaign is live')).toBeVisible();
+  await expect(page.getByText(/Your campaign is live/)).toBeVisible();
 
   // 7-9. A different person (new context) opens the public campaign and contributes the full goal.
   const sup = await browser.newContext();
@@ -65,7 +65,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
 
   // 11. Creator approves a separate purchase.
   await page.goto(`${campaignUrl}/manage`);
-  await expect(page.getByText('Approve your purchase')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Approve your purchase' })).toBeVisible();
   await page.screenshot({ path: `${evidence}/04-dashboard-goal-reached.png`, fullPage: true });
   await page.getByRole('checkbox', { name: /I approve a separate PayPal Sandbox payment/ }).check();
   await payWithPayPalSandbox(page, creatorBuyer);
