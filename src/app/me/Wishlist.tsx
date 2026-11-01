@@ -19,12 +19,12 @@ export function Wishlist() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {p.image_url && <img src={p.image_url} alt="" className="size-16 shrink-0 rounded-lg bg-white object-contain p-1" />}
           <div className="min-w-0 flex-1 text-sm">
-            <p className="line-clamp-1 font-semibold">{p.title}</p>
+            <p className="line-clamp-2 font-semibold">{p.title}</p>
             <p className="text-xs text-mute">{formatUSD(p.price_cents == null ? null : Number(p.price_cents))} · saved price</p>
-            <div className="mt-2 flex gap-2">
-              <Link className="btn btn-sun px-2.5 py-1 text-xs" href={`/campaigns/new?product=${p.external_id}`}>Fund this</Link>
-              <Link className="btn btn-ghost px-2.5 py-1 text-xs" href={`/checkout/${p.external_id}`}>Buy (sandbox)</Link>
-              <button className="text-xs text-mute hover:text-bad" onClick={async () => { await fetch('/api/wishlist', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: i.id }) }); setItems(x => (x || []).filter(y => y.id !== i.id)); }}>Remove</button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link className="btn btn-sun min-h-10 px-3 text-xs" href={`/campaigns/new?product=${p.external_id}`}>Fund this</Link>
+              <Link className="btn btn-ghost min-h-10 px-3 text-xs" href={`/checkout/${p.external_id}`}>Buy (sandbox)</Link>
+              <button className="min-h-10 px-2 text-xs text-mute hover:text-bad" aria-label={`Remove ${p.title} from wishlist`} onClick={async () => { await fetch('/api/wishlist', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: i.id }) }); setItems(x => (x || []).filter(y => y.id !== i.id)); }}>Remove</button>
             </div>
           </div>
         </div>

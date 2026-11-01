@@ -2,10 +2,10 @@ export const metadata = { title: 'Disclosures & privacy — FundCart AI' };
 
 export default function Disclosures() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-12">
       <p className="eyebrow">Demo disclosures, terms &amp; privacy</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Plain-language disclosures</h1>
-      <div className="mt-8 space-y-6 text-sm leading-relaxed text-ink-2">
+      <h1 className="h-page mt-2">Plain-language disclosures</h1>
+      <div className="mt-6 space-y-6 sm:mt-8 text-sm leading-relaxed text-ink-2">
         <section><h2 className="text-base font-bold text-ink">Sandbox only</h2><p>FundCart AI is a hackathon prototype. Every payment uses the PayPal Sandbox test environment. No real money is charged, received or transferred, and no real product is purchased or shipped.</p></section>
         <section><h2 className="text-base font-bold text-ink">Not a charity, bank or escrow service</h2><p>Campaigns are personal fundraising pages. Contributions are not tax-deductible. FundCart does not hold or pool funds: a contribution is a payment to the campaign&apos;s receiving account, and a purchase is a separate payment the creator approves.</p></section>
         <section><h2 className="text-base font-bold text-ink">AI limitations</h2><p>AI explanations are generated from product data returned by the Channel3 catalog and can still be wrong or incomplete. Prices, availability and specifications come from the catalog, can change at the retailer, and should be checked before buying. The AI never decides prices or payment amounts.</p></section>

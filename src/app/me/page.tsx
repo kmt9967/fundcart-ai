@@ -14,22 +14,22 @@ export default async function Me() {
   const mine = uid ? await listPublicCampaigns(24, uid) : [];
   const payments = uid ? (await db().from('payment_orders').select('paypal_order_id, kind, amount_cents, capture_status, status, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(20)).data || [] : [];
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <p className="eyebrow">Demo profile</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight">My FundCart</h1>
+      <h1 className="h-page mt-2">My FundCart</h1>
       <p className="mt-2 max-w-2xl text-sm text-ink-2">To keep the demo frictionless there is no sign-up: this browser holds a signed guest identity. Campaigns you create here can only be managed from this browser.</p>
 
-      <section className="mt-10"><h2 className="text-lg font-bold">My campaigns</h2>
-        {mine.length ? <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{mine.map(c => <CampaignCard key={c.slug} c={c} />)}</div>
-          : <p className="mt-2 text-sm text-mute">None yet. <Link className="font-semibold text-brand" href="/assistant">Find something to fund →</Link></p>}</section>
+      <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">My campaigns</h2>
+        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <CampaignCard key={c.slug} c={c} />)}</div>
+          : <p className="mt-2 text-sm text-mute">None yet. <Link className="tap font-semibold text-brand" href="/assistant">Find something to fund →</Link></p>}</section>
 
-      <section className="mt-10"><h2 className="text-lg font-bold">Wishlist</h2><Wishlist /></section>
+      <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">Wishlist</h2><Wishlist /></section>
 
-      <section className="mt-10"><h2 className="text-lg font-bold">My payments</h2>
+      <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">My payments</h2>
         {payments.length ? (
           <div className="card mt-4 divide-y divide-line">{payments.map(p => (
-            <Link key={p.paypal_order_id} href={`/receipt/${p.paypal_order_id}`} className="flex items-center justify-between gap-3 p-4 text-sm hover:bg-paper">
-              <span><b className="capitalize">{p.kind}</b> <span className="font-mono text-xs text-mute">{p.paypal_order_id}</span></span>
+            <Link key={p.paypal_order_id} href={`/receipt/${p.paypal_order_id}`} className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-1 p-4 text-sm hover:bg-paper">
+              <span className="min-w-0"><b className="capitalize">{p.kind}</b> <span className="break-all font-mono text-xs text-mute">{p.paypal_order_id}</span></span>
               <span className="flex items-center gap-3"><span className={`chip ${p.capture_status === 'COMPLETED' ? 'bg-ok-soft text-ok' : 'bg-paper text-mute'}`}>{p.capture_status || p.status}</span><b>{formatUSD(Number(p.amount_cents))}</b></span>
             </Link>))}</div>
         ) : <p className="mt-2 text-sm text-mute">No payments yet.</p>}</section>

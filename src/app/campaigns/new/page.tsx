@@ -17,10 +17,10 @@ export default async function NewCampaign({ searchParams }: { searchParams: Prom
     );
   }
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <p className="eyebrow">Campaign builder</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Fund the gap together</h1>
-      <p className="mt-2 max-w-2xl text-ink-2">Your goal is the difference between the item&apos;s live price and what you already have. The AI helps you tell your story honestly — you review everything before publishing.</p>
+      <h1 className="h-page mt-2">Fund the gap together</h1>
+      <p className="mt-2 max-w-2xl text-sm text-ink-2 sm:text-base">Your goal is the difference between the item&apos;s live price and what you already have. The AI helps you tell your story honestly — you review everything before publishing.</p>
       <Builder product={product} initialOwn={own && /^\d+(\.\d{1,2})?$/.test(own) ? own : ''} />
     </div>
   );

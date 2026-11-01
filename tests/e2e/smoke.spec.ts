@@ -6,7 +6,7 @@ test('public pages render with no console errors', async ({ page }) => {
   for (const path of ['/', '/assistant', '/campaigns', '/how-it-works', '/disclosures', '/me']) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
-    await expect(page.getByText('PayPal Sandbox').first()).toBeVisible();
+    await expect(page.getByText('PayPal Sandbox').filter({ visible: true }).first()).toBeVisible();
   }
   expect(errors).toEqual([]);
 });
@@ -15,7 +15,7 @@ test('assistant streams agent steps and returns real products', async ({ page })
   await page.goto('/assistant');
   await page.getByLabel('Your request').fill('noise cancelling headphones under $200');
   await page.getByRole('button', { name: 'Find options' }).click();
-  await expect(page.getByText('Research Agent').first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('Research Agent').filter({ visible: true }).first()).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('article').first()).toBeVisible({ timeout: 90_000 });
   const prices = await page.locator('article .text-xl').allInnerTexts();
   expect(prices.some(p => /^\$\d/.test(p))).toBe(true);
@@ -34,9 +34,27 @@ test('server rejects tampered payment requests', async ({ request }) => {
   expect(r4.status()).toBe(401); // unverified webhooks are rejected
 });
 
+test('mobile navigation menu opens, navigates and closes', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 740 });
+  await page.goto('/');
+  const toggle = page.getByRole('button', { name: 'Open menu' });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  const menu = page.locator('#mobile-menu');
+  await expect(menu).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+  await menu.getByRole('link', { name: /Campaigns/ }).click();
+  await expect(page).toHaveURL(/\/campaigns$/);
+  await expect(menu).toBeHidden();
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
+});
+
 test('mobile layout has no horizontal overflow', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const path of ['/', '/assistant', '/campaigns', '/how-it-works']) {
+  await page.setViewportSize({ width: 320, height: 700 });
+  for (const path of ['/', '/assistant', '/campaigns', '/how-it-works', '/disclosures', '/me']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, path).toBeLessThanOrEqual(1);
