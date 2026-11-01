@@ -107,8 +107,11 @@ export async function captureOrder(orderId: string): Promise<PayPalOrder> {
   return call<PayPalOrder>('POST', `/v2/checkout/orders/${orderId}/capture`, {}, `capture-${orderId}`);
 }
 
-export async function refundCapture(captureId: string, note: string): Promise<{ id: string; status: string }> {
-  return call('POST', `/v2/payments/captures/${captureId}/refund`, { note_to_payer: note.slice(0, 255) }, `refund-${captureId}`);
+/** Refund a capture (full when amountCents is omitted). requestKey makes retries idempotent per refund. */
+export async function refundCapture(captureId: string, note: string, amountCents?: number, requestKey = 'full'): Promise<{ id: string; status: string }> {
+  const body: Record<string, unknown> = { note_to_payer: note.slice(0, 255) };
+  if (amountCents != null) body.amount = { value: centsToPayPalValue(amountCents), currency_code: 'USD' };
+  return call('POST', `/v2/payments/captures/${captureId}/refund`, body, `refund-${captureId}-${requestKey}`);
 }
 
 /** Extract the verified capture from a PayPal order representation. */

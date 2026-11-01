@@ -88,7 +88,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <div className="card p-5">
-            <p className="text-3xl font-extrabold">{formatUSD(totals.raisedCents)}</p>
+            <p className="text-3xl font-extrabold" data-testid="raised">{formatUSD(totals.raisedCents)}</p>
             <p className="text-sm text-mute">raised of {formatUSD(c.target_cents)} goal · verified by PayPal</p>
             <div className="mt-4"><ProgressBar percent={totals.percent} size="lg" /></div>
             <div className="mt-3 grid grid-cols-3 text-center text-sm">
