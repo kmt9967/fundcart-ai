@@ -20,7 +20,7 @@ export const env = {
   get storePayeeEmail() { return process.env.PAYPAL_STORE_PAYEE_EMAIL || ''; },
   get sessionSecret() { return req('SESSION_SECRET'); },
   get geminiKey() { return process.env.GEMINI_API_KEY || ''; },
-  get geminiModel() { return process.env.GEMINI_MODEL || 'gemini-2.5-flash'; },
+  get geminiModels() { return (process.env.GEMINI_MODEL || 'gemini-flash-latest,gemini-flash-lite-latest').split(',').map(m => m.trim()).filter(Boolean); },
   get cronSecret() { return process.env.CRON_SECRET || ''; },
 };
 
