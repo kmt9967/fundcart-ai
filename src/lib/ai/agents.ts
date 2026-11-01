@@ -196,8 +196,8 @@ export type CampaignDraft = { title: string; story: string; thankYou: string; us
 export async function campaignAgent(input: { creatorName: string; itemTitle: string; itemPriceCents: number; ownFundsCents: number; purpose: string }): Promise<CampaignDraft> {
   const gap = fundingGap(input.itemPriceCents, input.ownFundsCents);
   const r = await generateJson<{ title: string; story: string; thankYou: string }>({
-    system: `${SYSTEM_GUARD}\nWrite honest personal fundraising copy. Do NOT claim charity status, tax deductibility, urgency you were not told about, or medical/financial hardship that wasn't stated. Mention that contributions are made through PayPal. Keep the story under 120 words, first person.`,
-    prompt: `Creator: ${input.creatorName.slice(0, 40)}. Item: ${input.itemTitle.slice(0, 120)} (${formatUSD(input.itemPriceCents)}). They already have ${formatUSD(input.ownFundsCents)}; they are raising ${formatUSD(gap)}. Why they need it: """${input.purpose.slice(0, 400)}"""`,
+    system: `${SYSTEM_GUARD}\nWrite honest personal fundraising copy. Do NOT claim charity status, tax deductibility, urgency you were not told about, or medical/financial hardship that wasn't stated. Mention that contributions are made through PayPal. The creator SAVED their own money themselves — never say they "raised" it or that anyone has contributed yet. Never call PayPal "safe" or "guaranteed"; just say contributions go through PayPal. Keep the story under 120 words, first person.`,
+    prompt: `Creator: ${input.creatorName.slice(0, 40)}. Item: ${input.itemTitle.slice(0, 120)} (${formatUSD(input.itemPriceCents)}). They have saved ${formatUSD(input.ownFundsCents)} of their own money; they are raising ${formatUSD(gap)}. Why they need it: """${input.purpose.slice(0, 400)}"""`,
     schema: { type: 'object', properties: { title: { type: 'string', description: 'Max 70 characters' }, story: { type: 'string' }, thankYou: { type: 'string', description: 'Short thank-you message for supporters, max 40 words' } }, required: ['title', 'story', 'thankYou'] },
     temperature: 0.7,
   });
