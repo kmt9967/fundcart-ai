@@ -15,11 +15,13 @@
 - E2E smoke 4/4 passing locally (pages, streaming assistant with real products, tampered-request rejection, mobile overflow).
 - Full journey Playwright spec written (needs sandbox buyer creds).
 
-**Blocked (needs Talal)**
-- PayPal developer dashboard re-login, needed to create the Sandbox recipient and buyer accounts and the webhook.
-- Google AI Studio terms acceptance (Gemini key).
+- Sandbox accounts (recipient, store, two buyers) created; payees configured.
+- PayPal button reload bug found by E2E and fixed (memoized SDK options).
+- Full journey E2E with real Sandbox payments passes on localhost and production (5/5).
+- Gemini key created (free tier) and verified in production (`aiUsed: true`); model chain fallback added because `gemini-2.5-flash` is closed to new keys.
+- Webhook deliveries verified in production (approved + capture completed, signature-verified, no double counting).
 
 **Next**
-- Sandbox E2E with Playwright.
-- Deployment.
-- Video, docs, Devpost draft.
+- Remaining docs (DEPLOYMENT, DEMO_SCRIPT, SUBMISSION_CHECKLIST, DEVPOST draft), README links.
+- Demo video and YouTube upload.
+- Devpost draft (never submit).

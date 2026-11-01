@@ -29,7 +29,7 @@ Deadline: **Thu Nov 12, 2026, 12:00 PM PT**. Planning and build started on 2026-
 4. ✅ Unit tests; public GitHub repo (MIT).
 5. ⏳ Vercel deployment (blocked on 2FA re-auth by Talal).
 6. ⏳ Gemini key (blocked on Talal accepting the AI Studio terms).
-7. ⏳ Sandbox recipient and buyer accounts and the webhook (blocked on PayPal dashboard re-login).
+7. ✅ Sandbox recipient and buyer accounts and the webhook (deliveries verified in production).
 8. Browser end-to-end with real Sandbox payments (Playwright), on localhost and then on the deployed URL.
 9. Docs, screenshots, demo video (LockSmith pipeline), YouTube upload.
 10. Devpost draft (saved, **not submitted**).

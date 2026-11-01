@@ -21,5 +21,5 @@ The agents live in `src/lib/ai/agents.ts` and are orchestrated by `/api/assistan
 
 ## Model and fallback
 
-- **Model:** Gemini (`GEMINI_MODEL`, default `gemini-2.5-flash`) via the Google AI Studio free tier, called server-side.
+- **Model:** Gemini (`GEMINI_MODEL`, a comma-separated chain, default `gemini-flash-latest,gemini-flash-lite-latest`; the next model is tried on 404/429/5xx/timeouts) via the Google AI Studio free tier, called server-side.
 - **Fallback:** if the key is absent or a call fails, each agent falls back to deterministic logic. The UI says so ("Rule-based analysis", "Template draft").
