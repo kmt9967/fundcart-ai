@@ -205,7 +205,7 @@ export async function campaignAgent(input: { creatorName: string; itemTitle: str
     return { title: r.data.title.slice(0, 90), story: r.data.story.slice(0, 1200), thankYou: (r.data.thankYou || '').slice(0, 300), usedModel: true };
   }
   return {
-    title: `Help ${input.creatorName.split(' ')[0]} get a ${input.itemTitle.split(' ').slice(0, 4).join(' ')}`.slice(0, 90),
+    title: `Help ${input.creatorName.split(' ')[0]} get the ${input.itemTitle.split(' ').slice(0, 4).join(' ')}`.slice(0, 90),
     story: `I've saved ${formatUSD(input.ownFundsCents)} toward the ${input.itemTitle}, which costs ${formatUSD(input.itemPriceCents)}. I'm raising the remaining ${formatUSD(gap)}. ${input.purpose ? `Here's why it matters: ${input.purpose}` : ''} Every contribution goes through PayPal and is shown here only after PayPal confirms it.`.slice(0, 1200),
     thankYou: 'Thank you so much for helping me get there!',
     usedModel: false,
