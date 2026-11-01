@@ -1,91 +1,108 @@
 # FundCart AI — Find what you need. Fund what you dream.
 
-FundCart AI is an agentic shopping and community-funding app built for the **PayPal AI Hackathon 2026**.
+**FundCart AI is where smart shopping meets community support.** Describe what you need in your own words. FundCart's AI finds real products that fit your purpose and budget and shows exactly how far your money goes. If the right item costs more than you have, FundCart turns the gap into a campaign your friends and family can support through **PayPal**. When the goal is reached, you approve the purchase yourself.
 
-You describe what you need in plain words. A team of AI agents searches a **live product catalog (Channel3)**, compares options, and works out your budget with exact arithmetic. If you can't afford the best option, FundCart turns the **funding gap** into a campaign your community can support with **PayPal (Sandbox)** payments. When verified contributions reach the goal, you **explicitly approve** a separate PayPal checkout. The AI researches and prepares. Only you approve payments.
+Built for the **PayPal AI Hackathon 2026**.
 
-> **Sandbox demo.** Every payment uses the PayPal Sandbox. No real money moves and no real product is bought. FundCart is not a charity, a bank or an escrow service, and it is not affiliated with PayPal.
+- **Try it:** https://fundcart-ai.vercel.app
+- **Demo video (2:17):** https://youtu.be/u3avKfEDRxQ
 
-- **Live demo:** https://fundcart-ai.vercel.app
-- **Demo video (2:34):** https://youtu.be/K_xpS12dzB8
-- **Test evidence:** [`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md)
-
-## Feature status (verified 2026-11-01 on the live deployment)
-
-| Feature | Status |
-|---|---|
-| Plain-language request → Gemini intent extraction | ✅ Verified live (`aiUsed: true`) |
-| Live product search (Channel3) with budget filter | ✅ Verified live |
-| Grounded AI comparison + side-by-side table | ✅ Verified live |
-| Exact funding gap (integer cents, server-side) | ✅ Unit-tested + verified live |
-| Gemini campaign draft (creator edits before publishing) | ✅ Verified live |
-| Supporter contribution via PayPal Sandbox Smart Buttons | ✅ Real Sandbox captures, confirmed via the Orders API |
-| Progress counts only PayPal-verified captures | ✅ Verified (one contribution row per capture, even with duplicate webhooks) |
-| Goal reached → creator-approved separate purchase | ✅ Real Sandbox purchase to the demo store account |
-| Webhooks (signature-verified, deduplicated) | ✅ `CHECKOUT.ORDER.APPROVED` + `PAYMENT.CAPTURE.COMPLETED` received in production |
-| Tampered payment requests rejected | ✅ Playwright test |
-| Platform cannot refund (pull back) a recipient's money | ✅ Playwright test (`PERMISSION_DENIED`) |
-| Refund/reversal webhooks reduce the verified total (incl. partial) | ⚠️ Implemented, **not yet exercised end to end** (needs a refund issued from the recipient sandbox account) |
-| Direct "buy now" checkout from the assistant | ✅ Playwright test on production (explicit approval → verified capture → receipt) |
-| Rule-based fallbacks when Gemini is unavailable | ✅ Labelled in the UI |
+> **Sandbox demo.** Every payment uses the PayPal Sandbox. No real money moves and no real product is bought. FundCart AI is not a charity, bank or escrow service, and it is not affiliated with PayPal.
 
 ## The problem
 
-People often know *roughly* what they need ("a laptop for university"), but not which product fits their purpose and budget. When the right item costs more than they have, the gap is real. Asking friends and family for help usually means a vague message and a bank transfer, with no transparency about the goal or the progress.
+People often know *roughly* what they need ("a laptop for university"), but not which product fits their purpose and budget. When the right item costs more than they have, asking for help usually means a vague message and a bank transfer, with no clear goal and no visible progress.
 
-## What FundCart does
+## How it works
 
-| Journey | What happens |
+Meet Maya. She needs a laptop for university, wants to spend under $700, and has $200 saved.
+
+1. **She asks in plain words.** FundCart's AI understands her purpose and budget and searches a live product catalog.
+2. **She compares real options.** Every result has a live price and retailer, an AI explanation of why it fits, and the exact funding gap. The top pick is a $550 laptop, which leaves a $350 gap.
+3. **She clicks "Fund this".** The campaign goal comes from the live price. The AI drafts an honest campaign story, Maya edits it, and she publishes a shareable link.
+4. **Supporters contribute through PayPal.** Progress moves only when PayPal confirms a payment for the exact amount.
+5. **She approves the purchase.** Once the goal is reached, Maya ticks an explicit approval and pays the store in a **separate** PayPal checkout. Nothing is ever bought automatically.
+
+Shoppers who can already afford an item can also check out directly, with the same explicit approval.
+
+## Features
+
+| | |
 |---|---|
-| **A — Smart shopping** | Plain-language request → intent extraction → live Channel3 search filtered by budget → transparent ranking → grounded AI explanations → side-by-side comparison → wishlist → human-approved PayPal Sandbox checkout |
-| **B — Fund together** | Pick a product → the exact funding gap is computed in cents on the server → the AI drafts an honest campaign (you edit) → public campaign page → supporters pay with PayPal Sandbox → progress counts **only PayPal-verified captures** → goal reached → creator approves a **separate** purchase checkout |
+| **AI shopping assistant** | Plain-language requests, live product search within budget, ranked recommendations with grounded explanations, side-by-side comparison, wishlist |
+| **Budget planning** | Exact funding gap for every product, calculated on the server |
+| **AI-assisted campaigns** | Honest campaign story, thank-you note and progress updates drafted by AI; the creator edits before publishing |
+| **PayPal contributions** | PayPal Checkout for supporters; progress counts only PayPal-confirmed payments; overfunding is rejected |
+| **Creator dashboard** | Every PayPal payment with its status and reference, plus an audit history |
+| **Human-approved purchase** | A separate PayPal checkout that the creator explicitly approves |
+
+## AI agents
+
+FundCart's assistant is a team of cooperating agents powered by **Google Gemini**:
+
+- **Intent Agent:** turns a request into a shopping brief (category, purpose, budget, money already saved, must-haves).
+- **Research Agent:** searches **Channel3's** live catalog within the budget, and widens the search when too few products fit.
+- **Comparison Agent:** ranks products with a transparent score, then explains them using only the retrieved product data.
+- **Budget Agent:** calculates funding gaps with exact integer-cent arithmetic.
+- **Campaign Assistant:** drafts campaign copy from verified numbers only, with no charity claims and no invented urgency.
+- **Payment Agent:** prepares the checkout summary. It **cannot** pay: payment requires explicit confirmation plus approval inside PayPal.
+
+The AI never sets prices or totals. Third-party product text is treated as untrusted data. If the AI service is unavailable, the app uses clearly labelled rule-based logic.
+
+## PayPal integration (Sandbox)
+
+- **Orders API:** the server creates every order with an amount it calculates itself (the browser cannot change it), using an idempotency key.
+- **JavaScript SDK (Smart Buttons):** buyers approve each payment inside PayPal. The server then captures the payment and confirms it with PayPal: status completed, exact amount, correct currency.
+- **Webhooks:** PayPal's payment notifications are signature-verified, deduplicated and matched to their orders. A payment is never counted twice. Refunds and reversals reduce the campaign total, including partial refunds.
+- **Separation of money flows:** contributions go to the campaign recipient; the purchase is a separate checkout to the store.
 
 ## Architecture
 
 ```
 Browser (Next.js 16 App Router, React 19, Tailwind 4)
-  │  NDJSON stream of agent events
+  │  live stream of agent steps
   ▼
-Route handlers (server only) ───────────────► Gemini (Google AI Studio)  — intent + explanations + copy
-  │   ├─ Agent orchestrator ────────────────► Channel3 /v1/search        — real products & prices
+Server route handlers ─────────────────────► Google Gemini       — understanding, explanations, campaign copy
+  │   ├─ Agent orchestrator ───────────────► Channel3 API        — real products & live prices
   │   ├─ Money module (integer cents)
-  │   ├─ PayPal module ─────────────────────► PayPal Orders v2 (Sandbox) — create / capture / verify
-  │   └─ Webhook handler (verified, deduped) ◄─ PayPal webhooks
+  │   ├─ PayPal module ────────────────────► PayPal Orders API   — create / capture / confirm
+  │   └─ Webhook handler (verified) ◄──────── PayPal webhooks
   ▼
-Supabase Postgres (RLS on, no public policies; accessed only with the server secret key)
+Supabase Postgres (row-level security on; server-only access)
 ```
 
-Details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI_AGENTS.md`](docs/AI_AGENTS.md) and [`docs/PAYPAL_INTEGRATION.md`](docs/PAYPAL_INTEGRATION.md).
+More detail: [Architecture](docs/ARCHITECTURE.md) · [AI agents](docs/AI_AGENTS.md) · [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [Sponsor integrations](docs/SPONSOR_INTEGRATIONS.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md) · [Test evidence](docs/TEST_EVIDENCE.md)
 
-### AI agents (one orchestrated app, not separate services)
+## Built with
 
-- **Intent Agent:** extracts category, purpose, budget, own funds, must-haves and brands. It uses JSON-schema constrained Gemini output, with a rule-based fallback.
-- **Research Agent:** calls Channel3 with a price filter, widens the search if too few products fit, and caches results for 6 h to conserve credits.
-- **Comparison Agent:** ranks products with a deterministic score, then writes grounded explanations using only the retrieved fields. Product text is wrapped as untrusted data, and the output is validated against the real product IDs.
-- **Budget Agent:** computes funding gaps with integer-cent arithmetic. The LLM never sets prices or totals.
-- **Campaign Assistant:** drafts the story, thank-you note and progress updates from verified numbers only.
-- **Payment Agent:** prepares the checkout summary. It **cannot** pay; payment requires a checkbox confirmation plus approval inside PayPal.
+PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini · Channel3 · AG Grid Community · Next.js · React · TypeScript · Tailwind CSS · Supabase (PostgreSQL) · Vercel
 
-### PayPal integration (Sandbox)
+**Sponsor tools used:** **Channel3** (live product search) and **AG Grid Community** (the creator's payment ledger).
 
-- The server creates every order (Orders v2, `intent: CAPTURE`) with a server-computed amount, using `PayPal-Request-Id` for idempotency.
-- The buyer approves in PayPal (JS SDK Smart Buttons). The server then captures and **verifies** the capture: the status must be `COMPLETED`, and the amount and currency must match.
-- Contributions are inserted once per capture (unique `payment_order_id` and `capture_id`). Double clicks, refreshes and duplicate webhooks cannot double-count.
-- Webhooks are verified with `verify-webhook-signature`, deduplicated by event ID, and reconciled against the Orders API. Refund and reversal events reduce the verified total (partial refunds subtract only the refunded cents). Contributions are paid straight to the recipient, so only the recipient can refund them; the platform's credentials get `PERMISSION_DENIED`.
-- `payment_events` and `agent_events` are append-only (a DB trigger forbids UPDATE and DELETE).
+## Security
 
-## Sponsor tools actually used
+- All secrets stay on the server; the browser only receives the public PayPal client ID.
+- The database uses row-level security with no public policies, and only server code can access it.
+- Amounts and goals are calculated on the server; the client cannot set them.
+- Campaign management and purchase approval are bound to a signed guest identity cookie.
+- Sensitive endpoints are rate-limited.
 
-See [`docs/SPONSOR_INTEGRATIONS.md`](docs/SPONSOR_INTEGRATIONS.md) for the honest classification.
+## Limitations
 
-- **Channel3:** live product search and product-detail lookups.
-- **AG Grid Community:** the payment ledger in the creator dashboard.
+- **Sandbox only:** no real money moves and no real products are purchased.
+- **Not escrow or charity:** FundCart AI does not hold funds and is not a charity or bank.
+- **Single recipient:** one authorized Sandbox account currently receives contributions on behalf of every campaign creator. A production version would let each creator connect their own PayPal account.
+- **Refunds:** only the recipient can issue a refund. FundCart's handling of refund notifications is built but has not yet been exercised with a recipient-issued refund.
+- Guest identity is per browser (no full accounts yet), and rate limiting is per server instance.
+- Prices come from live retailer data and may change.
 
-AI: **Google Gemini** (Google AI Studio free tier) for intent extraction, grounded comparisons and campaign copy.
+## What's next
+
+Creator-owned PayPal accounts, full user accounts and campaign moderation, and retailer price alerts that keep goals in sync with live prices.
 
 ## Run locally
 
-Requirements: Node.js 20+, a PayPal Developer account (Sandbox), a Channel3 API key, a Supabase project. A Gemini key is optional. Full production setup: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Requirements: Node.js 20+, a PayPal Developer account (Sandbox), a Channel3 API key and a Supabase project. A Gemini key is optional. Full setup: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ```bash
 git clone https://github.com/kmt9967/fundcart-ai && cd fundcart-ai
@@ -95,35 +112,13 @@ npm run db:migrate              # applies db/migrations/*.sql
 npm run dev                     # http://localhost:3000
 ```
 
-## Tests
+Checks:
 
 ```bash
 npm run typecheck && npm run lint
-npm test            # unit tests: money math, intent parsing, untrusted-data normalization, ranking
-npm run test:e2e    # Playwright browser flows incl. real PayPal Sandbox payments (see docs/TEST_EVIDENCE.md)
-E2E_BASE_URL=https://fundcart-ai.vercel.app npm run test:e2e   # same, against production
+npm test             # unit tests
+npm run test:e2e     # browser flows using PayPal Sandbox test accounts
 ```
-
-## Security notes
-
-- All secrets are server-side (`.env.local`, never committed). The browser only gets the public PayPal client ID.
-- The database uses RLS with no public policies and is accessed only by server code holding the secret key.
-- Amounts are validated and priced on the server. The client cannot set a campaign goal or a payment amount.
-- Campaign management and purchase approval are bound to a signed (HMAC) guest identity cookie.
-- Product data from third parties is sanitized and treated as untrusted input to the model.
-- Sensitive endpoints are rate-limited (in-memory per instance; see limitations).
-
-## Limitations
-
-- **Single sandbox recipient model.** Contributions go to one sandbox account that stands in for the campaign creator, and the purchase goes to a sandbox "store" account. A production version would onboard each creator's own PayPal account.
-- Guest identity is per browser (no full accounts).
-- The rate limiting is per server instance, not global.
-- Prices come from Channel3 and may change at the retailer.
-- Refund handling is implemented but has not been exercised end to end (see the feature table).
-
-## Docs
-
-[Architecture](docs/ARCHITECTURE.md) · [AI agents](docs/AI_AGENTS.md) · [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [Sponsor integrations](docs/SPONSOR_INTEGRATIONS.md) · [Test evidence](docs/TEST_EVIDENCE.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md) · [Submission checklist](docs/SUBMISSION_CHECKLIST.md)
 
 ## License
 

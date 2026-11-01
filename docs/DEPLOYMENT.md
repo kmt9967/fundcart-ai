@@ -43,7 +43,7 @@ The server refuses to start payments unless `PAYPAL_ENV=sandbox`.
 ## 4. Vercel
 
 1. Import the GitHub repository in Vercel (framework preset: Next.js; no build overrides needed).
-2. Add the environment variables below for **Production**. Vercel's "Import .env" button accepts a file, which avoids pasting secrets into chat or the terminal. Use a gitignored file and delete it afterwards.
+2. Add the environment variables below for **Production**. Vercel's "Import .env" button accepts a file, so secrets don't need to be copied by hand. Use a gitignored file and delete it afterwards.
 3. Deploy. Changes to environment variables apply only to **new** deployments, so redeploy after editing them.
 
 | Variable | Notes |

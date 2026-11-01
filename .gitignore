@@ -45,3 +45,6 @@ next-env.d.ts
 /test-results
 /playwright-report
 /evidence/raw
+
+# internal working notes (kept locally, not published)
+private/
