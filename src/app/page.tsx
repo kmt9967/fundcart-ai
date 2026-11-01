@@ -96,7 +96,7 @@ function HeroMock() {
         </div>
       </div>
       <div className="card absolute -bottom-24 right-0 w-[78%] rotate-[2deg] p-5 sm:right-[-1rem]">
-        <div className="flex items-center justify-between text-xs font-semibold"><span className="text-sun">Campaign · Fund the gap</span><span className="text-mute">Verified</span></div>
+        <div className="flex items-center justify-between text-xs font-semibold"><span className="text-sun">Campaign · Fund the gap</span><span className="text-mute">Example</span></div>
         <div className="mt-2 text-sm font-bold">Help Maya get her study laptop</div>
         <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-sun-soft"><div className="h-full w-[64%] rounded-full bg-gradient-to-r from-sun to-brand" /></div>
         <div className="mt-2 flex justify-between text-xs text-mute"><span><b className="text-ink">$320</b> of $500</span><span>7 supporters</span></div>

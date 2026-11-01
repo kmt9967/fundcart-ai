@@ -36,7 +36,9 @@ FundCart uses the **PayPal Orders v2 REST API** on the server and the **PayPal J
 - Every event is verified with `POST /v1/notifications/verify-webhook-signature`. Unverified events get a 401.
 - Events are deduplicated by `payment_events.paypal_event_id` (unique), so a repeated delivery is a no-op.
 - `CHECKOUT.ORDER.APPROVED` and `PAYMENT.CAPTURE.COMPLETED` reconcile through `captureAndRecord()`. This covers buyers who close the tab after approving.
-- `PAYMENT.CAPTURE.REFUNDED` and `PAYMENT.CAPTURE.REVERSED` mark the contribution `REFUNDED` or `REVERSED`. Those are excluded from the verified total.
+- `PAYMENT.CAPTURE.REFUNDED` adds the refund amount to `contributions.refunded_cents` (migration 003). A partial refund keeps the contribution `COMPLETED` but subtracts the refunded cents from the verified total; a full refund marks it `REFUNDED`. `PAYMENT.CAPTURE.REVERSED` marks it `REVERSED`. If the verified total falls below the goal, a `goal_reached` campaign returns to `active` and purchase approval locks again. Each step is logged.
+- **Who can refund:** contributions are paid to the recipient's PayPal account, so only the recipient can refund them. The platform credentials get `403 PERMISSION_DENIED` on `/v2/payments/captures/{id}/refund` (verified by `tests/e2e/refund.spec.ts`). The platform can refund only orders it received itself (the demo-store purchases). `refundCapture` supports partial amounts with a per-refund idempotency key.
+- **Not yet verified:** a real refund webhook end to end (see docs/TEST_EVIDENCE.md).
 
 ## Edge cases handled
 

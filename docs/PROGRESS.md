@@ -21,7 +21,12 @@
 - Gemini key created (free tier) and verified in production (`aiUsed: true`); model chain fallback added because `gemini-2.5-flash` is closed to new keys.
 - Webhook deliveries verified in production (approved + capture completed, signature-verified, no double counting).
 
+- Exposed Gemini key confirmed revoked (401); replacement verified (200).
+- Refunds: partial/full accounting (migration 003), below-goal reopening, refund-authority test (platform gets PERMISSION_DENIED). End-to-end refund webhook still unverified (needs recipient sandbox dashboard access).
+- Direct checkout E2E passing on production.
+- Docs: DEPLOYMENT, DEMO_SCRIPT, SUBMISSION_CHECKLIST, DEVPOST_SUBMISSION_DRAFT; README feature-status table with live links.
+- Demo video (2:34) recorded from production, narrated (edge-tts Andrew), published publicly: https://youtu.be/K_xpS12dzB8 on the Teqprotech channel.
+- Hero illustration card relabelled "Example" (was "Verified").
+
 **Next**
-- Remaining docs (DEPLOYMENT, DEMO_SCRIPT, SUBMISSION_CHECKLIST, DEVPOST draft), README links.
-- Demo video and YouTube upload.
-- Devpost draft (never submit).
+- Devpost draft (never submit), final readiness report.

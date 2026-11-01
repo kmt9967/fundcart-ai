@@ -6,8 +6,28 @@ You describe what you need in plain words. A team of AI agents searches a **live
 
 > **Sandbox demo.** Every payment uses the PayPal Sandbox. No real money moves and no real product is bought. FundCart is not a charity, a bank or an escrow service, and it is not affiliated with PayPal.
 
-- **Live demo:** _added after deployment_
-- **Demo video:** _added after upload_
+- **Live demo:** https://fundcart-ai.vercel.app
+- **Demo video (2:34):** https://youtu.be/K_xpS12dzB8
+- **Test evidence:** [`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md)
+
+## Feature status (verified 2026-11-01 on the live deployment)
+
+| Feature | Status |
+|---|---|
+| Plain-language request → Gemini intent extraction | ✅ Verified live (`aiUsed: true`) |
+| Live product search (Channel3) with budget filter | ✅ Verified live |
+| Grounded AI comparison + side-by-side table | ✅ Verified live |
+| Exact funding gap (integer cents, server-side) | ✅ Unit-tested + verified live |
+| Gemini campaign draft (creator edits before publishing) | ✅ Verified live |
+| Supporter contribution via PayPal Sandbox Smart Buttons | ✅ Real Sandbox captures, confirmed via the Orders API |
+| Progress counts only PayPal-verified captures | ✅ Verified (one contribution row per capture, even with duplicate webhooks) |
+| Goal reached → creator-approved separate purchase | ✅ Real Sandbox purchase to the demo store account |
+| Webhooks (signature-verified, deduplicated) | ✅ `CHECKOUT.ORDER.APPROVED` + `PAYMENT.CAPTURE.COMPLETED` received in production |
+| Tampered payment requests rejected | ✅ Playwright test |
+| Platform cannot refund (pull back) a recipient's money | ✅ Playwright test (`PERMISSION_DENIED`) |
+| Refund/reversal webhooks reduce the verified total (incl. partial) | ⚠️ Implemented, **not yet exercised end to end** (needs a refund issued from the recipient sandbox account) |
+| Direct "buy now" checkout from the assistant | ✅ Playwright test on production (explicit approval → verified capture → receipt) |
+| Rule-based fallbacks when Gemini is unavailable | ✅ Labelled in the UI |
 
 ## The problem
 
@@ -51,7 +71,7 @@ Details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI_AGENTS.
 - The server creates every order (Orders v2, `intent: CAPTURE`) with a server-computed amount, using `PayPal-Request-Id` for idempotency.
 - The buyer approves in PayPal (JS SDK Smart Buttons). The server then captures and **verifies** the capture: the status must be `COMPLETED`, and the amount and currency must match.
 - Contributions are inserted once per capture (unique `payment_order_id` and `capture_id`). Double clicks, refreshes and duplicate webhooks cannot double-count.
-- Webhooks are verified with `verify-webhook-signature`, deduplicated by event ID, and reconciled against the Orders API. Refunds and reversals reduce the verified total.
+- Webhooks are verified with `verify-webhook-signature`, deduplicated by event ID, and reconciled against the Orders API. Refund and reversal events reduce the verified total (partial refunds subtract only the refunded cents). Contributions are paid straight to the recipient, so only the recipient can refund them; the platform's credentials get `PERMISSION_DENIED`.
 - `payment_events` and `agent_events` are append-only (a DB trigger forbids UPDATE and DELETE).
 
 ## Sponsor tools actually used
@@ -61,9 +81,11 @@ See [`docs/SPONSOR_INTEGRATIONS.md`](docs/SPONSOR_INTEGRATIONS.md) for the hones
 - **Channel3:** live product search and product-detail lookups.
 - **AG Grid Community:** the payment ledger in the creator dashboard.
 
+AI: **Google Gemini** (Google AI Studio free tier) for intent extraction, grounded comparisons and campaign copy.
+
 ## Run locally
 
-Requirements: Node.js 20+, a PayPal Developer account (Sandbox), a Channel3 API key, a Supabase project. A Gemini key is optional.
+Requirements: Node.js 20+, a PayPal Developer account (Sandbox), a Channel3 API key, a Supabase project. A Gemini key is optional. Full production setup: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ```bash
 git clone https://github.com/kmt9967/fundcart-ai && cd fundcart-ai
@@ -78,7 +100,8 @@ npm run dev                     # http://localhost:3000
 ```bash
 npm run typecheck && npm run lint
 npm test            # unit tests: money math, intent parsing, untrusted-data normalization, ranking
-npm run test:e2e    # Playwright browser flows (see docs/TEST_EVIDENCE.md)
+npm run test:e2e    # Playwright browser flows incl. real PayPal Sandbox payments (see docs/TEST_EVIDENCE.md)
+E2E_BASE_URL=https://fundcart-ai.vercel.app npm run test:e2e   # same, against production
 ```
 
 ## Security notes
@@ -96,6 +119,11 @@ npm run test:e2e    # Playwright browser flows (see docs/TEST_EVIDENCE.md)
 - Guest identity is per browser (no full accounts).
 - The rate limiting is per server instance, not global.
 - Prices come from Channel3 and may change at the retailer.
+- Refund handling is implemented but has not been exercised end to end (see the feature table).
+
+## Docs
+
+[Architecture](docs/ARCHITECTURE.md) · [AI agents](docs/AI_AGENTS.md) · [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [Sponsor integrations](docs/SPONSOR_INTEGRATIONS.md) · [Test evidence](docs/TEST_EVIDENCE.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md) · [Submission checklist](docs/SUBMISSION_CHECKLIST.md)
 
 ## License
 
