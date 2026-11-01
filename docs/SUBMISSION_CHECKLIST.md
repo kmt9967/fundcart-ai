@@ -32,13 +32,16 @@ Deadline: **Thu Nov 12, 2026, 12:00 PM PT** (Fri Nov 13, 01:00 PKT). Devpost sub
 
 | Field | Status |
 |---|---|
-| Project name, elevator pitch, thumbnail | see Devpost |
-| About (story), Built with | see Devpost |
-| "Try it out" links (live app, GitHub) | see Devpost |
-| Video link | see Devpost |
-| Image gallery (screenshots) | see Devpost |
-| Hackathon-specific questions | see Devpost |
-| Team members | Talal only. Aqeela Urooj's participation is unverified, so she is not added |
+| Project name, elevator pitch, thumbnail | ✅ saved |
+| About (story), Built with (19 tags) | ✅ saved |
+| "Try it out" links (live app, GitHub) | ✅ saved |
+| Video link | ✅ saved (https://youtu.be/K_xpS12dzB8) |
+| Image gallery (5 screenshots) | ✅ saved |
+| Additional info: submitter type, country, new project, tech explanation, sponsor tools (AG Grid, Channel3), repo/demo URLs, testing instructions, PayPal feedback, AG Grid experience, AI tools, learning | ✅ saved (rating, learning level and career answers are drafts for Talal to adjust) |
+| Eligibility attestations (age, jurisdiction, not a sponsor employee) | ⛔ left for Talal: personal legal attestations |
+| "Open to PayPal contacting you?" | ⛔ left for Talal |
+| Team members | ⚠️ Talal to confirm the Devpost team list |
+| Terms checkbox + **Submit project** | ⛔ NOT clicked: draft only |
 
 ## Known open items (disclosed honestly)
 
@@ -48,5 +51,6 @@ Deadline: **Thu Nov 12, 2026, 12:00 PM PT** (Fri Nov 13, 01:00 PKT). Devpost sub
 ## Before final submission (Talal)
 
 1. Review the Devpost draft text, video and screenshots.
-2. Decide whether Aqeela Urooj is on the team. If yes, invite her through Devpost "Manage team".
-3. Click **Submit** on Devpost yourself, or tell Claude explicitly to submit.
+2. Confirm the Devpost team list (Manage team) and the "Submitter Type" answer (currently Team).
+3. Tick the three eligibility attestations and answer the PayPal-contact question yourself.
+4. Click **Submit** on Devpost yourself, or tell Claude explicitly to submit.

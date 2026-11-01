@@ -1,6 +1,6 @@
 # Devpost submission draft — FundCart AI
 
-Status: **saved as a DRAFT on Devpost** (submission 1268150, PayPal AI Hackathon). **Not submitted.** Final submission needs Talal's explicit approval.
+Status: **saved as a DRAFT on Devpost** (submission 1268150, PayPal AI Hackathon; steps 1–3 saved). **Not submitted.** Final submission needs Talal's explicit approval. The required attestation checkboxes, the PayPal-contact consent and the final Terms checkbox are deliberately left for Talal.
 
 ## Project overview
 
@@ -89,4 +89,4 @@ You can compare products side by side, save them, or check out directly (human-a
 
 ## Team
 
-- Talal Khawaja (solo). Aqeela Urooj's participation in this hackathon is **unverified**, so she is not listed.
+- Team composition is managed on Devpost and must be confirmed by Talal before submission.
