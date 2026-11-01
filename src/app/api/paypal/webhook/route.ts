@@ -1,6 +1,6 @@
 import { verifyWebhook } from '@/lib/paypal';
-import { captureAndRecord, logPaymentEvent, refreshCampaignStatus } from '@/lib/payments';
-import { db } from '@/lib/db';
+import { applyRefund, captureAndRecord, logPaymentEvent } from '@/lib/payments';
+import { toCents } from '@/lib/money';
 
 export const runtime = 'nodejs';
 
@@ -23,9 +23,13 @@ export async function POST(req: Request) {
     await captureAndRecord(orderId, 'webhook');
   }
   if (type === 'PAYMENT.CAPTURE.REFUNDED' || type === 'PAYMENT.CAPTURE.REVERSED') {
-    const captureId = resource?.links?.find((l: { rel: string; href: string }) => l.rel === 'up')?.href?.split('/').pop() || resource.id;
-    const k = await db().from('contributions').update({ status: type.endsWith('REFUNDED') ? 'REFUNDED' : 'REVERSED' }).eq('capture_id', captureId).select('campaign_id');
-    if (k.data?.[0]) await refreshCampaignStatus(k.data[0].campaign_id as string);
+    // REFUNDED: resource is the refund; its "up" link points at the original capture.
+    // REVERSED: resource is the capture itself.
+    const up = resource?.links?.find((l: { rel: string; href: string }) => l.rel === 'up')?.href as string | undefined;
+    const captureId = type.endsWith('REFUNDED') ? (up?.split('/').pop() || '') : resource.id;
+    let cents = 0;
+    try { cents = toCents(resource?.amount?.value ?? '0'); } catch { cents = 0; }
+    if (captureId) await applyRefund(captureId, cents, type.endsWith('REFUNDED') ? 'REFUNDED' : 'REVERSED');
   }
   return Response.json({ ok: true });
 }

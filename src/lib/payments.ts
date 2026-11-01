@@ -1,4 +1,5 @@
 import 'server-only';
+import { formatUSD } from './money';
 import { db } from './db';
 import { captureOrder, extractCapture, getOrder, PayPalError, type PayPalOrder } from './paypal';
 
@@ -99,6 +100,12 @@ export async function refreshCampaignStatus(campaignId: string) {
   const c = await db().from('campaigns').select('id, status, target_cents').eq('id', campaignId).single();
   if (c.error || !c.data) return;
   const { raisedCents } = await campaignTotals(campaignId);
+  if (c.data.status === 'goal_reached' && raisedCents < Number(c.data.target_cents)) {
+    // A refund or reversal brought verified funds below the goal: purchase approval locks again.
+    const upd = await db().from('campaigns').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('status', 'goal_reached').select('id');
+    if (upd.data?.length) await logPaymentEvent({ source: 'system', eventType: 'campaign.below_goal', status: 'ACTIVE', summary: { campaignId, raisedCents } });
+    return;
+  }
   if (c.data.status === 'active' && raisedCents >= Number(c.data.target_cents)) {
     const upd = await db().from('campaigns').update({ status: 'goal_reached', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('status', 'active').select('id');
     if (upd.data?.length) {
@@ -106,4 +113,24 @@ export async function refreshCampaignStatus(campaignId: string) {
       await logPaymentEvent({ source: 'system', eventType: 'campaign.goal_reached', status: 'GOAL_REACHED', summary: { campaignId, raisedCents } });
     }
   }
+}
+
+/**
+ * Apply a PayPal refund or reversal to the contribution with this capture id.
+ * Called once per PayPal event (webhook events are deduplicated by event id before this runs).
+ * Partial refunds reduce the verified total; a full refund or a reversal removes it.
+ */
+export async function applyRefund(captureId: string, refundCents: number, kind: 'REFUNDED' | 'REVERSED'): Promise<{ applied: boolean; campaignId?: string; status?: string; refundedCents?: number }> {
+  const k = await db().from('contributions').select('id, campaign_id, amount_cents, refunded_cents, status').eq('capture_id', captureId).maybeSingle();
+  if (!k.data) return { applied: false };
+  const amount = Number(k.data.amount_cents);
+  const refunded = kind === 'REVERSED' ? amount : Math.min(amount, Number(k.data.refunded_cents) + Math.max(0, refundCents));
+  const status = kind === 'REVERSED' ? 'REVERSED' : refunded >= amount ? 'REFUNDED' : 'COMPLETED';
+  await db().from('contributions').update({ refunded_cents: refunded, status }).eq('id', k.data.id);
+  const campaignId = k.data.campaign_id as string;
+  await db().from('campaign_updates').insert({ campaign_id: campaignId, kind: 'refund', body: kind === 'REVERSED'
+    ? `A PayPal Sandbox payment (capture ${captureId}) was reversed. It no longer counts toward the goal.`
+    : `PayPal Sandbox refunded ${formatUSD(refunded)} of a ${formatUSD(amount)} contribution (capture ${captureId}). The verified total was reduced.` });
+  await refreshCampaignStatus(campaignId);
+  return { applied: true, campaignId, status, refundedCents: refunded };
 }
