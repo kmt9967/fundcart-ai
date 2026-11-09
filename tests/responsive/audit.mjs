@@ -99,6 +99,8 @@ const report = [];
 async function ctxFor(mobile, owner) {
   const ctx = await browser.newContext({ isMobile: mobile, hasTouch: mobile, deviceScaleFactor: 1, viewport: { width: 390, height: 780 } });
   if (owner) await ctx.addCookies([{ name: 'fc_uid', value: owner, url: BASE }]);
+  // Optional interface language (e.g. AUDIT_LANG=ur to audit the RTL layout).
+  if (process.env.AUDIT_LANG) await ctx.addCookies([{ name: 'fc_lang', value: process.env.AUDIT_LANG, url: BASE }]);
   return ctx;
 }
 async function measure(page, route, s) {
@@ -133,9 +135,10 @@ for (const mobile of [true, false]) {
   const sizes = SIZES.filter(s => s.mobile === mobile);
   await page.setViewportSize({ width: sizes[0].w, height: sizes[0].h });
   await page.goto(BASE + '/assistant', { waitUntil: 'networkidle' });
-  await page.getByLabel('Your request').fill('I need a laptop for university under $700');
-  await page.getByLabel('I already have (optional)').fill('200');
-  await page.getByRole('button', { name: 'Find options' }).click();
+  // Language-independent selectors (the audit can run with AUDIT_LANG=ur/es/fr).
+  await page.locator('#prompt').fill('I need a laptop for university under $700');
+  await page.locator('#own').fill('200');
+  await page.locator('form button.btn-primary').first().click();
   await page.locator('article').first().waitFor({ timeout: 90000 });
   await page.waitForTimeout(1500);
   const cmp = page.getByRole('checkbox', { name: 'Compare' });

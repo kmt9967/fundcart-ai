@@ -29,20 +29,24 @@ Shoppers who can already afford an item can also check out directly, with the sa
 
 | | |
 |---|---|
-| **AI shopping assistant** | Plain-language requests, live product search within budget, ranked recommendations with grounded explanations, side-by-side comparison, wishlist |
+| **Need-first AI shopping** | Describe the need ("a laptop to learn Android Studio"); the agents turn it into requirements (official sources where they exist), verify real listings against them, reject wrong products (books, toys, software) and unconfirmed specs, and rank by best fit or the cheapest option that works |
+| **Conversation memory** | Follow-ups keep earlier requirements: "cheaper", "not HP", "I need 16GB RAM", "compare the first and third", "forget the budget" |
+| **Four languages** | English, Urdu (right-to-left), Spanish and French across the whole site; the assistant also understands Roman Urdu and mixed English/Urdu |
 | **Budget planning** | Exact funding gap for every product, calculated on the server |
 | **AI-assisted campaigns** | Honest campaign story, thank-you note and progress updates drafted by AI; the creator edits before publishing |
-| **PayPal contributions** | PayPal Checkout for supporters; progress counts only PayPal-confirmed payments; overfunding is rejected |
-| **Creator dashboard** | Every PayPal payment with its status and reference, plus an audit history |
+| **PayPal contributions** | PayPal Checkout for supporters; progress counts only PayPal-confirmed payments; overfunding is rejected; optional private email receipt after PayPal verifies the payment |
+| **Creator accounts & dashboard** | Optional sign-in to manage campaigns from any device; every PayPal payment with its status and reference, plus an audit history |
 | **Human-approved purchase** | A separate PayPal checkout that the creator explicitly approves |
 
 ## AI agents
 
 FundCart's assistant is a team of cooperating agents powered by **Google Gemini**:
 
-- **Intent Agent:** turns a request into a shopping brief (category, purpose, budget, money already saved, must-haves).
-- **Research Agent:** searches **Channel3's** live catalog within the budget, and widens the search when too few products fit.
-- **Comparison Agent:** ranks products with a transparent score, then explains them using only the retrieved product data.
+- **Intent Agent:** turns a request in any of five languages into a validated shopping brief: the product, what it must do, skill level, budget (amounts like "1.5 lac" or "50 hazar" are parsed by code), exclusions, and follow-up references.
+- **Requirements Agent:** maps needs such as Android development, video editing, gaming or study to minimum, best-value and optional-upgrade specs, with official sources where available (for example Google's Android Studio requirements).
+- **Research Agent:** runs targeted, category-filtered searches on **Channel3's** live catalog and widens them only when too few suitable products fit the budget.
+- **Verification Agent:** reads RAM, storage, processor, graphics and OS from each listing, flags inconsistent listings and implausible prices, and never treats a missing spec as met.
+- **Comparison Agent:** ranks verified products (best fit or cheapest that works) and explains them using only the retrieved product data.
 - **Budget Agent:** calculates funding gaps with exact integer-cent arithmetic.
 - **Campaign Assistant:** drafts campaign copy from verified numbers only, with no charity claims and no invented urgency.
 - **Payment Agent:** prepares the checkout summary. It **cannot** pay: payment requires explicit confirmation plus approval inside PayPal.
@@ -84,7 +88,9 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - All secrets stay on the server; the browser only receives the public PayPal client ID.
 - The database uses row-level security with no public policies, and only server code can access it.
 - Amounts and goals are calculated on the server; the client cannot set them.
-- Campaign management and purchase approval are bound to a signed guest identity cookie.
+- Campaign management and purchase approval are checked on the server against the campaign owner. Owners are identified by a signed guest cookie or an optional account (Supabase Auth); guest campaigns move into an account only from the browser that holds the signed guest cookie.
+- A safety check runs before any search (prompt injection, self-harm, restricted items, covert surveillance, counterfeits); card numbers are removed from messages before they are stored or sent to the AI.
+- Supporter emails for receipts are stored privately and never shown publicly.
 - Sensitive endpoints are rate-limited.
 
 ## Limitations
@@ -93,12 +99,14 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - **Not escrow or charity:** FundCart AI does not hold funds and is not a charity or bank.
 - **Single recipient:** one authorized Sandbox account currently receives contributions on behalf of every campaign creator. A production version would let each creator connect their own PayPal account.
 - **Refunds:** only the recipient can issue a refund. FundCart's handling of refund notifications is built but has not yet been exercised with a recipient-issued refund.
-- Guest identity is per browser (no full accounts yet), and rate limiting is per server instance.
+- **Accounts:** email addresses are not verified in this demo build, and password-reset emails need a custom email provider to arrive reliably. Rate limiting is per server instance.
+- **Receipts:** the receipt email integration is built but switched off until a transactional email provider is configured; until then receipts are recorded as not sent, never reported as sent.
+- **Spec checks** depend on what retailers list; unconfirmed specs are labelled "check before buying". Translations are machine-assisted.
 - Prices come from live retailer data and may change.
 
 ## What's next
 
-Creator-owned PayPal accounts, full user accounts and campaign moderation, and retailer price alerts that keep goals in sync with live prices.
+Creator-owned PayPal accounts, verified accounts and campaign moderation, more requirement profiles, and retailer price alerts that keep goals in sync with live prices.
 
 ## Run locally
 

@@ -163,6 +163,7 @@ const core = {
   'field.condition': 'État',
 
   'budget.notUsd': 'Votre budget ({raw}, {currency}) n’a pas été appliqué : ce catalogue de démo est en dollars américains et nous ne convertissons pas avec des taux de change non vérifiés. Indiquez votre budget en USD pour filtrer par prix.',
+  'budget.unknownCurrency': 'Dans quelle devise est « {raw} » ? Ce catalogue est en dollars américains, je ne l’ai donc pas appliqué. Écrivez-le comme « 300 $ » pour filtrer par prix.',
   'budget.noneSuitable': 'Aucune annonce de cette recherche n’a pu être vérifiée comme répondant à toutes les exigences. Assouplissez une exigence ou consultez la liste « À vérifier avant achat ».',
   'budget.noneWithin': 'Aucun produit adapté vérifié dans votre budget de {budget}. L’option la moins chère qui respecte toutes les exigences coûte {price}, soit {gap} de plus.',
   'budget.gap': 'Avec {own} d’économies, l’option la moins chère qui respecte toutes les exigences ({price}) laisse un écart de {gap}. FundCart peut vous aider à réunir exactement cette somme.',

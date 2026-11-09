@@ -10,7 +10,10 @@ const OUT = process.argv[4] && !process.argv[4].startsWith('--') ? process.argv[
 const only = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const scenarios = JSON.parse(fs.readFileSync(FILE, 'utf8')).filter(s => !only.length || only.includes(s.id));
 
+// The assistant allows 12 requests per minute per client; SCENARIO_DELAY_MS spaces turns out on long runs.
+const DELAY = Number(process.env.SCENARIO_DELAY_MS || 0);
 async function turn(prompt, ctx, extra = {}) {
+  if (DELAY) await new Promise(r => setTimeout(r, DELAY));
   const t0 = Date.now();
   const res = await fetch(`${BASE}/api/assistant`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...(ctx.cookie ? { cookie: ctx.cookie } : {}) },

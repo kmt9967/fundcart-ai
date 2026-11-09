@@ -89,7 +89,7 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
               <div className="flex justify-between"><dt className="text-mute">{t('b.youHave')}</dt><dd className="font-bold">{ownCents == null ? '—' : formatUSD(ownCents)}</dd></div>
               <div className="flex justify-between border-t border-line pt-2"><dt className="font-semibold">{t('b.goal')}</dt><dd className="text-lg font-extrabold text-sun">{gap == null ? '—' : formatUSD(gap)}</dd></div>
             </dl>
-            <p className="mt-2 text-xs text-mute lg:mt-3">{t('b.goalNote', { time: f.date(product.fetchedAt) })} <Link className="underline hover:text-brand" href="/account">{t('b.accountTip')}</Link></p>
+            <p className="mt-2 text-xs text-mute lg:mt-3">{t('b.goalNote', { time: f.date(product.fetchedAt) })} <Link className="tap inline-flex items-center underline hover:text-brand" href="/account">{t('b.accountTip')}</Link></p>
           </div>
         </div>
       </aside>

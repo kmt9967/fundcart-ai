@@ -4,7 +4,7 @@ import { searchProducts, type Product } from '../channel3';
 import { formatUSD, fundingGap } from '../money';
 import { t, type Locale } from '@/i18n';
 import { IntentV2Schema, INTENT_VERSION, FAMILIES, FIELDS, OPS, LANGS, ACTIONS, type IntentV2, type SessionState, type Requirement } from './types';
-import { parseIntentFallback, parseStatedConstraints, parseBrandExclusions, parseReferences, parseColors } from './fallback-intent';
+import { parseIntentFallback, parseStatedConstraints, parseBrandExclusions, parseReferences, parseColors, normalizeCategory } from './fallback-intent';
 import { mergeState, buildRequirements, categoryInfo, mergeConstraints } from './session';
 import { evaluateProduct, rankEvaluated, rejectionSummary, fmtRequired, type EvalContext, type EvaluatedProduct } from './evaluate';
 import { DEVICE_CATEGORIES } from './knowledge';
@@ -95,7 +95,11 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
     version: INTENT_VERSION,
     primaryFamily: FAMILIES.includes(d.primaryFamily as never) ? d.primaryFamily : fb.primaryFamily,
     secondaryFamilies: (Array.isArray(d.secondaryFamilies) ? d.secondaryFamilies : []).filter(f => FAMILIES.includes(f as never)).slice(0, 3),
-    category: typeof d.category === 'string' && d.category.trim() ? d.category.trim().toLowerCase().slice(0, 40) : fb.category,
+    // Canonical categories so requirement profiles always match ("laptops" → "laptop"); rules win when the model is vague.
+    category: (() => {
+      const m = typeof d.category === 'string' && d.category.trim() ? normalizeCategory(d.category).slice(0, 40) : 'unknown';
+      return ['unknown', 'general', 'electronics', 'computers', 'gifts'].includes(m) && fb.category !== 'unknown' ? fb.category : m;
+    })(),
     productKind: ['physical', 'software', 'service', 'unknown'].includes(d.productKind as string) ? d.productKind : fb.productKind,
     searchQuery: typeof d.searchQuery === 'string' && d.searchQuery.trim().length >= 2 ? d.searchQuery.trim().slice(0, 100) : fb.searchQuery,
     goal: typeof d.goal === 'string' ? d.goal.slice(0, 200) : fb.goal,
@@ -275,7 +279,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const order = mode === 'cheapest_adequate' ? ranked.cheapestAdequate : ranked.bestFit;
   const rejections = rejectionSummary(ranked, cheapest?.priceCents ?? null);
   let note = '';
-  if (state.budget && !state.budget.usable) note = t(locale, 'budget.notUsd', { raw: state.budget.raw || '', currency: state.budget.currency });
+  if (state.budget && !state.budget.usable) note = state.budget.currency === '?' ? t(locale, 'budget.unknownCurrency', { raw: state.budget.raw || '' }) : t(locale, 'budget.notUsd', { raw: state.budget.raw || '', currency: state.budget.currency });
   else if (!ranked.suitable.length) note = t(locale, 'budget.noneSuitable');
   else if (noneWithinBudget && cheapest) note = t(locale, 'budget.noneWithin', { budget: formatUSD(budgetCents), price: formatUSD(cheapest.priceCents), gap: formatUSD(cheapest.priceCents! - budgetCents!) });
   else if (own != null && cheapest) note = cheapest.priceCents! > own ? t(locale, 'budget.gap', { own: formatUSD(own), price: formatUSD(cheapest.priceCents), gap: formatUSD(fundingGap(cheapest.priceCents!, own)) }) : t(locale, 'budget.affordable', { own: formatUSD(own) });

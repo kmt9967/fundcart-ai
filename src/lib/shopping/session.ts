@@ -38,7 +38,8 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
   let budget = base?.budget ?? null;
   if (b) {
     // An amount without a currency sign in an Urdu / Roman Urdu message ("5k tak") is almost certainly rupees.
-    const currency = b.currency || (['ur', 'roman_ur', 'mixed'].includes(intent.language) ? 'PKR' : 'USD');
+    // No currency sign and implausibly large for a dollar budget ("30k" for a camping trip): ask, don't assume USD.
+    const currency = b.currency || (['ur', 'roman_ur', 'mixed'].includes(intent.language) ? 'PKR' : (b.maxMinor ?? 0) >= 1_000_000 ? '?' : 'USD');
     budget = { maxCents: b.maxMinor, minCents: b.minMinor, currency, raw: b.raw, usable: currency === 'USD' };
   }
   if (intent.clearBudget) budget = null;

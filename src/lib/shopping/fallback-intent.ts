@@ -53,6 +53,23 @@ export function detectLanguage(text: string): IntentV2['language'] {
   return 'en';
 }
 
+/** Map model category labels ("laptops", "smartphones", "notebook computers") to canonical categories. */
+const CATEGORY_SYNONYMS: Array<[RegExp, string]> = [
+  [/^(laptops?|notebooks?|notebook computers?|computers?|laptop computers?|gaming laptops?|macbooks?|chromebooks?|ultrabooks?|personal computers?)$/, 'laptop'],
+  [/^(desktops?|desktop computers?|gaming pcs?|gaming desktops?|pcs?|all-in-ones?)$/, 'desktop'],
+  [/^(phones?|smartphones?|mobile phones?|cell ?phones?|mobiles?|iphones?)$/, 'phone'],
+  [/^(headphones?|earbuds?|headsets?|earphones?|wireless earbuds|audio)$/, 'headphones'],
+  [/^(tablets?|ipads?|tablet computers?)$/, 'tablet'],
+  [/^(monitors?|computer monitors?|displays?)$/, 'monitor'],
+  [/^(cameras?|digital cameras?|dslrs?|mirrorless cameras?)$/, 'camera'],
+  [/^(tvs?|televisions?|smart tvs?)$/, 'tv'],
+];
+export function normalizeCategory(label: string): string {
+  const l = label.trim().toLowerCase();
+  for (const [re, c] of CATEGORY_SYNONYMS) if (re.test(l)) return c;
+  return l;
+}
+
 export function detectCategory(text: string): string | null {
   // "computer science" is a degree, not a product.
   const t = text.replace(/computer science|ciencias de la computaci[oó]n|informatique/gi, ' ');

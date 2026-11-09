@@ -1,25 +1,44 @@
 # AI agents
 
-The agents live in `src/lib/ai/agents.ts` and are orchestrated by `/api/assistant`. The orchestrator streams an NDJSON timeline that the UI renders as "Agent activity".
+The shopping pipeline lives in `src/lib/shopping/` and is orchestrated by `/api/assistant` (`runTurn` in `pipeline.ts`). The orchestrator streams an NDJSON timeline that the UI renders as "Agent activity". Campaign copy is drafted by the Campaign Assistant in `src/lib/ai/agents.ts`.
 
-| Agent | Tooling | LLM role | Deterministic guarantees |
-|---|---|---|---|
-| Intent Agent | Gemini JSON-schema output | Extract category, query, purpose, budget, own funds, must-haves, brands, optional follow-up | Zod validation; dollars converted to integer cents in code; regex fallback parser |
-| Research Agent | Channel3 `/v1/search` (price filter, InStock, new, US/USD), 6 h DB cache | none | Widens the search if fewer than 3 results; never invents products |
-| Comparison Agent | ranking function + Gemini | Write labels, reasons and trade-offs **only from the provided fields** | Scores are code; LLM picks are filtered to real product IDs; product data wrapped in `<product_data>` and marked untrusted |
-| Budget Agent | money module | none | `fundingGap`, `fundingPercent`, `remainingCents` on integer cents |
-| Campaign Assistant | Gemini | Draft title, story, thank-you and progress updates | The goal comes from the server-side product price; the prompt forbids charity, tax or urgency claims; the user edits before publishing |
-| Payment Agent | PayPal module | none | Prepares the summary only; payment requires a checkbox plus PayPal approval; capture happens only after PayPal approval |
+## Pipeline (one conversation turn)
 
-## Prompt-injection defences
+1. **Safety gate** (`safety.ts`, rules): prompt injection, self-harm, restricted items, minors and age-restricted goods, covert surveillance, counterfeits, dangerous requests, deceptive campaign requests and promo-code extraction stop the turn before any search. Card numbers are redacted before the message is stored or sent to a model. Order and donor questions are routed instead of searched.
+2. **Intent Agent** (Gemini JSON schema, then `validateIntent`): fills a versioned **IntentV2**:
+   - the 29 intent families, the product category, and whether the product is physical or software;
+   - use cases and software the product must run;
+   - skill level, stated constraints, exclusions and colours;
+   - `budgetRaw`, refinement controls and language.
+   Unknown fields are dropped. The model can't set prices, verification or funding. Rules in `fallback-intent.ts` cross-check literal values and act as the multilingual fallback (EN, Urdu, Roman Urdu, ES, FR).
+3. **Session merge** (`session.ts`, code): explicit rules keep earlier requirements across turns:
+   - "cheaper" sets a price cap below the previous top pick;
+   - "not HP" excludes a brand;
+   - "16GB RAM" replaces any earlier RAM requirement;
+   - "forget the budget" clears it;
+   - "the second one" or "compare the first and third" resolve against the previous results.
+   Memory is owner-checked and never grants identity or payment authority.
+4. **Requirements Agent** (`knowledge.ts`): profiles turn needs into **minimum / recommended / premium** requirements, each tagged with its origin (official, derived, stated or AI) and its source. Stated requirements override derived ones. Example: Android Studio with the emulator uses Google's published minimum (16 GB RAM, post-2017 CPU, non-ARM on Windows/Linux, a 4 GB-VRAM GPU on Windows/Linux, 64-bit OS) from developer.android.com/studio/install.
+5. **Research Agent** (Channel3 `/v1/search`, 6 h DB cache): up to 2 targeted, category-filtered queries, plus one wider (optionally used/refurbished) query only when too few suitable products fit the price cap.
+6. **Verification Agent** (`specs.ts`, `evaluate.ts`, code): extracts RAM, storage, CPU (generation and class), GPU/VRAM, OS, architecture, screen and more from each listing.
+   - Conflicting values are flagged and the lower one is used.
+   - A missing spec is "not confirmed", never "met".
+   - Wrong product types are rejected: books, toys, accessories and software.
+   - Implausibly low prices (deposits, monthly prices, data errors) move to "check before buying".
+7. **Ranking** (code): **Best fit** weighs suitability tier, value, budget fit, preferences and ratings. **Cheapest adequate** is the lowest price that meets every minimum requirement, and is the basis for a fundraising goal. Expensive items are labelled as optional upgrades.
+8. **Budget Agent** (money module): budget fit, the gap versus the budget, and the funding gap, all in integer cents. Non-USD budgets are shown back to the user and never silently converted.
+9. **Comparison Agent** (Gemini): explains the top verified picks in the interface language, using only the fields given inside `<product_data>`. Template explanations are used if the model is unavailable.
+
+## Prompt-injection and data defences
 
 - Third-party text is stripped of control characters and markup, then length-clamped (`cleanText`).
-- It is passed inside a delimited block. The system prompt says to treat it as data and ignore instructions in it.
-- The model cannot call tools or payment functions. It only returns JSON matching a schema.
-- Any product ID the model returns that is not in the candidate set is discarded.
-- Prices, totals and goals are never read from model output.
+- Product data reaches the model only inside a delimited block. The system prompt says to treat it as data.
+- The model only returns JSON matching a schema. It cannot call tools, change prices or authorise payments.
+- Product IDs the model returns that are not in the verified candidate set are discarded.
+- Ranking uses structured specs, not marketing text, so a listing can't instruct its way to the top.
+- Prices, totals, goals and budgets are never read from model output.
 
 ## Model and fallback
 
-- **Model:** Gemini (`GEMINI_MODEL`, a comma-separated chain, default `gemini-flash-latest,gemini-flash-lite-latest`; the next model is tried on 404/429/5xx/timeouts) via the Google AI Studio free tier, called server-side.
-- **Fallback:** if the key is absent or a call fails, each agent falls back to deterministic logic. The UI says so ("Rule-based analysis", "Template draft").
+- **Model:** Gemini (`GEMINI_MODEL`, a comma-separated chain, default `gemini-flash-lite-latest,gemini-flash-latest`), with a total time budget per call so a slow model falls through quickly.
+- **Fallback:** without a key, or when a call fails, the rule-based parser and templates are used. The UI says so ("Rule-based analysis").

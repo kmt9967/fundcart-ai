@@ -273,6 +273,20 @@ describe('model output validation (write locks)', () => {
     expect(i.hardConstraints.some(c => (c.field as string) === 'price')).toBe(false); // unknown fields dropped
     expect(i.hardConstraints.find(c => c.field === 'gpu_vram_gb')?.value).toBe(12); // RTX 4080 class
   });
+  it('normalizes model category labels so requirement profiles still match ("laptops" → laptop)', async () => {
+    const { validateIntent } = await import('@/lib/shopping/pipeline');
+    const msg = "I want a laptop to use Android Studio, I'm new to this software";
+    for (const label of ['laptops', 'Notebook computers', 'computers']) {
+      const i = validateIntent({ category: label, searchQuery: 'laptop' }, msg, false)!;
+      expect(i.category).toBe('laptop');
+      expect(mergeState(null, i, msg, null).profileId).toBe('android_studio');
+    }
+  });
+  it('does not apply an ambiguous large "30k" budget as US dollars', () => {
+    const msg = 'Camping trip for 4 people, 2 nights, budget 30k';
+    const s = mergeState(null, parseIntentFallback(msg, false), msg, null);
+    expect(s.budget?.usable).toBe(false);
+  });
   it('never treats a software title as the product when a device is named', async () => {
     const { validateIntent } = await import('@/lib/shopping/pipeline');
     const i = validateIntent({ category: 'software', productKind: 'software', searchQuery: 'Android Studio' }, 'I want a laptop to use Android Studio', false)!;

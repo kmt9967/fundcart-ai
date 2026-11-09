@@ -22,7 +22,7 @@ export default async function HowItWorks() {
         <ol className="mt-4 space-y-3 text-sm leading-relaxed text-ink-2">
           {(['how.rec1', 'how.rec2', 'how.rec3', 'how.rec4'] as const).map(k => <li key={k}><Rich text={t(k)} boldClass="font-bold text-ink" /></li>)}
         </ol>
-        <p className="mt-3 text-xs text-mute"><a className="underline hover:text-brand" href="https://developer.android.com/studio/install" target="_blank" rel="noopener noreferrer">developer.android.com/studio/install ↗</a></p>
+        <p className="mt-3 text-xs text-mute"><a className="tap inline-flex items-center underline hover:text-brand" href="https://developer.android.com/studio/install" target="_blank" rel="noopener noreferrer">developer.android.com/studio/install ↗</a></p>
       </section>
 
       <section className="mt-10 sm:mt-12"><h2 className="text-xl font-bold">{t('how.agentsTitle')}</h2>

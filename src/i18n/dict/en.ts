@@ -163,6 +163,7 @@ const core = {
 
   // Pipeline messages
   'budget.notUsd': 'Your budget ({raw}, {currency}) was not applied: this demo catalog is priced in US dollars and we don’t convert currencies with unverified exchange rates. Tell us the budget in USD to filter by price.',
+  'budget.unknownCurrency': 'Which currency is “{raw}” in? This catalog is priced in US dollars, so I didn’t apply it. Say it like “$300” to filter by price.',
   'budget.noneSuitable': 'No listing in this search could be verified as meeting every requirement. Try loosening one requirement, or check the “Check before buying” list.',
   'budget.noneWithin': 'No verified suitable product was found within your {budget} budget. The cheapest option that meets every requirement is {price}, which is {gap} over.',
   'budget.gap': 'With {own} saved, the cheapest option that meets every requirement ({price}) leaves a {gap} gap. FundCart can help you raise exactly that.',
