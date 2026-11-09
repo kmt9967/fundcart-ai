@@ -17,11 +17,16 @@ export async function generateJson<T>(opts: {
   schema: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Total time budget across all models (ms). Each model gets what is left. */
+  timeoutMs?: number;
 }): Promise<LlmResult<T>> {
   if (!env.geminiKey) return { ok: false, error: 'no_key' };
+  const deadline = Date.now() + (opts.timeoutMs ?? 24000);
   // Try each configured model in order; fall through only on transient/availability errors.
   let lastError = 'llm_error';
   for (const model of env.geminiModels) {
+    const left = deadline - Date.now();
+    if (left < 2500) { lastError = 'llm_timeout'; break; }
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
@@ -36,7 +41,7 @@ export async function generateJson<T>(opts: {
             responseSchema: opts.schema,
           },
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(Math.min(left, 15000)),
         cache: 'no-store',
       });
       if (!res.ok) {

@@ -1,0 +1,1417 @@
+{
+ "note": "Raw Channel3 results behind the failing production query \"I want a laptop to use Android Studio in it\" (2026-11-09 18:33 UTC). Offer URLs replaced.",
+ "products": [
+  {
+   "id": "d0lY6Cy",
+   "title": "Blade 15 Studio Edition Laptop",
+   "brands": [
+    {
+     "name": "Razer"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "razer.com",
+     "price": {
+      "price": 4299.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [],
+   "description": "The Razer Blade 15 Studio Edition is a high-performance mobile workstation designed specifically for creative professionals such as audio engineers and VFX artists. It features the latest 8-Core 10th Gen Intel Core i7-10875H processor and an NVIDIA Quadro RTX 5000 GPU with 16GB of GDDR6 memory. The laptop boasts a 15.6-inch 4K OLED touch display, custom-calibrated for color accuracy (100% DCI-P3 coverage, low Delta-E) and a 1ms response time. Its chassis is made of mercury white anodized aluminu",
+   "structured_attributes": {
+    "power-source": [
+     "USB"
+    ],
+    "computer-form": [
+     "Notebook"
+    ],
+    "keyboard-type": [
+     "Standard"
+    ],
+    "keyboard-layout": [
+     "QWERTY"
+    ],
+    "processor-cores": [
+     "Octa"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "Intel core i7"
+    ],
+    "memory-technology": [
+     "GDDR6"
+    ],
+    "display-resolution": [
+     "1920 x 1080"
+    ],
+    "display-technology": [
+     "OLED"
+    ],
+    "graphics-card-type": [
+     "Dedicated"
+    ],
+    "storage-types-supported": [
+     "Solid-state drive (SSD)"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen"
+    ],
+    "removable-storage-formats-supported": [
+     "SD",
+     "SDHC",
+     "SDXC"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "pwL0Wn3",
+   "title": "Lenovo ThinkPad P16s Gen 5 AMD Laptop",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "newegg.com",
+     "price": {
+      "price": 2469,
+      "currency": "USD",
+      "compare_at_price": 2939
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "16\" 2.8K (2880 x 1800) OLED Anti-Glare Display, HDR 1000 True Black, 100% DCI-P3, 500 nits",
+    "AMD Ryzen AI 7 PRO 450 Processor (2.00 GHz up to 5.10 GHz)",
+    "NVIDIA RTX PRO 1000 Blackwell Laptop GPU with 8GB GDDR7",
+    "64GB LPCAMM2 High-speed Memory",
+    "2TB PCIe Gen 5 SSD",
+    "VRR 30-120Hz refresh rate",
+    "Copilot+ PC with dedicated AMD XDNA 2 NPU",
+    "ISV Certified for professional CAD, BIM, and creative applications",
+    "Windows 11 Pro Operating System",
+    "Weight under 2kg / 4lbs"
+   ],
+   "description": "The Lenovo ThinkPad P16s Gen 5 AMD is a professional 16-inch mobile workstation designed for engineers and designers. It is a Copilot+ PC powered by the AMD Ryzen AI 7 PRO 450 processor with a dedicated NPU for on-device AI acceleration. This high-performance portable machine features a 16\" 2.8K OLED display with a VRR 30-120Hz refresh rate, 64GB of high-speed LPCAMM2 memory, and a 2TB PCIe Gen 5 SSD. For demanding graphical workloads, it is equipped with an NVIDIA RTX PRO 1000 Blackwell GPU wit",
+   "structured_attributes": {
+    "ram": [
+     "64 GB"
+    ],
+    "computer-form": [
+     "Workstation"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "AMD Ryzen AI 7"
+    ],
+    "storage-capacity": [
+     "2 TB"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-technology": [
+     "OLED"
+    ],
+    "graphics-card-type": [
+     "Professional"
+    ],
+    "storage-types-supported": [
+     "PCIe/NVMe SSD"
+    ],
+    "storage-drive-type-installed": [
+     "PCIe/NVMe SSD"
+    ],
+    "computer-specialized-features": [
+     "AI-powered"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "fwf6r2p",
+   "title": "Laptab 10: Interactive Touchscreen Laptop with Android 13",
+   "brands": [
+    {
+     "name": "Lexibook"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "toysrus.com",
+     "price": {
+      "price": 199.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "10.1'' HD touchscreen display",
+    "Android 13 operating system",
+    "Octa-core processor",
+    "128GB storage",
+    "4GB RAM",
+    "1280 x 800 display resolution",
+    "Front 2 MP web camera",
+    "Educational content with parental controls"
+   ],
+   "description": "The Lexibook Laptab 10 is an interactive touchscreen laptop designed for children, running on Android 13. It features a 10.1-inch HD display with a resolution of 1280 x 800, powered by an octa-core processor and 4GB of RAM for smooth multitasking. The device comes with 128GB of storage and includes educational content with integrated parental controls. For interactive learning, it is equipped with a front-facing 2 MP web camera.",
+   "structured_attributes": {
+    "ram": [
+     "4 GB"
+    ],
+    "power-source": [
+     "USB"
+    ],
+    "computer-form": [
+     "Notebook"
+    ],
+    "processor-cores": [
+     "Octa"
+    ],
+    "operating-system": [
+     "Android"
+    ],
+    "storage-capacity": [
+     "128 GB"
+    ],
+    "display-resolution": [
+     "1280 x 768"
+    ],
+    "display-technology": [
+     "QLED"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "1Ts3fkA",
+   "title": "Surface Laptop Studio 14.4\" Touchscreen 2-in-1 Laptop",
+   "brands": [
+    {
+     "name": "Microsoft"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "costco.com",
+     "price": {
+      "price": 1999.97,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "14.4\" PixelSense Flow Touchscreen Display (2400 x 1600)",
+    "11th Gen Intel Core i7-11370H Processor",
+    "32GB LPDDR4x RAM",
+    "2TB Solid State Drive",
+    "NVIDIA GeForce RTX 3050 Ti GPU with 4GB GDDR6 memory",
+    "Windows 11 Home Operating System",
+    "Wi-Fi 6 (2x2/160) Gig+ and Bluetooth 5.1",
+    "Windows Hello face authentication and 1080p HD Front-Facing Camera",
+    "Quad Omnisonic speakers with Dolby Atmos",
+    "2 x USB 4.0 with Thunderbolt 4 ports"
+   ],
+   "description": "The Microsoft Surface Laptop Studio is a versatile 2-in-1 laptop featuring a 14.4-inch PixelSense Flow touchscreen display with a resolution of 2400 x 1600. Powered by an 11th Gen Intel Core i7-11370H processor and 32GB LPDDR4x RAM, it is equipped with a 2TB SSD for extensive storage. For graphics, it utilizes an NVIDIA GeForce RTX 3050 Ti laptop GPU with 4GB GDDR6 memory. The device runs on Windows 11 Home and includes high-end connectivity with Wi-Fi 6 and Bluetooth 5.1, along with a 1080p HD ",
+   "structured_attributes": {
+    "ram": [
+     "32 GB"
+    ],
+    "power-source": [
+     "Battery-powered",
+     "AC-powered"
+    ],
+    "computer-form": [
+     "Convertible",
+     "Notebook"
+    ],
+    "keyboard-type": [
+     "Mechanical",
+     "Touchscreen"
+    ],
+    "keyboard-layout": [
+     "QWERTY"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "Intel core i7"
+    ],
+    "storage-capacity": [
+     "2 TB"
+    ],
+    "memory-technology": [
+     "DDR4"
+    ],
+    "cosmetic-condition": [
+     "Refurbished-certified"
+    ],
+    "graphics-card-type": [
+     "Dedicated"
+    ],
+    "storage-types-supported": [
+     "Solid-state drive (SSD)"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen"
+    ]
+   },
+   "ratings": {
+    "count": 39,
+    "value": 4.6,
+    "source_count": 1
+   }
+  },
+  {
+   "id": "bfOnaes",
+   "title": "Lenovo ThinkPad X1 Yoga 3rd Gen 2 in 1 Ultrabook",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "newegg.com",
+     "price": {
+      "price": 449,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "14\" LCD Touchscreen (1920 x 1080) with IPS Technology",
+    "Intel Core i7 8th Gen 8550U Quad-core Processor (1.80 GHz)",
+    "8GB LPDDR3 Memory",
+    "256GB SSD Storage",
+    "Windows 10 Pro 64-bit Operating System",
+    "2-in-1 Ultrabook design",
+    "Includes HDMI, USB 3.0, and USB Type-C ports",
+    "Integrated Front Camera/Webcam and Finger Print Reader"
+   ],
+   "description": "The Lenovo ThinkPad X1 Yoga 3rd Gen is a versatile 2-in-1 Ultrabook designed for professional use. It features a 14-inch LCD touchscreen with a 1920 x 1080 resolution and IPS technology. Powered by an 8th Gen Intel Core i7-8550U quad-core processor running at 1.80 GHz and 8GB of LPDDR3 memory, it ensures efficient multitasking. The device is equipped with a 256GB SSD for storage and runs Windows 10 Pro 64-bit. It includes a variety of ports including HDMI, USB 3.0, and USB Type-C, and is finishe",
+   "structured_attributes": {
+    "ram": [
+     "8 GB"
+    ],
+    "pattern": [
+     "Solid"
+    ],
+    "power-source": [
+     "Battery-powered"
+    ],
+    "computer-form": [
+     "Ultrabook"
+    ],
+    "processor-cores": [
+     "Quad"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "Intel core i7"
+    ],
+    "storage-capacity": [
+     "256 GB"
+    ],
+    "memory-technology": [
+     "DDR3"
+    ],
+    "display-resolution": [
+     "1920 x 1080"
+    ],
+    "display-technology": [
+     "IPS",
+     "LCD"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "Solid-state drive (SSD)"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "cBtwWeN",
+   "title": "Lenovo IdeaPad Slim 3 15.6\" FHD AI Copilot Laptop",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "newegg.com",
+     "price": {
+      "price": 599.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "15.6\" FHD (1920x1080) Display",
+    "AMD Ryzen 5 40 Processor",
+    "8GB RAM DDR5",
+    "512GB SSD",
+    "AMD Radeon 610M Graphics",
+    "Windows 11 Pro",
+    "AI Copilot integration",
+    "720p Front Facing Camera",
+    "Dolby Audio",
+    "Wi-Fi 6 and Bluetooth connectivity"
+   ],
+   "description": "The Lenovo IdeaPad Slim 3 is a 15.6-inch FHD laptop designed for everyday productivity, featuring an AMD Ryzen 5 40 processor and AMD Radeon 610M integrated graphics. It comes equipped with 8GB of DDR5 RAM and a 512GB SSD for efficient performance. The laptop is finished in Abyss Blue and runs on Windows 11 Pro, featuring AI Copilot integration and a 720p front-facing camera. This specific offer is a bundle that includes a USB 3.0 Hub.",
+   "structured_attributes": {
+    "ram": [
+     "8 GB"
+    ],
+    "power-source": [
+     "Rechargeable"
+    ],
+    "computer-form": [
+     "Notebook"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "AMD Ryzen 5"
+    ],
+    "storage-capacity": [
+     "512 GB"
+    ],
+    "memory-technology": [
+     "DDR5"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-resolution": [
+     "1920 x 1080"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "Solid-state drive (SSD)"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ],
+    "computer-specialized-features": [
+     "AI-powered"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "wk87Cqj",
+   "title": "4G LTE OLED Lenovo ThinkPad X1 Yoga Gen 7 - 14\" 2-In-1 Touchscreen Notebook Computer",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "newegg.com",
+     "price": {
+      "price": 1799.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "14\" OLED 3840x2400 Touchscreen (500 nits) with Stylus Pen",
+    "12th Gen Intel Core i7-1265U Deca-core vPro Processor",
+    "Fibocom 4G LTE WWAN Mobile Broadband",
+    "16GB RAM and 512GB PCIe-NVMe SSD",
+    "Windows 10 Pro Operating System",
+    "MIL-STD-810H military test passed",
+    "Touch Style Fingerprint Reader and Discrete TPM 2.0",
+    "Intel Wi-Fi 6E AX211 and Bluetooth 5.1",
+    "HD 1080p + IR Hybrid camera with Privacy Shutter"
+   ],
+   "description": "The Lenovo ThinkPad X1 Yoga Gen 7 is a premium 14-inch 2-in-1 convertible notebook designed for business and professional use. It features a stunning 3840x2400 OLED touchscreen display with 500 nits brightness and comes with an integrated stylus pen for precise input. Powered by a 12th Gen Intel Core i7-1265U Deca-core vPro processor and 16GB of RAM, it provides robust performance for multitasking. The device includes a 512GB PCIe-NVMe SSD for fast storage and is equipped with Fibocom 4G LTE WWA",
+   "structured_attributes": {
+    "ram": [
+     "16 GB"
+    ],
+    "computer-form": [
+     "Convertible"
+    ],
+    "processor-cores": [
+     "Deca"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "Intel core i7"
+    ],
+    "storage-capacity": [
+     "512 GB"
+    ],
+    "display-technology": [
+     "OLED"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "PCIe/NVMe SSD"
+    ],
+    "storage-drive-type-installed": [
+     "PCIe/NVMe SSD"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen",
+     "TPM (trusted platform module)"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "vEnOJVz",
+   "title": "Lenovo ThinkPad P16s Gen 4 - 16\" - AMD Ryzen AI 7 PRO - 32 GB RAM - 1 TB SSD",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "cdw.com",
+     "price": {
+      "price": 2249.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "AMD Ryzen AI 7 PRO processor with NPU (50 TOPS)",
+    "16\" OLED touchscreen with WQUXGA (3840 x 2400) resolution",
+    "32 GB DDR5 SDRAM",
+    "1 TB NVMe SSD with TCG Opal Encryption 2",
+    "Wi-Fi 7 and Bluetooth 5.4 connectivity",
+    "MIL-STD-810H tested for durability",
+    "180-degree hinge design",
+    "Copilot+ with Built-In AI capabilities",
+    "5 MP webcam with privacy shutter",
+    "Dolby Atmos high-definition audio"
+   ],
+   "description": "The Lenovo ThinkPad P16s Gen 4 is a professional-grade 16-inch laptop designed for demanding workloads. It features an AMD Ryzen AI 7 PRO processor, 32 GB of DDR5 RAM, and a 1 TB NVMe SSD. The device is equipped with a high-resolution 16\" OLED touchscreen (3840 x 2400) with a 16:10 aspect ratio and anti-reflective coating. For connectivity, it includes Wi-Fi 7, Bluetooth 5.4, and various ports such as USB4 and HDMI. The laptop is built for durability, being MIL-STD-810H tested, and features a bl",
+   "structured_attributes": {
+    "ram": [
+     "32 GB"
+    ],
+    "power-source": [
+     "AC-powered"
+    ],
+    "computer-form": [
+     "Notebook"
+    ],
+    "keyboard-type": [
+     "Backlit"
+    ],
+    "keyboard-layout": [
+     "QWERTY"
+    ],
+    "processor-cores": [
+     "Octa"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "AMD Ryzen AI 7"
+    ],
+    "storage-capacity": [
+     "1 TB"
+    ],
+    "memory-technology": [
+     "DDR5"
+    ],
+    "display-technology": [
+     "OLED"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "PCIe/NVMe SSD"
+    ],
+    "storage-drive-type-installed": [
+     "PCIe/NVMe SSD"
+    ],
+    "computer-specialized-features": [
+     "AI-powered",
+     "Kensington lock",
+     "Touchscreen",
+     "TPM (trusted platform module)"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "kIBGdpj",
+   "title": "Lenovo ThinkPad C13 Yoga Gen 1 Chromebook",
+   "brands": [
+    {
+     "name": "Lenovo"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "news.lenovo.com",
+     "price": {
+      "price": 579,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "Up to AMD Ryzen™ 7 3700C Series mobile processors",
+    "Chrome OS (with Chrome Enterprise Upgrade)",
+    "13-inch FHD IPS touch displays with narrow bezels",
+    "360-degree Yoga hinge",
+    "Less than 1.5kg (3.3 pounds) and 15.5mm thin",
+    "Webcam with privacy shutter and optional touch fingerprint reader",
+    "Optional world-facing camera",
+    "Optional garaged pen",
+    "2 x USB 3.2 Gen 2 Type-C and 2 x USB 3.2 Gen 1 Type-A ports",
+    "HDMI 2.0 port Wi-Fi 6 Wireless LAN and Bluetooth 5.0"
+   ],
+   "description": "The Lenovo ThinkPad C13 Yoga Gen 1 is a versatile 2-in-1 Chromebook designed for productivity across various environments. It features a 13.3-inch Full HD IPS touchscreen and a flexible 360-degree hinge that allows it to be used in laptop, tablet, tent, and stand modes. Powered by an AMD Ryzen 5 3500C quad-core processor, 8GB of DDR4 memory, and a 128GB PCIe NVMe SSD, it handles everyday multitasking efficiently. The device is finished in Abyss Blue and includes a backlit keyboard, fingerprint r",
+   "structured_attributes": {
+    "ram": [
+     "8 GB"
+    ],
+    "pattern": [
+     "Solid"
+    ],
+    "power-source": [
+     "Battery-powered"
+    ],
+    "computer-form": [
+     "Convertible",
+     "Chromebook"
+    ],
+    "keyboard-type": [
+     "Backlit",
+     "Standard"
+    ],
+    "processor-cores": [
+     "Quad"
+    ],
+    "operating-system": [
+     "Chrome OS"
+    ],
+    "processor-family": [
+     "AMD Ryzen",
+     "AMD Ryzen 7"
+    ],
+    "storage-capacity": [
+     "128 GB"
+    ],
+    "memory-technology": [
+     "DDR4"
+    ],
+    "display-resolution": [
+     "1920 x 1080",
+     "Full HD"
+    ],
+    "display-technology": [
+     "IPS"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "PCIe/NVMe SSD"
+    ],
+    "storage-drive-type-installed": [
+     "PCIe/NVMe SSD"
+    ],
+    "computer-specialized-features": [
+     "Touchscreen"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "2a5vGFy",
+   "title": "IdeaPad 5 2-in-1 Laptop",
+   "brands": [
+    {
+     "name": "Lenovo"
+    },
+    {
+     "name": "Microsoft"
+    },
+    {
+     "name": "ESET"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "microcenter.com",
+     "price": {
+      "price": 1719.97,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "AMD Ryzen AI 7 45 (2.0GHz) Processor",
+    "32GB DDR5-560 RAM",
+    "1TB PCIe Gen4 x4 NVMe M.2 SSD",
+    "15.3\" WUXGA IPS Glossy Touchscreen Display",
+    "WiFi 7 (802.1be) and Bluetooth 5.4",
+    "Includes 12 Month Microsoft 365 Personal Subscription",
+    "Includes ESET Home Security Essential 3Y 1D"
+   ],
+   "description": "This Lenovo IdeaPad 5 14AGP11 is a versatile 2-in-1 Copilot+ PC featuring a 15.3-inch WUXGA IPS touchscreen display in Luna Grey. Powered by an AMD Ryzen AI 7 445 processor and 32GB of DDR5 RAM, it is designed for efficiency and AI-enhanced performance. This bundle includes a 1TB PCIe Gen4 NVMe SSD for ample storage and comes bundled with a 12-month subscription to Microsoft 365 Personal and ESET Home Security Essential (3 years, 1 device).",
+   "structured_attributes": {
+    "ram": [
+     "32 GB"
+    ],
+    "power-source": [
+     "USB"
+    ],
+    "computer-form": [
+     "Convertible"
+    ],
+    "keyboard-type": [
+     "Backlit"
+    ],
+    "keyboard-layout": [
+     "QWERTY"
+    ],
+    "processor-cores": [
+     "Hexa"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "AMD Ryzen AI 7"
+    ],
+    "storage-capacity": [
+     "1 TB"
+    ],
+    "memory-technology": [
+     "DDR5"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-resolution": [
+     "1920 x 1080"
+    ],
+    "display-technology": [
+     "IPS"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "PCIe/NVMe SSD"
+    ],
+    "storage-drive-type-installed": [
+     "PCIe/NVMe SSD"
+    ],
+    "computer-specialized-features": [
+     "AI-powered",
+     "Touchscreen",
+     "TPM (trusted platform module)"
+    ],
+    "removable-storage-formats-supported": [
+     "microSD"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "tWJ5SwA",
+   "title": "Android Studio Iguana Essentials - Java Edition: Developing Android Apps Using Android Studio 2023.2.1 and Java",
+   "brands": [
+    {
+     "name": "Payload Media, Inc."
+    }
+   ],
+   "category": {
+    "slug": "print-books",
+    "title": "Print Books",
+    "path": [
+     {
+      "slug": "media",
+      "title": "Media"
+     },
+     {
+      "slug": "books",
+      "title": "Books"
+     },
+     {
+      "slug": "print-books",
+      "title": "Print Books"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "barnesandnoble.com",
+     "price": {
+      "price": 38.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [],
+   "description": "This book, fully updated for Android Studio Iguana (2023.2.1) and the new UI, teaches you how to develop Android-based applications using the Java programming language.This book begins with the basics and outlines how to set up an Android...",
+   "structured_attributes": {
+    "genre": [
+     "Technology"
+    ],
+    "target-audience": [
+     "Adults"
+    ],
+    "language-version": [
+     "ENG- English"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "ea6X3P4",
+   "title": "Android Studio Meerkat Essentials - Java Edition: Developing Android Apps Using Android Studio Meerkat and Java",
+   "brands": [
+    {
+     "name": "Payload Media, Inc."
+    }
+   ],
+   "category": {
+    "slug": "print-books",
+    "title": "Print Books",
+    "path": [
+     {
+      "slug": "media",
+      "title": "Media"
+     },
+     {
+      "slug": "books",
+      "title": "Books"
+     },
+     {
+      "slug": "print-books",
+      "title": "Print Books"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "barnesandnoble.com",
+     "price": {
+      "price": 38.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [],
+   "description": "This book, fully updated for Android Studio Meerkat and the new UI, teaches you how to develop Android-based applications using Java. Beginning with the basics, the book outlines how to set up an Android development and testing environment, followed...",
+   "structured_attributes": {
+    "genre": [
+     "Technology"
+    ],
+    "target-audience": [
+     "Adults"
+    ],
+    "language-version": [
+     "ENG- English"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "v2EkF0a",
+   "title": "10.1 inch Android 13.0 Laptop Computer",
+   "brands": [
+    {
+     "name": "Walmart"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "walmart.com",
+     "price": {
+      "price": 139.99,
+      "currency": "USD",
+      "compare_at_price": 159.99
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "10.1 inch IPS screen (800*1280)",
+    "Allwinner A523 Quad-core CPU @1.8G-2.0hz",
+    "Arm Mali-G57 GPU",
+    "Android 13.0 OS",
+    "4GB RAM",
+    "128GB EMMC Storage",
+    "Front 0.3MP Camera",
+    "Built-in WIFI 802.11b/g/n",
+    "Bluetooth V4.0",
+    "Ports: 1x USB 3.0, 1x Type-C, 1x USB 2.0, 1x Tfcard port"
+   ],
+   "description": "LCD Display：10.1inch IPS screen 800*1280 CPU： Allwinner A523 Quad-core @1.8G-2.0hz GPU：Arm Mali-G57 OS：Android 13.0 RAM：4GB Storage: On board EMMC 128GB Housing Material: ABS+PC Camera: Front 0.3MP WIFI: Built-in WIFI support 802.11b/g/n Bluetooth: Built-in Bluetooth V4.0 Input/Output Port: 1*USB 3.0 1*Type-C(for charging) 1*USB 2.0 1*Tfcard port Speaker: 2 speakers Battery: Built-in 3.85V 5000mAh Polymer battery MIC: Built-in Microphone Charging Adapter: Input:100-240V; Output: 5V2A PACKAGE LIS",
+   "structured_attributes": {
+    "ram": [
+     "4 GB"
+    ],
+    "pattern": [
+     "Solid"
+    ],
+    "power-source": [
+     "Battery-powered"
+    ],
+    "computer-form": [
+     "Notebook"
+    ],
+    "processor-cores": [
+     "Quad"
+    ],
+    "operating-system": [
+     "Android"
+    ],
+    "storage-capacity": [
+     "128 GB"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-technology": [
+     "IPS"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "eMMC"
+    ],
+    "storage-drive-type-installed": [
+     "eMMC"
+    ],
+    "removable-storage-formats-supported": [
+     "microSD"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "b25INxx",
+   "title": "Linsay 10.1\" Octa Core Tablet Bundle",
+   "brands": [
+    {
+     "name": "Linsay"
+    }
+   ],
+   "category": {
+    "slug": "tablet-computers",
+    "title": "Tablet Computers",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "tablet-computers",
+      "title": "Tablet Computers"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "officedepot.com",
+     "price": {
+      "price": 259.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "10.1\" touch-screen LCD with 1280 x 800 IPS resolution",
+    "Powered by Octa Core Cortex A5 1.7GHz processor",
+    "256GB SSD storage capacity",
+    "4GB RAM",
+    "Runs on Android 15 operating system",
+    "Includes black designer cloth keyboard case",
+    "Includes stylish compact backpack",
+    "Includes pen stylus",
+    "Wireless-N connectivity (802.11/b/g/n)",
+    "Micro-USB type C port"
+   ],
+   "description": "A high-end Linsay F10 tablet bundle featuring a 10.1-inch touch-screen LCD with 1280 x 800 IPS resolution. The tablet is powered by an Octa Core Cortex A5 1.7GHz processor, 4GB of RAM, and 256GB of SSD storage, running on the Android 15 operating system. This comprehensive bundle includes a black designer cloth keyboard case, a stylish compact backpack, and a pen stylus for enhanced productivity and mobility.",
+   "structured_attributes": {
+    "processor-cores": [
+     "Octa"
+    ],
+    "operating-system": [
+     "Android"
+    ],
+    "processor-family": [
+     "ARM Cortex"
+    ],
+    "storage-capacity": [
+     "256 GB"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-resolution": [
+     "1280 x 768"
+    ],
+    "display-technology": [
+     "IPS",
+     "LCD"
+    ],
+    "stylus-support-type": [
+     "Active stylus"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "VwXylNw",
+   "title": "Android Studio Development Essentials - Android 6 Edition",
+   "brands": [
+    {
+     "name": "Payload Media, Inc."
+    }
+   ],
+   "category": {
+    "slug": "print-books",
+    "title": "Print Books",
+    "path": [
+     {
+      "slug": "media",
+      "title": "Media"
+     },
+     {
+      "slug": "books",
+      "title": "Books"
+     },
+     {
+      "slug": "print-books",
+      "title": "Print Books"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "barnesandnoble.com",
+     "price": {
+      "price": 9.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [],
+   "description": "Fully updated for Android 6, the goal of this book is to teach the skills necessary to develop Android based applications using the Android Studio Integrated Development Environment (IDE) and the Android 6 Software Development Kit (SDK).Beginning...",
+   "structured_attributes": {
+    "genre": [
+     "Technology"
+    ],
+    "target-audience": [
+     "Adults"
+    ],
+    "language-version": [
+     "ENG- English"
+    ]
+   },
+   "ratings": null
+  },
+  {
+   "id": "Baqi4Mv",
+   "title": "Dell 14 Inch Laptop - Modern Design for Everyday Use",
+   "brands": [
+    {
+     "name": "Dell"
+    }
+   ],
+   "category": {
+    "slug": "laptops",
+    "title": "Laptops",
+    "path": [
+     {
+      "slug": "electronics",
+      "title": "Electronics"
+     },
+     {
+      "slug": "computers",
+      "title": "Computers"
+     },
+     {
+      "slug": "laptops",
+      "title": "Laptops"
+     }
+    ]
+   },
+   "offers": [
+    {
+     "url": "https://example.invalid/offer",
+     "domain": "dell.com",
+     "price": {
+      "price": 799.99,
+      "currency": "USD",
+      "compare_at_price": null
+     },
+     "availability": "InStock",
+     "condition": "new"
+    }
+   ],
+   "key_features": [
+    "AMD Ryzen™ 5 220 processor (6 cores, up to 4.9 GHz)",
+    "14 inch FHD+ Antiglare display (400 Nits, 120 Hz)",
+    "512 GB SSD Gen4x4 QLC storage",
+    "8GB DDR5 memory (up to 5600 MT/s)",
+    "AMD Radeon™ Graphics",
+    "Windows 11 Home operating system",
+    "Eco-friendly material construction",
+    "Ultra-slim design with maximum weight of 1.4 kg"
+   ],
+   "description": "A sleek and lightweight 14-inch ultrabook designed for everyday productivity and entertainment. This laptop features a modern Celestial Blue design and is powered by AMD Ryzen™ 200 Series processors, combining essential performance with an eco-friendly build.",
+   "structured_attributes": {
+    "ram": [
+     "8 GB"
+    ],
+    "power-source": [
+     "Rechargeable"
+    ],
+    "computer-form": [
+     "Ultrabook"
+    ],
+    "processor-cores": [
+     "Hexa"
+    ],
+    "operating-system": [
+     "Windows"
+    ],
+    "processor-family": [
+     "AMD Ryzen 5"
+    ],
+    "storage-capacity": [
+     "512 GB"
+    ],
+    "memory-technology": [
+     "DDR5"
+    ],
+    "cosmetic-condition": [
+     "New"
+    ],
+    "display-resolution": [
+     "Full HD"
+    ],
+    "graphics-card-type": [
+     "Integrated"
+    ],
+    "storage-types-supported": [
+     "Solid-state drive (SSD)"
+    ],
+    "storage-drive-type-installed": [
+     "Solid-state drive (SSD)"
+    ]
+   },
+   "ratings": null
+  }
+ ]
+}

@@ -15,7 +15,7 @@
   --color-ok-soft: #e6f7ef;
   --color-warn: #b56f00;
   --color-bad: #d63c4a;
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), var(--font-urdu), ui-sans-serif, system-ui, sans-serif;
   --shadow-card: 0 1px 2px rgb(14 19 48 / 0.04), 0 8px 24px -12px rgb(14 19 48 / 0.12);
   --shadow-lift: 0 2px 4px rgb(14 19 48 / 0.05), 0 18px 40px -16px rgb(91 61 245 / 0.32);
 }
@@ -24,6 +24,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust
 /* Sticky header height + banner, so anchor jumps aren't hidden under the header */
 :target { scroll-margin-top: 5rem; }
 body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+/* Urdu (RTL): Urdu font first, taller line height for Arabic script, and never letter-space it (breaks cursive joining). */
+html:lang(ur) body { font-family: var(--font-urdu), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif; line-height: 1.75; }
+html:lang(ur) * { letter-spacing: normal !important; }
+html:lang(ur) .eyebrow, html:lang(ur) .uppercase { text-transform: none; }
+/* Technical values (prices, specs, IDs) stay left-to-right inside RTL text. */
+[dir='rtl'] .font-mono, [dir='rtl'] bdi { unicode-bidi: isolate; }
 
 @utility card { border-radius: 1rem; border: 1px solid var(--color-line); background: white; box-shadow: var(--shadow-card); }
 @utility btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; border-radius: .75rem; padding: .625rem 1rem; font-size: .875rem; font-weight: 650; line-height: 1.2; text-align: center; transition: all .15s ease; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;

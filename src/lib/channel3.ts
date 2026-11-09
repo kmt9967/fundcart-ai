@@ -23,6 +23,12 @@ export type Product = {
   ratingCount: number | null;
   description: string;
   fetchedAt: string;
+  /** Category slugs from root to leaf, e.g. ["electronics","computers","laptops"]. */
+  categoryPath: string[];
+  /** Channel3 structured attributes (canonical values), e.g. { ram: ["16 GB"] }. Untrusted, cleaned. */
+  attributes: Record<string, string[]>;
+  /** Offer condition: new, used (Channel3 maps refurbished to used), or null when unknown. */
+  condition: 'new' | 'used' | null;
 };
 
 export type SearchParams = {
@@ -30,6 +36,11 @@ export type SearchParams = {
   maxPriceCents?: number | null;
   minPriceCents?: number | null;
   limit?: number;
+  /** Channel3 category slugs to include / exclude (e.g. ["laptops"], ["books"]). */
+  categories?: string[];
+  excludeCategories?: string[];
+  /** Include used / refurbished offers. */
+  includeUsed?: boolean;
 };
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h — conserves Channel3 credits
@@ -75,16 +86,34 @@ export function normalize(p: any, fetchedAt: string): Product | null {
     ratingCount: typeof p.ratings?.count === 'number' ? p.ratings.count : null,
     description: cleanText(p.description, 600),
     fetchedAt,
+    categoryPath: (Array.isArray(p.category?.path) ? p.category.path : []).map((c: { slug?: unknown }) => cleanText(c?.slug, 60)).filter(Boolean).slice(0, 8),
+    attributes: cleanAttributes(p.structured_attributes),
+    condition: best?.condition === 'new' || best?.condition === 'used' ? best.condition : null,
   };
+}
+
+/** Keep only short string values from Channel3 structured attributes (untrusted third-party data). */
+function cleanAttributes(a: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (!a || typeof a !== 'object') return out;
+  for (const [k, v] of Object.entries(a as Record<string, unknown>).slice(0, 60)) {
+    const key = cleanText(k, 60).toLowerCase();
+    if (!key || !Array.isArray(v)) continue;
+    const vals = v.map(x => cleanText(x, 60)).filter(Boolean).slice(0, 8);
+    if (vals.length) out[key] = vals;
+  }
+  return out;
 }
 
 /** Search Channel3 (with a 6h DB cache). Returns normalized products and whether the result came from cache. */
 export async function searchProducts(params: SearchParams): Promise<{ products: Product[]; cached: boolean; fetchedAt: string }> {
   const query = cleanText(params.query, 120);
   if (!query) return { products: [], cached: false, fetchedAt: new Date().toISOString() };
-  const limit = Math.min(Math.max(params.limit ?? 12, 1), 20);
+  const limit = Math.min(Math.max(params.limit ?? 12, 1), 30);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filters: any = { conditions: ['new'], availability: ['InStock'] };
+  const filters: any = { conditions: params.includeUsed ? ['new', 'used'] : ['new'], availability: ['InStock'] };
+  if (params.categories?.length) filters.category_ids = params.categories.slice(0, 5);
+  if (params.excludeCategories?.length) filters.exclude_category_ids = params.excludeCategories.slice(0, 10);
   if (params.maxPriceCents || params.minPriceCents) {
     filters.price = {
       min_price: params.minPriceCents ? params.minPriceCents / 100 : null,
@@ -109,6 +138,10 @@ export async function searchProducts(params: SearchParams): Promise<{ products: 
     signal: AbortSignal.timeout(20000),
     cache: 'no-store',
   });
+  if (res.status === 422 && (params.categories?.length || params.excludeCategories?.length)) {
+    // An unknown category slug is rejected with 422: retry once without category filters.
+    return searchProducts({ ...params, categories: undefined, excludeCategories: undefined });
+  }
   if (res.status === 402) throw new Error('Product search credits are exhausted.');
   if (res.status === 429) throw new Error('Product search is rate limited. Please retry in a few seconds.');
   if (!res.ok) throw new Error(`Product search failed (${res.status}).`);
