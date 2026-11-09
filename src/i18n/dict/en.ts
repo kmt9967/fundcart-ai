@@ -1,5 +1,6 @@
+import { pagesEn } from "./pages";
 // English (source) dictionary. Every other locale must provide the same keys (enforced by the Dict type).
-export const en = {
+const core = {
   'common.priceUnavailable': 'Price unavailable',
   'common.sandboxBadge': 'PayPal Sandbox',
   'common.loading': 'Loading…',
@@ -196,5 +197,6 @@ export const en = {
   'safety.deceptive_campaign': 'I can’t write a campaign that claims an illness or hardship that isn’t true. Honest stories still raise money, and I’m happy to help you write one.',
 } as const;
 
+export const en = { ...core, ...pagesEn } as const;
 export type DictKey = keyof typeof en;
 export type Dict = Record<DictKey, string>;

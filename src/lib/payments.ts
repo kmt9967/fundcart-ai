@@ -2,6 +2,7 @@ import 'server-only';
 import { formatUSD } from './money';
 import { db } from './db';
 import { captureOrder, extractCapture, getOrder, PayPalError, type PayPalOrder } from './paypal';
+import { sendReceiptIfPending } from './receipts';
 
 // Payment state machine. A payment only counts once PayPal itself reports a COMPLETED capture
 // whose amount and currency match the order we created. Browser redirects never mark success.
@@ -80,6 +81,9 @@ export async function captureAndRecord(paypalOrderId: string, source: 'api' | 'w
       else throw new Error(`record contribution: ${ins.error.message}`);
     }
     if (!alreadyRecorded) await refreshCampaignStatus(order.campaign_id);
+    // Receipt only after a verified COMPLETED capture; idempotent across browser capture + webhook retries.
+    const receipt = await sendReceiptIfPending(order.id, { captureId: cap.captureId, amountCents: cap.amountCents, currency: cap.currency });
+    if (receipt === 'sent' || receipt === 'disabled' || receipt === 'failed') await logPaymentEvent({ paymentOrderId: order.id, paypalOrderId, source: 'system', eventType: `receipt.${receipt}`, status: receipt.toUpperCase() }).catch(() => {});
   } else if (order.kind === 'purchase' && order.campaign_id) {
     const upd = await db().from('campaigns').update({ status: 'purchased', updated_at: new Date().toISOString() }).eq('id', order.campaign_id).neq('status', 'purchased').select('id');
     alreadyRecorded = !upd.data?.length;

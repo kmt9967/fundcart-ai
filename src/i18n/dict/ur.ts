@@ -1,7 +1,8 @@
 import type { Dict } from './en';
+import { pagesUr } from './pages';
 
 // اردو — machine-assisted translation; please have a native speaker review before final submission.
-export const ur: Dict = {
+const core = {
   'common.priceUnavailable': 'قیمت دستیاب نہیں',
   'common.sandboxBadge': 'PayPal Sandbox',
   'common.loading': 'لوڈ ہو رہا ہے…',
@@ -195,3 +196,5 @@ export const ur: Dict = {
   'safety.off_topic': 'میں شاپنگ اسسٹنٹ ہوں، اسائنمنٹ نہیں لکھ سکتا۔ پڑھائی کے لیے ضروری چیزیں ڈھونڈنے میں مدد کر سکتا ہوں۔',
   'safety.deceptive_campaign': 'میں ایسی مہم نہیں لکھ سکتا جو غلط بیماری یا مشکل کا دعویٰ کرے۔ سچی کہانیاں بھی رقم جمع کرتی ہیں، اور میں ایسی کہانی لکھنے میں خوشی سے مدد کروں گا۔',
 };
+
+export const ur: Dict = { ...core, ...pagesUr };

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/i18n/client';
 
 /** Phone-only bottom bar that jumps to the contribution form. Hidden while the form itself is on screen. */
 export function StickySupport({ remaining }: { remaining: string }) {
+  const t = useT();
   const [show, setShow] = useState(false);
   useEffect(() => {
     const target = document.getElementById('support');
@@ -24,8 +26,8 @@ export function StickySupport({ remaining }: { remaining: string }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgb(14_19_48/0.2)] backdrop-blur lg:hidden">
       <div className="mx-auto flex max-w-6xl items-center gap-3">
-        <p className="min-w-0 flex-1 text-sm"><b>{remaining}</b> <span className="text-mute">still needed</span></p>
-        <a href="#support" className="btn btn-primary min-h-11 px-5 text-sm">Support</a>
+        <p className="min-w-0 flex-1 text-sm"><b><bdi>{remaining}</bdi></b> <span className="text-mute">{t('sticky.needed')}</span></p>
+        <a href="#support" className="btn btn-primary min-h-11 px-5 text-sm">{t('sticky.support')}</a>
       </div>
     </div>
   );

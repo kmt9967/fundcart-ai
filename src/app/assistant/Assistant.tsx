@@ -164,6 +164,13 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
               {result.budget.note && <p className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm font-medium" dir="auto">{result.budget.note}</p>}
               {result.followUp && <p className="mt-2 text-sm text-mute" dir="auto"><b>{t('assistant.followUp')}</b> {result.followUp}</p>}
               {result.safety.piiRedacted && <p className="mt-2 text-sm text-warn">{t('assistant.piiRemoved')}</p>}
+              <form className="mt-4 border-t border-line pt-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
+                <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
+                <div className="flex gap-2">
+                  <input id="refine" dir="auto" className="input min-w-0 flex-1" value={refineText} onChange={e => setRefineText(e.target.value)} placeholder={t('assistant.refinePlaceholder')} maxLength={300} enterKeyHint="send" />
+                  <button className="btn btn-primary min-h-11 shrink-0 px-4" disabled={loading || refineText.trim().length < 2}>{loading ? '…' : t('assistant.refine')}</button>
+                </div>
+              </form>
             </div>
 
             {result.requirements.length > 0 && <Requirements result={result} t={t} />}
@@ -217,14 +224,6 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
               </details>
             )}
 
-            <form className="card sticky bottom-3 z-10 border-brand/30 p-3 shadow-lg sm:p-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
-              <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
-              <div className="flex gap-2">
-                <input id="refine" dir="auto" className="input min-w-0 flex-1" value={refineText} onChange={e => setRefineText(e.target.value)} placeholder={t('assistant.refinePlaceholder')} maxLength={300} enterKeyHint="send" />
-                <button className="btn btn-primary min-h-11 shrink-0 px-4" disabled={loading || refineText.trim().length < 2}>{loading ? '…' : t('assistant.refine')}</button>
-              </div>
-            </form>
-
             <p className="text-xs text-mute">{t('assistant.dataNote', { provider: result.dataSource.provider, time: f.date(result.dataSource.fetchedAt) })}</p>
           </section>
         )}
@@ -265,9 +264,16 @@ function Requirements({ result, t }: { result: Result; t: T }) {
   const groups = (['minimum', 'recommended', 'premium'] as const).map(level => [level, result.requirements.filter(r => r.level === level)] as const).filter(([, rs]) => rs.length);
   const levelKey = { minimum: 'assistant.reqMinimum', recommended: 'assistant.reqRecommended', premium: 'assistant.reqPremium' } as const;
   return (
-    <details className="card group p-4 sm:p-5" open>
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-        <span className="font-bold">{result.profile ? t('assistant.needFor', { need: result.profile.label }) : t('assistant.yourReqs')}</span><Chevron />
+    <details className="card group p-4 sm:p-5">
+      <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block font-bold">{result.profile ? t('assistant.needFor', { need: result.profile.label }) : t('assistant.yourReqs')}</span>
+          <span className="mt-2 flex flex-wrap gap-1.5">
+            {result.requirements.filter(r => r.level === 'minimum').map((r, i) => (
+              <span key={i} className="chip border border-line bg-paper px-2 py-0.5 text-xs font-medium text-ink-2">{t(`field.${r.field}` as DictKey)} <bdi className="font-mono">{r.required}</bdi></span>
+            ))}
+          </span>
+        </span><Chevron />
       </summary>
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         {groups.map(([level, rs]) => (

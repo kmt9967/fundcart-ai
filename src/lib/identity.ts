@@ -8,10 +8,14 @@ import { db } from './db';
 // Judges can use the app instantly; campaign edits and purchase approval are bound to this identity.
 
 const COOKIE = 'fc_uid';
+export const GUEST_COOKIE = COOKIE;
 
 function sign(id: string) {
   return crypto.createHmac('sha256', env.sessionSecret).update(id).digest('base64url').slice(0, 32);
 }
+
+/** Signed cookie value for a profile id (used when an account sign-in switches this browser's identity). */
+export function signGuest(id: string): string { return `${id}.${sign(id)}`; }
 
 export function verifyToken(token: string | undefined): string | null {
   if (!token) return null;

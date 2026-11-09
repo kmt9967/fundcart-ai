@@ -3,53 +3,62 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PayPalCheckout, type CaptureResult } from '@/components/PayPalCheckout';
-import { formatUSD, toCents, MIN_CONTRIBUTION_CENTS } from '@/lib/money';
+import { toCents, MIN_CONTRIBUTION_CENTS } from '@/lib/money';
+import { useFormat, useLocale, useT } from '@/i18n/client';
+
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
 
 export function Contribute({ slug, clientId, remainingCents, suggested }: { slug: string; clientId: string; remainingCents: number; suggested: number[] }) {
-  const router = useRouter();
+  const router = useRouter(); const t = useT(); const f = useFormat(); const locale = useLocale();
   const [amount, setAmount] = useState(suggested[0] ? String(suggested[0] / 100) : '10');
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
   const [anonymous, setAnonymous] = useState(false);
   const [done, setDone] = useState<CaptureResult | null>(null);
 
   const cents = useMemo(() => { try { return toCents(amount); } catch { return null; } }, [amount]);
-  const invalid = cents == null ? 'Enter an amount like 25 or 25.50' : cents < MIN_CONTRIBUTION_CENTS ? 'Minimum is $1.00' : cents > remainingCents ? `Only ${formatUSD(remainingCents)} is still needed` : null;
+  const invalid = cents == null ? t('contrib.errFormat') : cents < MIN_CONTRIBUTION_CENTS ? t('contrib.errMin') : cents > remainingCents ? t('contrib.errMax', { amount: f.usd(remainingCents) }) : null;
+  const emailInvalid = email.trim() !== '' && !EMAIL_RE.test(email.trim());
 
   if (done) {
     return (
       <div className="card fade-up border-ok/30 p-4 sm:p-5" role="status">
-        <p className="text-lg font-extrabold text-ok">Thank you — contribution verified ✓</p>
-        <p className="mt-1 text-sm text-ink-2">PayPal confirmed your sandbox payment{done.state === 'completed' ? ` of ${formatUSD(done.amountCents)}` : ''}. It now counts toward the goal.</p>
+        <p className="text-lg font-extrabold text-ok">{t('contrib.thanks')}</p>
+        <p className="mt-1 text-sm text-ink-2">{done.state === 'completed' ? t('contrib.confirmed', { amount: f.usd(done.amountCents) }) : t('contrib.confirmedPending')}</p>
+        {done.state === 'completed' && email.trim() && !emailInvalid && <p className="mt-1 text-sm text-mute">{t('contrib.emailQueued')}</p>}
         <dl className="mt-3 space-y-1 rounded-xl bg-paper p-3 text-xs">
-          <div className="flex justify-between gap-2"><dt className="text-mute">PayPal order</dt><dd className="break-all text-right font-mono">{done.orderId}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-mute">Capture</dt><dd className="break-all text-right font-mono">{done.captureId}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-mute">Status</dt><dd>{done.state === 'completed' ? 'COMPLETED' : done.status}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-mute">{t('contrib.order')}</dt><dd className="break-all text-end font-mono" dir="ltr">{done.orderId}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-mute">{t('contrib.capture')}</dt><dd className="break-all text-end font-mono" dir="ltr">{done.captureId}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-mute">{t('contrib.status')}</dt><dd>{done.state === 'completed' ? 'COMPLETED' : done.status}</dd></div>
         </dl>
-        <a className="btn btn-ghost mt-4 w-full" href={`/receipt/${done.orderId}`}>View receipt</a>
+        <a className="btn btn-ghost mt-4 w-full" href={`/receipt/${done.orderId}`}>{t('contrib.receipt')}</a>
       </div>
     );
   }
 
   return (
     <div id="support" className="card scroll-mt-20 p-4 sm:p-5">
-      <h2 className="font-bold">Support this campaign</h2>
-      <p className="mt-1 text-sm text-mute">Sandbox payment through PayPal (test money). It only counts once PayPal confirms it.</p>
-      <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Suggested amounts">
-        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-xl border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}>{formatUSD(s)}</button>)}
+      <h2 className="font-bold">{t('contrib.title')}</h2>
+      <p className="mt-1 text-sm text-mute">{t('contrib.lead')}</p>
+      <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
+        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-xl border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
       </div>
-      <div className="mt-3"><label className="label" htmlFor="amt">Amount (USD)</label>
-        <div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-mute">$</span><input id="amt" className="input pl-7 text-lg font-bold sm:text-lg" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} aria-invalid={!!invalid} aria-describedby={invalid ? 'amt-err' : undefined} /></div>
+      <div className="mt-3"><label className="label" htmlFor="amt">{t('contrib.amount')}</label>
+        <div className="relative" dir="ltr"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-mute">$</span><input id="amt" className="input pl-7 text-lg font-bold sm:text-lg" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} aria-invalid={!!invalid} aria-describedby={invalid ? 'amt-err' : undefined} /></div>
         {invalid && <p id="amt-err" role="alert" className="mt-1 text-sm text-bad">{invalid}</p>}</div>
-      <div className="mt-3"><label className="label" htmlFor="sname">Your name</label><input id="sname" className="input" value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder="Shown publicly unless anonymous" autoComplete="given-name" enterKeyHint="next" /></div>
-      <div className="mt-3"><label className="label" htmlFor="msg">Message (optional)</label><input id="msg" className="input" value={message} onChange={e => setMessage(e.target.value)} maxLength={200} placeholder="Good luck with your studies!" enterKeyHint="done" /></div>
-      <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> Contribute anonymously</label>
+      <div className="mt-3"><label className="label" htmlFor="sname">{t('contrib.name')}</label><input id="sname" dir="auto" className="input" value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder={t('contrib.namePh')} autoComplete="given-name" enterKeyHint="next" /></div>
+      <div className="mt-3"><label className="label" htmlFor="msg">{t('contrib.msg')}</label><input id="msg" dir="auto" className="input" value={message} onChange={e => setMessage(e.target.value)} maxLength={200} placeholder={t('contrib.msgPh')} enterKeyHint="next" /></div>
+      <div className="mt-3"><label className="label" htmlFor="semail">{t('contrib.email')}</label>
+        <input id="semail" type="email" dir="ltr" className="input" value={email} onChange={e => setEmail(e.target.value)} maxLength={254} placeholder={t('contrib.emailPh')} autoComplete="email" enterKeyHint="done" aria-invalid={emailInvalid} aria-describedby="semail-hint" />
+        <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>
+      <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
       <div className="mt-4">
         {clientId ? (
-          <PayPalCheckout clientId={clientId} disabled={!!invalid}
-            body={() => (cents && !invalid ? { kind: 'contribution', slug, amountCents: cents, supporterName: name, message, anonymous } : null)}
+          <PayPalCheckout clientId={clientId} disabled={!!invalid || emailInvalid}
+            body={() => (cents && !invalid && !emailInvalid ? { kind: 'contribution', slug, amountCents: cents, supporterName: name, message, anonymous, supporterEmail: email.trim(), locale } : null)}
             onResult={r => { setDone(r); router.refresh(); }} />
-        ) : <p className="text-sm text-bad">PayPal is not configured.</p>}
+        ) : <p className="text-sm text-bad">{t('contrib.noPaypal')}</p>}
       </div>
     </div>
   );

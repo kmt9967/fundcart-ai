@@ -4,9 +4,10 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getCampaignBySlug, publicContributions, campaignUpdates } from '@/lib/campaigns';
 import { currentUserId } from '@/lib/identity';
-import { formatUSD } from '@/lib/money';
 import { ProgressBar } from '@/components/ProgressBar';
 import { StatusChip } from '@/components/StatusChip';
+import { getT } from '@/i18n/server';
+import type { DictKey } from '@/i18n';
 import { Contribute } from './Contribute';
 import { ShareBox } from './ShareBox';
 import { StickySupport } from './StickySupport';
@@ -26,17 +27,13 @@ async function siteOrigin() {
   return `${proto}://${host}`;
 }
 
-function ago(iso: string) {
-  const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (s < 60) return `${s}s ago`; if (s < 3600) return `${Math.round(s / 60)}m ago`; if (s < 86400) return `${Math.round(s / 3600)}h ago`; return `${Math.round(s / 86400)}d ago`;
-}
-
 export default async function CampaignPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ created?: string }> }) {
   const { slug } = await params; const { created } = await searchParams;
   const data = await getCampaignBySlug(slug);
   if (!data) notFound();
   const { campaign: c, product, totals } = data;
   const [supporters, updates, uid] = await Promise.all([publicContributions(c.id), campaignUpdates(c.id), currentUserId()]);
+  const { t, usd, date, dateTime, ago } = await getT();
   const isOwner = uid === c.owner_id;
 
   return (
@@ -44,9 +41,9 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       {created && isOwner && <ShareBox url={`${await siteOrigin()}/c/${c.slug}`} title={c.title} />}
       <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-x-8">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} />{c.is_demo_seed && <span className="chip bg-ink text-white">Demo data</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
-          <h1 className="h-page mt-3 [overflow-wrap:anywhere]">{c.title}</h1>
-          <p className="mt-2 text-sm text-mute">Created by <b className="text-ink">{c.creator_name}</b> · {new Date(c.created_at).toLocaleDateString()}{c.deadline ? ` · target date ${new Date(c.deadline).toLocaleDateString()}` : ''}</p>
+          <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} />{c.is_demo_seed && <span className="chip bg-ink text-white">{t('card.demo')}</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
+          <h1 className="h-page mt-3 [overflow-wrap:anywhere]" dir="auto">{c.title}</h1>
+          <p className="mt-2 text-sm text-mute">{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</p>
 
           <div className="card mt-4 overflow-hidden sm:mt-6">
             {c.image_url
@@ -58,72 +55,72 @@ export default async function CampaignPage({ params, searchParams }: { params: P
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
           <div className="card p-4 sm:p-5">
-            <p className="text-3xl font-extrabold" data-testid="raised">{formatUSD(totals.raisedCents)}</p>
-            <p className="text-sm text-mute">raised of {formatUSD(c.target_cents)} goal · verified by PayPal</p>
+            <p className="text-3xl font-extrabold" data-testid="raised"><bdi>{usd(totals.raisedCents)}</bdi></p>
+            <p className="text-sm text-mute">{t('camp.raisedOf', { goal: usd(c.target_cents) })}</p>
             <div className="mt-4"><ProgressBar percent={totals.percent} size="lg" /></div>
             <div className="mt-3 grid grid-cols-3 gap-1 text-center text-sm">
-              <div><p className="font-extrabold">{totals.percent}%</p><p className="text-xs text-mute">funded</p></div>
-              <div><p className="font-extrabold">{totals.supporterCount}</p><p className="text-xs text-mute">supporters</p></div>
-              <div><p className="font-extrabold">{formatUSD(totals.remainingCents)}</p><p className="text-xs text-mute">to go</p></div>
+              <div><p className="font-extrabold">{totals.percent}%</p><p className="text-xs text-mute">{t('camp.funded')}</p></div>
+              <div><p className="font-extrabold">{totals.supporterCount}</p><p className="text-xs text-mute">{t('camp.supporters')}</p></div>
+              <div><p className="font-extrabold"><bdi>{usd(totals.remainingCents)}</bdi></p><p className="text-xs text-mute">{t('camp.toGo')}</p></div>
             </div>
-            {isOwner && <Link href={`/c/${c.slug}/manage`} className="btn btn-ghost mt-4 w-full">Open creator dashboard</Link>}
+            {isOwner && <Link href={`/c/${c.slug}/manage`} className="btn btn-ghost mt-4 w-full">{t('camp.dashboard')}</Link>}
           </div>
 
           {c.status === 'active' ? (
             <Contribute slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
           ) : (
             <div className="card p-5 text-sm">
-              {c.status === 'goal_reached' && <p><b className="text-ok">Goal reached!</b> Contributions are closed. The creator can now approve a separate sandbox purchase.</p>}
-              {c.status === 'purchased' && <p><b>Completed.</b> The creator approved and paid a separate PayPal Sandbox checkout for the item. No real product was bought.</p>}
-              {c.status === 'cancelled' && <p><b className="text-bad">Cancelled.</b> This campaign no longer accepts contributions.</p>}
+              {c.status === 'goal_reached' && <p><b className="text-ok">{t('camp.goalReachedT')}</b> {t('camp.goalReachedB')}</p>}
+              {c.status === 'purchased' && <p><b>{t('camp.completedT')}</b> {t('camp.completedB')}</p>}
+              {c.status === 'cancelled' && <p><b className="text-bad">{t('camp.cancelledT')}</b> {t('camp.cancelledB')}</p>}
             </div>
           )}
 
           <div className="card p-4 sm:p-5">
-            <h2 className="text-sm font-bold">Supporters</h2>
-            {supporters.length === 0 ? <p className="mt-2 text-sm text-mute">Be the first to support.</p> : (
+            <h2 className="text-sm font-bold">{t('camp.supportersTitle')}</h2>
+            {supporters.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.beFirst')}</p> : (
               <ul className="mt-3 space-y-3">{supporters.slice(0, 12).map((s, i) => (
                 <li key={i} className="flex gap-3 text-sm"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-bold text-brand">{s.name.slice(0, 1)}</span>
-                  <div className="min-w-0 [overflow-wrap:anywhere]"><p><b>{s.name}</b> <span className="text-mute">· {formatUSD(s.amountCents)} · {ago(s.at)}</span></p>{s.message && <p className="text-ink-2">{s.message}</p>}</div></li>
+                  <div className="min-w-0 [overflow-wrap:anywhere]"><p><b dir="auto">{s.name}</b> <span className="text-mute">· <bdi>{usd(s.amountCents)}</bdi> · {ago(s.at)}</span></p>{s.message && <p className="text-ink-2" dir="auto">{s.message}</p>}</div></li>
               ))}</ul>
             )}
           </div>
         </aside>
         <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-          <section className="mt-2 lg:mt-2"><h2 className="text-lg font-bold">The story</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-ink-2">{c.story}</p></section>
+          <section className="mt-2 lg:mt-2"><h2 className="text-lg font-bold">{t('camp.story')}</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-ink-2" dir="auto">{c.story}</p></section>
 
           {product && (
             <section className="card mt-6 p-4 sm:mt-8 sm:p-5">
-              <h2 className="text-sm font-bold">What the money is for</h2>
+              <h2 className="text-sm font-bold">{t('camp.moneyFor')}</h2>
               <div className="mt-3 flex gap-3 sm:gap-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {product.image_url && <img src={product.image_url} alt="" className="size-16 shrink-0 rounded-xl border border-line bg-white object-contain p-2 sm:size-20" loading="lazy" />}
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className="font-semibold leading-snug">{product.title}</p>
-                  <p className="mt-1 text-mute">{product.brand}{product.merchant_domain ? ` · sold by ${product.merchant_domain}` : ''}</p>
+                  <p className="font-semibold leading-snug" dir="auto">{product.title}</p>
+                  <p className="mt-1 text-mute">{product.brand}{product.merchant_domain ? ` · ${t('camp.soldBy', { merchant: product.merchant_domain })}` : ''}</p>
                   <dl className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
-                    <div><dt className="text-xs text-mute">Item price</dt><dd className="font-bold">{formatUSD(c.item_price_cents)}</dd></div>
-                    <div><dt className="text-xs text-mute">Creator has</dt><dd className="font-bold">{formatUSD(c.own_funds_cents)}</dd></div>
-                    <div><dt className="text-xs text-mute">Raising</dt><dd className="font-bold text-sun">{formatUSD(c.target_cents)}</dd></div>
+                    <div><dt className="text-xs text-mute">{t('camp.itemPrice')}</dt><dd className="font-bold"><bdi>{usd(c.item_price_cents)}</bdi></dd></div>
+                    <div><dt className="text-xs text-mute">{t('camp.creatorHas')}</dt><dd className="font-bold"><bdi>{usd(c.own_funds_cents)}</bdi></dd></div>
+                    <div><dt className="text-xs text-mute">{t('camp.raising')}</dt><dd className="font-bold text-sun"><bdi>{usd(c.target_cents)}</bdi></dd></div>
                   </dl>
-                  <p className="mt-2 text-xs text-mute">Price snapshot from Channel3 at {new Date(product.fetched_at).toLocaleString()}.</p>
+                  <p className="mt-2 text-xs text-mute">{t('camp.snapshot', { time: dateTime(product.fetched_at) })}</p>
                 </div>
               </div>
             </section>
           )}
 
           <section className="mt-6 sm:mt-8">
-            <h2 className="text-lg font-bold">Updates</h2>
-            {updates.length === 0 ? <p className="mt-2 text-sm text-mute">No updates yet.</p> : (
+            <h2 className="text-lg font-bold">{t('camp.updates')}</h2>
+            {updates.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.noUpdates')}</p> : (
               <ol className="mt-3 space-y-3">{updates.map(u => (
-                <li key={u.id} className="card p-4 text-sm"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span className="font-semibold uppercase tracking-wide">{u.kind.replace('_', ' ')}{u.ai_generated ? ' · AI-assisted' : ''}</span><span>{ago(u.created_at)}</span></div><p className="mt-1.5 leading-relaxed text-ink-2">{u.body}</p></li>
+                <li key={u.id} className="card p-4 text-sm"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span className="font-semibold uppercase tracking-wide">{(['update', 'thank_you', 'goal_reached', 'purchase'].includes(u.kind) ? t(`upd.${u.kind}` as DictKey) : u.kind.replace('_', ' '))}{u.ai_generated ? ` · ${t('camp.aiAssisted')}` : ''}</span><span>{ago(u.created_at)}</span></div><p className="mt-1.5 leading-relaxed text-ink-2" dir="auto">{u.body}</p></li>
               ))}</ol>
             )}
           </section>
         </div>
 
       </div>
-      {c.status === 'active' && <StickySupport remaining={formatUSD(totals.remainingCents)} />}
+      {c.status === 'active' && <StickySupport remaining={usd(totals.remainingCents)} />}
     </div>
   );
 }

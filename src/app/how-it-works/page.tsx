@@ -1,38 +1,42 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { Rich } from '@/components/Rich';
+import { getT } from '@/i18n/server';
+import type { DictKey } from '@/i18n';
 
-export const metadata = { title: 'How it works — FundCart AI' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t('how.eyebrow')} — FundCart AI` };
+}
 
-const agents = [
-  ['Intent Agent', 'Reads your request and extracts category, purpose, budget, what you already have, must-haves and preferred brands. Asks one follow-up only if the request is too vague.'],
-  ['Research Agent', 'Calls the Channel3 product search API with your budget as a price filter. Widens the search if too few products fit. Results are cached to save credits.'],
-  ['Comparison Agent', 'Ranks products with a transparent score (price fit, matching features, ratings), then writes grounded explanations using only the retrieved fields. Product text is treated as untrusted data.'],
-  ['Budget Agent', 'Computes funding gaps with exact integer-cent arithmetic. The model never sets a price, goal or total.'],
-  ['Campaign Assistant', 'Drafts an honest campaign story, thank-you note and progress updates from verified numbers. You edit before anything is published.'],
-  ['Payment Agent', 'Prepares checkout summaries. It cannot pay: every payment needs your explicit confirmation and approval inside PayPal.'],
-];
+const agents = [1, 2, 3, 4, 5, 6, 7, 8].map(n => [`how.a${n}n`, `how.a${n}b`] as [DictKey, DictKey]);
 
-export default function HowItWorks() {
+export default async function HowItWorks() {
+  const { t } = await getT();
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-12">
-      <p className="eyebrow">How it works</p>
-      <h1 className="h-page mt-2">AI does the legwork. You stay in control of the money.</h1>
+      <p className="eyebrow">{t('how.eyebrow')}</p>
+      <h1 className="h-page mt-2">{t('how.title')}</h1>
 
-      <section className="mt-8 sm:mt-10"><h2 className="text-xl font-bold">The agent team</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">{agents.map(([n, b]) => <div key={n} className="card p-4 sm:p-5"><h3 className="font-bold text-brand">{n}</h3><p className="mt-2 text-sm leading-relaxed text-ink-2">{b}</p></div>)}</div></section>
-
-      <section className="mt-10 sm:mt-12"><h2 className="text-xl font-bold">How payments work (PayPal Sandbox)</h2>
+      <section className="mt-8 sm:mt-10"><h2 className="text-xl font-bold">{t('how.recTitle')}</h2>
         <ol className="mt-4 space-y-3 text-sm leading-relaxed text-ink-2">
-          <li><b className="text-ink">1. Server-priced orders.</b> FundCart&apos;s server creates every PayPal order (Orders v2 API) with an amount it calculated itself — the browser can&apos;t change it.</li>
-          <li><b className="text-ink">2. You approve in PayPal.</b> The PayPal button opens PayPal&apos;s own approval window.</li>
-          <li><b className="text-ink">3. Server captures and verifies.</b> After approval, the server captures the order and checks PayPal&apos;s response: the capture must be COMPLETED and match the expected amount and currency.</li>
-          <li><b className="text-ink">4. Recorded once.</b> Contributions are written once per PayPal capture (unique constraints), so double clicks, refreshes or duplicate webhooks never double-count. Verified webhooks reconcile anything the browser missed.</li>
-          <li><b className="text-ink">5. Separate purchase.</b> When verified contributions reach the goal, the creator can approve a <i>separate</i> sandbox checkout for the item.</li>
+          {(['how.rec1', 'how.rec2', 'how.rec3', 'how.rec4'] as const).map(k => <li key={k}><Rich text={t(k)} boldClass="font-bold text-ink" /></li>)}
+        </ol>
+        <p className="mt-3 text-xs text-mute"><a className="underline hover:text-brand" href="https://developer.android.com/studio/install" target="_blank" rel="noopener noreferrer">developer.android.com/studio/install ↗</a></p>
+      </section>
+
+      <section className="mt-10 sm:mt-12"><h2 className="text-xl font-bold">{t('how.agentsTitle')}</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">{agents.map(([n, b]) => <div key={n} className="card p-4 sm:p-5"><h3 className="font-bold text-brand">{t(n)}</h3><p className="mt-2 text-sm leading-relaxed text-ink-2">{t(b)}</p></div>)}</div></section>
+
+      <section className="mt-10 sm:mt-12"><h2 className="text-xl font-bold">{t('how.paymentsTitle')}</h2>
+        <ol className="mt-4 space-y-3 text-sm leading-relaxed text-ink-2">
+          {(['how.p1', 'how.p2', 'how.p3', 'how.p4', 'how.p5'] as const).map(k => <li key={k}><Rich text={t(k)} boldClass="font-bold text-ink" /></li>)}
         </ol></section>
 
-      <section className="card mt-10 p-5 sm:mt-12 sm:p-6"><h2 className="text-lg font-bold">Sandbox demo money flow</h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink-2">Contributions are paid to a sandbox account that represents the campaign creator&apos;s PayPal account. The later purchase is a separate payment to a sandbox account representing the store. FundCart never holds, pools or redistributes money, and it is not an escrow service or a charity. A production version would onboard each creator&apos;s own PayPal account (PayPal multiparty / partner onboarding).</p></section>
+      <section className="card mt-10 p-5 sm:mt-12 sm:p-6"><h2 className="text-lg font-bold">{t('how.flowTitle')}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">{t('how.flowBody')}</p></section>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:flex"><Link href="/assistant" className="btn btn-primary">Try the assistant</Link><Link href="/disclosures" className="btn btn-ghost">Disclosures</Link></div>
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:flex"><Link href="/assistant" className="btn btn-primary">{t('how.try')}</Link><Link href="/disclosures" className="btn btn-ghost">{t('how.disclosures')}</Link></div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import type { Dict } from './en';
+import { pagesEs } from './pages';
 
 // Español — machine-assisted translation; please have a native speaker review before final submission.
-export const es: Dict = {
+const core = {
   'common.priceUnavailable': 'Precio no disponible',
   'common.sandboxBadge': 'PayPal Sandbox',
   'common.loading': 'Cargando…',
@@ -195,3 +196,5 @@ export const es: Dict = {
   'safety.off_topic': 'Soy un asistente de compras, así que no puedo hacer tareas. Puedo ayudarte a encontrar lo que necesitas para estudiar.',
   'safety.deceptive_campaign': 'No puedo escribir una campaña que afirme una enfermedad o dificultad que no es cierta. Las historias honestas también recaudan dinero y con gusto te ayudo a escribir una.',
 };
+
+export const es: Dict = { ...core, ...pagesEs };

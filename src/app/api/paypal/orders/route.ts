@@ -9,6 +9,7 @@ import { getCampaignBySlug } from '@/lib/campaigns';
 import { validateContribution } from '@/lib/money';
 import { cleanText, findRecentProduct, saveSnapshot } from '@/lib/channel3';
 import { rateLimit, clientKey } from '@/lib/ratelimit';
+import { saveReceiptRequest, validEmail } from '@/lib/receipts';
 
 export const runtime = 'nodejs';
 
@@ -19,6 +20,9 @@ const Contribution = z.object({
   supporterName: z.string().trim().max(40).optional().default(''),
   message: z.string().trim().max(200).optional().default(''),
   anonymous: z.boolean().optional().default(false),
+  /** Optional, private: only used to email a receipt after PayPal verifies the capture. */
+  supporterEmail: z.string().trim().max(254).optional().default(''),
+  locale: z.string().max(5).optional().default('en'),
 });
 const Purchase = z.object({
   kind: z.literal('purchase'),
@@ -72,6 +76,7 @@ export async function POST(req: Request) {
       if (campaign.status !== 'active') return Response.json({ error: campaign.status === 'cancelled' ? 'This campaign was cancelled.' : 'This campaign is no longer accepting contributions.' }, { status: 409 });
       const v = validateContribution(p.data.amountCents, totals.raisedCents, campaign.target_cents, campaign.allow_overfunding);
       if (!v.ok) return Response.json({ error: v.error }, { status: 422 });
+      if (p.data.supporterEmail && !validEmail(p.data.supporterEmail)) return Response.json({ error: 'Please enter a valid email address, or leave it empty.' }, { status: 422 });
       const order = await createOrder({
         referenceId: paymentOrderId, customId: campaign.id,
         description: `Contribution to "${campaign.title}" (FundCart AI sandbox demo)`,
@@ -84,7 +89,8 @@ export async function POST(req: Request) {
         supporter_name: cleanText(p.data.supporterName, 40) || null, supporter_message: cleanText(p.data.message, 200) || null, is_anonymous: p.data.anonymous,
       });
       if (ins.error) throw new Error(ins.error.message);
-      await logPaymentEvent({ paymentOrderId, paypalOrderId: order.id, source: 'api', eventType: 'order.created', status: order.status, summary: { kind: 'contribution', amountCents: v.amountCents } });
+      if (p.data.supporterEmail) await saveReceiptRequest(paymentOrderId, p.data.supporterEmail, p.data.locale).catch(() => {});
+      await logPaymentEvent({ paymentOrderId, paypalOrderId: order.id, source: 'api', eventType: 'order.created', status: order.status, summary: { kind: 'contribution', amountCents: v.amountCents, receiptRequested: !!p.data.supporterEmail } });
       return Response.json({ orderId: order.id });
     }
 
