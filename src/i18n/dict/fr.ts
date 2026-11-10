@@ -1,3 +1,4 @@
+import { securityFr } from "./security";
 import type { Dict } from './en';
 import { pagesFr } from './pages';
 import { trustFr } from './trust';
@@ -220,4 +221,4 @@ const core = {
   'safety.deceptive_campaign': 'Je ne peux pas rédiger une campagne qui invente une maladie ou une difficulté. Les histoires honnêtes collectent aussi des fonds, et je vous aiderai volontiers à en écrire une.',
 };
 
-export const fr: Dict = { ...core, ...pagesFr, ...trustFr };
+export const fr: Dict = { ...core, ...pagesFr, ...trustFr, ...securityFr };

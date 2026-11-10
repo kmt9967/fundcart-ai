@@ -61,7 +61,7 @@ The server refuses to start payments unless `PAYPAL_ENV=sandbox`.
 | `GEMINI_API_KEY_DEV` | optional, server-only; a separate development/test project for local, test and preview use |
 | `GEMINI_MODEL` | optional; stable IDs tried in order, default `gemini-3.5-flash-lite,gemini-3.1-flash-lite` (`-latest` aliases are rejected) |
 | `GEMINI_THINKING_LEVEL` | optional; `minimal` (default), `low`, `medium`, `high` or `off` |
-| `SESSION_SECRET` | random 32+ bytes; signs the guest identity cookie |
+| `SESSION_SECRET` | random 32+ bytes; signs the guest identity, account and demo-session cookies |
 | `CRON_SECRET` | random; Vercel sends it to the cron route |
 
 `SUPABASE_DB_PASSWORD` is only needed locally for migrations. Do not add it to Vercel.

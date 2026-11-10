@@ -19,7 +19,7 @@ Meet Maya. She needs a laptop for university, wants to spend under $700, and has
 
 1. **She asks in plain words.** FundCart's AI understands her purpose and budget and searches a live product catalog.
 2. **She compares real options.** Every result has a live price and retailer, an AI explanation of why it fits, and the exact funding gap. The top pick is a $550 laptop, which leaves a $350 gap.
-3. **She clicks "Fund this".** The campaign goal comes from the live price. The AI drafts an honest campaign story, Maya edits it, and she publishes a shareable link.
+3. **She clicks "Fund this".** The goal is calculated on the server from the live price: price − what she has + a 5% price-change buffer, each part shown before she commits. The AI drafts a story using only what Maya wrote; she edits it, signs in, and submits. Campaigns from accounts without a verified email are checked by a moderator before they can accept support.
 4. **Supporters contribute through PayPal.** Progress moves only when PayPal confirms a payment for the exact amount.
 5. **She approves the purchase.** Once the goal is reached, Maya ticks an explicit approval and pays the store in a **separate** PayPal checkout. Nothing is ever bought automatically.
 
@@ -33,7 +33,9 @@ Shoppers who can already afford an item can also check out directly, with the sa
 | **Conversation memory** | Follow-ups keep earlier requirements: "cheaper", "not HP", "I need 16GB RAM", "compare the first and third", "forget the budget" |
 | **Four languages** | English, Urdu (right-to-left), Spanish and French across the whole site; the assistant also understands Roman Urdu and mixed English/Urdu |
 | **Budget planning** | Exact funding gap for every product, calculated on the server |
-| **AI-assisted campaigns** | Honest campaign story, thank-you note and progress updates drafted by AI; the creator edits before publishing |
+| **AI-assisted campaigns** | Campaign story, thank-you note and progress updates drafted by AI from the creator's own words only; sentences claiming things the creator never said (work, hardship, health, family, verification) are removed |
+| **Publication security** | Shopping is open to everyone; publishing a campaign that asks for money needs a signed-in account and passes a separate eligibility check: stated purpose vs need category, stated intent to deceive, invented story claims, product-suitability evidence, duplicates and velocity. Anything uncertain waits for a moderator |
+| **One-click demo** | "Try Demo Account" opens a read-only creator dashboard with sample data (progress, payment ledger, campaign controls) without any password and without touching real records |
 | **PayPal contributions** | PayPal Checkout for supporters; progress counts only PayPal-confirmed payments; overfunding is rejected; optional private email receipt after PayPal verifies the payment |
 | **Creator accounts & dashboard** | Optional sign-in to manage campaigns from any device; every PayPal payment with its status and reference, plus an audit history |
 | **Human-approved purchase** | A separate PayPal checkout that the creator explicitly approves; the live price is re-checked first and a price rise pauses the purchase |
@@ -62,7 +64,7 @@ The AI never sets prices or totals. Third-party product text is treated as untru
 - **Orders API:** the server creates every order with an amount it calculates itself (the browser cannot change it), using an idempotency key.
 - **JavaScript SDK (Smart Buttons):** buyers approve each payment inside PayPal. The server then captures the payment and confirms it with PayPal: status completed, exact amount, correct currency.
 - **Webhooks:** PayPal's payment notifications are signature-verified, deduplicated and matched to their orders. A payment is never counted twice. Refunds and reversals reduce the campaign total, including partial refunds.
-- **Separation of money flows:** contributions go to the campaign recipient; the purchase is a separate checkout to the store.
+- **Separation of money flows:** in this prototype every Sandbox contribution is paid to one merchant account configured by FundCart (the same for every campaign, not the creator's personal PayPal) and recorded against the chosen campaign; the purchase is a separate checkout to the demo store. See [Campaign publication](docs/CAMPAIGN_PUBLICATION.md#where-sandbox-money-goes).
 
 ## Architecture
 
@@ -92,13 +94,15 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - All secrets stay on the server; the browser only receives the public PayPal client ID.
 - The database uses row-level security with no public policies, and only server code can access it.
 - Amounts and goals are calculated on the server; the client cannot set them.
-- Campaign management and purchase approval are checked on the server against the campaign owner. Owners are identified by a signed guest cookie or an optional account (Supabase Auth); guest campaigns move into an account only from the browser that holds the signed guest cookie.
+- Publishing a campaign requires a signed-in account (Supabase Auth), checked on the server; guests can shop, compare and prepare a draft that is kept in their browser through sign-in. Campaign management and purchase approval are checked on the server against the campaign owner; older guest campaigns move into an account only from the browser that holds their signed guest cookie.
+- A deterministic eligibility engine, separate from shopping, decides whether a campaign goes live, needs clarification or waits for a moderator. The AI can never approve a campaign, verify anyone or change a payment. See [Campaign publication](docs/CAMPAIGN_PUBLICATION.md).
+- The demo account is a signed, short-lived, read-only session over fixed sample data: no shared password, no database access, no moderator rights.
 - A safety check runs before any search (prompt injection, self-harm, restricted items, covert surveillance, counterfeits); card numbers are removed from messages before they are stored or sent to the AI.
 - Supporter emails for receipts are collected only when receipt emails are enabled, stored privately and never shown publicly.
 - Rate limits are shared across server instances (Postgres counters with hashed keys) and apply per IP and per visitor, with a daily AI allowance so automated traffic cannot drain the model quota.
 - Payments: $5 minimum (card-testing defence), contribution velocity limits, duplicate-order reuse, hidden bot fields, idempotent capture, deduplicated webhooks and decline-spike alerts.
 - Moderation and verification state can only be changed by moderators (role from the database) or by an approved verification process, never by chat or request fields.
-- See [Security](docs/SECURITY.md), [Anti-fraud](docs/ANTI_FRAUD.md) and [Policy engine](docs/POLICY_ENGINE.md).
+- See [Security](docs/SECURITY.md), [Anti-fraud](docs/ANTI_FRAUD.md), [Campaign publication](docs/CAMPAIGN_PUBLICATION.md) and [Policy engine](docs/POLICY_ENGINE.md).
 
 ## Limitations
 
@@ -106,7 +110,7 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - **Not escrow or charity:** FundCart AI does not hold funds and is not a charity or bank.
 - **Single recipient:** one authorized Sandbox account currently receives contributions on behalf of every campaign creator. A production version would let each creator connect their own PayPal account.
 - **Refunds:** only the recipient can issue a refund. FundCart's handling of refund notifications is built but has not yet been exercised with a recipient-issued refund.
-- **Accounts:** email addresses are not verified in this demo build (shown as "Email not verified"); provider-verified sign-up switches on once a custom email provider is configured. Password-reset emails need that provider to arrive reliably.
+- **Accounts:** email addresses are not verified in this demo build (shown as "Email not verified"), so every new campaign waits for a moderator before it can accept support; provider-verified sign-up switches on once a custom email provider is configured. Password-reset emails need that provider to arrive reliably.
 - **Verification:** no identity or need-verification provider is connected, so every campaign is labelled unverified. Country rules are research summaries, not legal advice.
 - **Receipts:** the receipt email integration is built but switched off until a transactional email provider is configured. While it is off, the receipt email field is hidden and no email address is collected; receipts are still available on the receipt page.
 - **Spec checks** depend on what retailers list; unconfirmed specs are labelled "check before buying". Translations are machine-assisted.

@@ -1,3 +1,4 @@
+import { securityEn } from "./security";
 import { pagesEn } from "./pages";
 import { trustEn } from "./trust";
 // English (source) dictionary. Every other locale must provide the same keys (enforced by the Dict type).
@@ -220,6 +221,6 @@ const core = {
   'safety.deceptive_campaign': 'I can’t write a campaign that claims an illness or hardship that isn’t true. Honest stories still raise money, and I’m happy to help you write one.',
 } as const;
 
-export const en = { ...core, ...pagesEn, ...trustEn } as const;
+export const en = { ...core, ...pagesEn, ...trustEn, ...securityEn } as const;
 export type DictKey = keyof typeof en;
 export type Dict = Record<DictKey, string>;

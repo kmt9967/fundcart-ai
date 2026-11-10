@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { findRecentProduct, saveSnapshot, cleanText } from '@/lib/channel3';
 import { db } from '@/lib/db';
-import { ensureUser } from '@/lib/identity';
+import { currentAccount } from '@/lib/auth';
+import { assessPublication } from '@/lib/eligibility';
 import { campaignGap, formatUSD, suggestedTiers, toCents } from '@/lib/money';
 import { makeSlug } from '@/lib/campaigns';
 import { sharedRateLimit, clientKey, bucketId } from '@/lib/ratelimit';
 import { policyFor, requestCountry, canCreateCampaign, NEED_CATEGORIES, POLICY_VERSION } from '@/lib/policy';
 import { reviewCampaignContent, contentFingerprint, scoreOf, REVIEW_THRESHOLD, type ModerationReason } from '@/lib/moderation';
-import { recordSecurityEvent } from '@/lib/security-events';
+import { recordSecurityEvent, subjectEventCount } from '@/lib/security-events';
 import { getLocale } from '@/i18n/server';
 import { t } from '@/i18n';
 
@@ -25,6 +26,8 @@ const Body = z.object({
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   visibility: z.enum(['public', 'unlisted']).default('public'),
   needCategory: z.enum(NEED_CATEGORIES).optional().nullable(),
+  /** The creator's own reason, in their words. Story claims are checked against it. */
+  purpose: z.string().trim().max(400).optional().default(''),
   /** The assistant turn that recommended this item (owner-checked): proves it was the cheapest adequate option. */
   sessionId: z.string().uuid().optional().nullable(),
   ownerPaysDifference: z.boolean().optional().default(false),
@@ -44,9 +47,13 @@ export async function POST(req: Request) {
   if (!p.success) return Response.json({ error: 'Please complete the title (5+ chars) and story (20+ chars).' }, { status: 400 });
   if (p.data.website) { void recordSecurityEvent('honeypot', 'warn', bucketId('ip', ip), { route: 'campaigns' }); return Response.json({ error: 'Could not create the campaign.' }, { status: 400 }); }
 
+  // Publishing asks strangers for money, so it needs a signed-in account verified on the server.
+  // A guest cookie alone is not enough (guests can still shop, compare and prepare a draft).
+  const account = await currentAccount();
+  if (!account) return Response.json({ error: t(locale, 'elig.loginRequired'), code: 'login_required' }, { status: 401 });
   const country = requestCountry(req);
   const policy = policyFor(country);
-  const userId = await ensureUser(p.data.creatorName);
+  const userId = account.profileId;
   // Attempt limits (validation retries count). Successful creations are capped separately: at most
   // MAX_ACTIVE_PER_OWNER active campaigns and a velocity review flag for 2+ new campaigns in 24 hours.
   const url = await sharedRateLimit([['create_user_hour', userId, 10, 3600], ['create_user_day', userId, 20, 86400]]);
@@ -98,6 +105,29 @@ export async function POST(req: Request) {
   }
   review.reasons.forEach(r => reasons.add(r));
 
+  // Publication eligibility: account, purpose vs category, stated intent, story claims, suitability.
+  const userBucket = bucketId('user', userId);
+  const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const [sessions, priorFraud, clarifications] = await Promise.all([
+    db().from('ai_sessions').select('prompt').eq('user_id', userId).gte('created_at', since7d).order('created_at', { ascending: false }).limit(20),
+    subjectEventCount('fraud_intent', userBucket, 30 * 24 * 60),
+    subjectEventCount('publish_clarification', userBucket, 24 * 60),
+  ]);
+  const contentScore = scoreOf([...reasons]);
+  const elig = assessPublication({
+    authenticated: true, emailVerified: account.emailVerified, needCategory: p.data.needCategory ?? null, purpose: p.data.purpose,
+    shoppingRequests: (sessions.data || []).map(r => String(r.prompt || '')), title: `${p.data.title}
+${p.data.thankYou || ''}`, story: p.data.story,
+    suitability: rankingMode, contentReasons: [...reasons], contentBlocked: false, priorFraudSignal: priorFraud > 0,
+    clarificationAttempts24h: clarifications, adminReviewRequired: policy.adminReviewRequired, contentScore, reviewThreshold: REVIEW_THRESHOLD,
+  });
+  if (elig.reasons.includes('fraud_intent')) void recordSecurityEvent('fraud_intent', 'alert', userBucket, { route: 'campaigns', reasons: elig.reasons });
+  if (elig.outcome === 'needs_clarification') {
+    void recordSecurityEvent('publish_clarification', 'info', userBucket, { reasons: elig.reasons });
+    return Response.json({ error: t(locale, 'elig.clarify'), code: 'needs_clarification', questions: elig.questions.map(q => t(locale, q as never)), reasons: elig.reasons }, { status: 422 });
+  }
+  if (elig.outcome === 'rejected') return Response.json({ error: t(locale, 'mod.blocked'), code: 'content_blocked' }, { status: 422 });
+
   const active = await db().from('campaigns').select('id, product_snapshot_id, created_at').eq('owner_id', userId).in('status', ['active', 'goal_reached']);
   const activeRows = active.data || [];
   if (activeRows.length >= MAX_ACTIVE_PER_OWNER) return Response.json({ error: t(locale, 'mod.tooMany'), code: 'too_many_active' }, { status: 429 });
@@ -110,9 +140,10 @@ export async function POST(req: Request) {
   const dup = await db().from('campaigns').select('id', { count: 'exact', head: true }).eq('content_hash', hash).neq('owner_id', userId);
   if ((dup.count ?? 0) > 0) reasons.add('duplicate_content');
 
-  const reasonList = [...reasons];
-  const score = scoreOf(reasonList);
-  const moderation = policy.adminReviewRequired || score >= REVIEW_THRESHOLD ? 'pending_review' : 'auto_approved';
+  const reasonList: string[] = [...reasons, ...elig.reasons];
+  const score = scoreOf([...reasons]);
+  // Only the deterministic engine can publish; anything it is unsure about waits for a moderator.
+  const moderation = elig.outcome === 'publish' && score < REVIEW_THRESHOLD && !reasons.has('duplicate_content') && !reasons.has('velocity') ? 'auto_approved' : 'pending_review';
 
   const snapshotId = await saveSnapshot(product);
   const ins = await db().from('campaigns').insert({
@@ -128,7 +159,7 @@ export async function POST(req: Request) {
   }).select('id, slug').single();
   if (ins.error) return Response.json({ error: 'Could not create the campaign.' }, { status: 500 });
   if (p.data.thankYou) await db().from('campaign_updates').insert({ campaign_id: ins.data.id, kind: 'thank_you', body: cleanText(reviewCampaignContent({ title: 'x', story: p.data.thankYou, creatorName: '', priceCents: 0, maxCampaignCents: 1 }).story, 300), ai_generated: true });
-  await db().from('agent_events').insert({ campaign_id: ins.data.id, agent: 'Campaign Assistant', step: 'Campaign created from a live product snapshot', detail: { snapshotId, targetCents: target, rankingMode, moderation, policyVersion: POLICY_VERSION } });
-  if (moderation === 'pending_review') void recordSecurityEvent('campaign_flagged', 'info', ins.data.id, { reasons: reasonList, score });
-  return Response.json({ slug: ins.data.slug, moderation, reasons: reasonList });
+  await db().from('agent_events').insert({ campaign_id: ins.data.id, agent: 'Campaign Assistant', step: 'Campaign created from a live product snapshot', detail: { snapshotId, targetCents: target, rankingMode, moderation, policyVersion: POLICY_VERSION, eligibility: { outcome: elig.outcome, risk: elig.risk, reasons: elig.reasons }, creatorPurpose: cleanText(p.data.purpose, 400) } });
+  if (moderation === 'pending_review') void recordSecurityEvent('campaign_flagged', elig.risk === 'high' ? 'alert' : 'info', ins.data.id, { reasons: reasonList, score, risk: elig.risk });
+  return Response.json({ slug: ins.data.slug, moderation, risk: elig.risk, reasons: reasonList });
 }

@@ -26,6 +26,10 @@ an external penetration test.
 
 | Threat | Control | Residual risk |
 |---|---|---|
+| Anonymous fundraising | Publishing requires a signed-in account verified server-side against the database; guests can only draft (kept in their browser). Unverified emails always go to moderator review | Moderators must review promptly; email delivery not configured yet |
+| Deceptive campaigns written by an AI | AI drafts only from the creator's own words; a deterministic filter strips claims the creator never made; submitted text is re-checked whatever its source | Creators can still type untrue claims themselves; these reach a moderator only if they match a rule |
+| Stated intent to deceive | First-person intent detection (en/es/fr/ur) on the purpose, story and the account's recent shopping requests; high-risk review; 30-day account signal survives rewording, new conversations and direct API calls | A determined fraudster simply won't say it; identity verification is still missing |
+| Demo-account abuse | No shared password; signed short-lived read-only session over fixed sample data; not accepted by any API; rate-limited | — |
 | Broken object-level authorization (API1) | Ownership checks on every owner action (signed identity = campaign owner); receipts visible only to payer/owner; random slugs and UUIDs | — |
 | Broken authentication (API2) | Supabase Auth; HMAC-signed httpOnly cookies; shared login limits per IP and per (hashed) email; generic sign-up and recovery answers | No MFA; email confirmation needs an email provider (see limitations) |
 | Mass assignment (API3) | Zod schemas pick allowed fields only; goal, status, verification and moderation are recomputed or set by the server | — |

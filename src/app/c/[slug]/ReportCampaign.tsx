@@ -32,7 +32,7 @@ export function ReportCampaign({ slug }: { slug: string }) {
       </select>
       <label className="label mt-2" htmlFor="rep-details">{t('trust.reportDetails')}</label>
       <textarea id="rep-details" className="input min-h-16" maxLength={300} value={details} onChange={e => setDetails(e.target.value)} dir="auto" />
-      <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] h-px w-px opacity-0" />
+      <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0 [clip:rect(0,0,0,0)]" />
       <button type="button" className="btn btn-ghost mt-2 min-h-11 px-4 text-sm" onClick={send} disabled={busy}>{t('trust.reportSend')}</button>
     </div>
   );

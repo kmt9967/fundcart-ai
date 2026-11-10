@@ -1,3 +1,4 @@
+import { securityUr } from "./security";
 import type { Dict } from './en';
 import { pagesUr } from './pages';
 import { trustUr } from './trust';
@@ -220,4 +221,4 @@ const core = {
   'safety.deceptive_campaign': 'میں ایسی مہم نہیں لکھ سکتا جو غلط بیماری یا مشکل کا دعویٰ کرے۔ سچی کہانیاں بھی رقم جمع کرتی ہیں، اور میں ایسی کہانی لکھنے میں خوشی سے مدد کروں گا۔',
 };
 
-export const ur: Dict = { ...core, ...pagesUr, ...trustUr };
+export const ur: Dict = { ...core, ...pagesUr, ...trustUr, ...securityUr };

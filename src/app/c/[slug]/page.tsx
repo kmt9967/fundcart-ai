@@ -74,7 +74,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             {isOwner && <Link href={`/c/${c.slug}/manage`} className="btn btn-ghost mt-4 w-full">{t('camp.dashboard')}</Link>}
           </div>
 
-          {!publicActive && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" role="status" data-testid="moderation-banner">{c.moderation_status === 'pending_review' ? t('trust.pending') : t('trust.unavailable')}</div>}
+          {!publicActive && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" role="status" data-testid="moderation-banner">{c.moderation_status === 'pending_review' ? t('trust.pending') : t('trust.unavailable')}{isOwner && c.moderation_status === 'pending_review' && <p className="mt-2" data-testid="owner-review-note">{t('elig.ownerPending')}</p>}</div>}
           {c.status === 'active' && publicActive && !contributionGate.allowed && <div className="card p-4 text-sm" role="status" data-testid="policy-gate">{t(contributionGate.messageKey as DictKey)}</div>}
           {c.status === 'active' && publicActive && contributionGate.allowed ? (
             <Contribute disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />

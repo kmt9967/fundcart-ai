@@ -1,3 +1,4 @@
+import { securityEs } from "./security";
 import type { Dict } from './en';
 import { pagesEs } from './pages';
 import { trustEs } from './trust';
@@ -220,4 +221,4 @@ const core = {
   'safety.deceptive_campaign': 'No puedo escribir una campaña que afirme una enfermedad o dificultad que no es cierta. Las historias honestas también recaudan dinero y con gusto te ayudo a escribir una.',
 };
 
-export const es: Dict = { ...core, ...pagesEs, ...trustEs };
+export const es: Dict = { ...core, ...pagesEs, ...trustEs, ...securityEs };

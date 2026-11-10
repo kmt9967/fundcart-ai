@@ -3,6 +3,7 @@ import { listPublicCampaigns } from '@/lib/campaign-list';
 import { CampaignCard } from '@/components/CampaignCard';
 import { Rich } from '@/components/Rich';
 import { getT } from '@/i18n/server';
+import { DemoButton } from '@/components/DemoButton';
 import type { DictKey } from '@/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,7 @@ export default async function Home() {
             <div className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap">
               <Link href="/assistant" className="btn btn-primary min-h-12 px-5 text-base">{t('home.ctaFind')}</Link>
               <Link href="/campaigns" className="btn btn-ghost min-h-12 px-5 text-base">{t('home.ctaSupport')}</Link>
+              <DemoButton compact className="grid" />
             </div>
             <dl className="mt-8 grid max-w-lg grid-cols-3 gap-3 text-xs sm:mt-10 sm:gap-4 sm:text-sm">
               <div><dt className="text-mute">{t('home.statData')}</dt><dd className="font-bold">{t('home.statDataV')}</dd></div>

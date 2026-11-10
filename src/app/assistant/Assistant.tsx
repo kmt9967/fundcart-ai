@@ -371,6 +371,7 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
           </div>
           {p.rating && <p className="text-xs text-mute">★ {p.rating.toFixed(1)}{p.ratingCount ? ` (${p.ratingCount})` : ''}</p>}
           {gap != null && e.status === 'suitable' && <p className={`mt-1 text-xs font-bold ${gap > 0 ? 'text-sun' : 'text-ok'}`}>{gap > 0 ? t('assistant.gap', { amount: f.usd(gap) }) : t('assistant.canAfford')}</p>}
+          {gap != null && gap > 0 && e.status === 'suitable' && fundingAvailable && p.priceCents != null && <p className="text-xs text-mute" data-testid="goal-preview">{t('gap.preview', { goal: f.usd(Math.max(0, p.priceCents + Math.ceil(p.priceCents * 5 / 100) - (ownCents ?? 0))), buffer: f.usd(Math.ceil(p.priceCents * 5 / 100)) })}</p>}
           {listingFlags.includes(p.externalId) && <p className="mt-1 text-xs text-warn">{t('assistant.listingFlag')}</p>}
           {e.overkill && <p className="mt-1 text-xs font-semibold text-warn">{t('assistant.overkill', { extra: f.usd(e.overkill.extraCents) })}</p>}
         </div>

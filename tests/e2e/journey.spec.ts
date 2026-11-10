@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { payWithPayPalSandbox, tagLocalClient } from './helpers';
+import crypto from 'node:crypto';
+import { payWithPayPalSandbox, tagLocalClient, approveAsModeratorFixture } from './helpers';
 
 // Full integrated journey with REAL PayPal Sandbox payments:
-// ask AI → real Channel3 products → compare → fund this → AI campaign draft → publish →
+// ask AI → real Channel3 products → compare → fund this → AI campaign draft (as a guest) → sign up with the
+// draft preserved → submit (unverified email → moderator review) → approval fixture →
 // supporter contributes (PayPal Sandbox) → verified progress → goal reached → creator approves
 // a separate Sandbox purchase → receipt and audit history.
 
@@ -15,7 +17,7 @@ test.skip(!supporter.email || !supporter.password, 'Sandbox buyer credentials no
 
 test('end-to-end: shop → fund → contribute → goal → approve purchase', async ({ browser }) => {
   fs.mkdirSync(evidence, { recursive: true });
-  const creator = await browser.newContext(); // creator identity (guest cookie)
+  const creator = await browser.newContext(); // starts as a guest, signs up before submitting
   await tagLocalClient(creator, '198.51.100.21');
   const page = await creator.newPage();
 
@@ -41,12 +43,28 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await page.locator('#need').selectOption('education');
   await page.getByRole('button', { name: /Draft my campaign with AI/ }).click();
   await expect(page.getByLabel('Campaign title')).not.toHaveValue('', { timeout: 60_000 });
-  const goalText = await page.locator('dd.text-sun').first().innerText();
+  const goalText = await page.getByTestId('goal').innerText();
+  await expect(page.getByTestId('base-gap')).toBeVisible();
+  await expect(page.getByTestId('buffer')).toBeVisible();
   await page.screenshot({ path: `${evidence}/02-campaign-builder.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Publish campaign' }).click();
+
+  // Guests can draft but not publish: sign up, and the draft comes back.
+  await expect(page.getByRole('button', { name: 'Publish campaign' })).toHaveCount(0);
+  await page.getByTestId('login-to-publish').click();
+  await expect(page.getByTestId('draft-kept')).toBeVisible();
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByLabel('Email').fill(`qa-e2e-${crypto.randomBytes(4).toString('hex')}@fundcart-test.example`);
+  await page.getByLabel('Password').fill(crypto.randomBytes(18).toString('base64url'));
+  await page.locator('form').getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('heading', { name: 'Fund the gap together' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('draft-restored')).toBeVisible();
+  await expect(page.getByLabel('Campaign title')).not.toHaveValue('');
+  await expect(page.getByTestId('review-note')).toBeVisible(); // email not verified -> moderator review
+  await page.getByRole('button', { name: 'Submit for review' }).click();
   await page.waitForURL(/\/c\/[a-z0-9-]+/, { timeout: 60_000 });
   const campaignUrl = page.url().split('?')[0];
-  await expect(page.getByText(/Your campaign is live/)).toBeVisible();
+  await expect(page.getByTestId('owner-review-note')).toBeVisible();
+  await approveAsModeratorFixture(campaignUrl.split('/c/')[1]);
 
   // 7-9. A different person (new context) opens the public campaign and contributes the full goal.
   const sup = await browser.newContext();

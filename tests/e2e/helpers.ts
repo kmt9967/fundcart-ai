@@ -1,4 +1,6 @@
 import { expect, type Page, type Frame } from '@playwright/test';
+// @ts-expect-error -- pg ships no bundled types; only the local operator fixture below uses it.
+import pg from 'pg';
 
 /** Click the PayPal button inside its iframe and complete Sandbox approval in the popup. */
 export async function payWithPayPalSandbox(page: Page, buyer: { email: string; password: string }) {
@@ -40,4 +42,16 @@ export async function tagLocalClient(ctx: import('@playwright/test').BrowserCont
   const base = process.env.E2E_BASE_URL || 'http://localhost:3100';
   if (!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(base)) return;
   await ctx.route(`${base.replace(/\/$/, '')}/**`, route => route.continue({ headers: { ...route.request().headers(), 'x-fc-test-ip': ip } }));
+}
+
+/** Test fixture standing in for a moderator decision: approve one QA campaign that is pending review.
+ *  Uses the operator's database credentials from .env.local (never available to browsers). */
+export async function approveAsModeratorFixture(slug: string) {
+  const ref = new URL(process.env.SUPABASE_URL || '').hostname.split('.')[0];
+  const c = new pg.Client({ host: 'aws-1-us-west-2.pooler.supabase.com', port: 5432, user: `postgres.${ref}`, password: process.env.SUPABASE_DB_PASSWORD, database: 'postgres', ssl: { rejectUnauthorized: false } });
+  await c.connect();
+  try {
+    const r = await c.query(`update campaigns set moderation_status='approved', moderated_at=now(), updated_at=now() where slug=$1 and moderation_status='pending_review' returning id`, [slug]);
+    if (r.rowCount !== 1) throw new Error('fixture: campaign was not pending review');
+  } finally { await c.end(); }
 }

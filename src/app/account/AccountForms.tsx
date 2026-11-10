@@ -9,7 +9,7 @@ import { useT } from '@/i18n/client';
 
 type Mode = 'login' | 'signup' | 'recover';
 
-export function AccountForms({ email: signedInEmail }: { email: string | null }) {
+export function AccountForms({ email: signedInEmail, next = null }: { email: string | null; next?: string | null }) {
   const t = useT(); const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -30,6 +30,7 @@ export function AccountForms({ email: signedInEmail }: { email: string | null })
       <div className="card mt-6 p-5">
         <p className="font-semibold">{t('auth.signedInAs', { email: signedInEmail })}</p>
         <div className="mt-4 flex flex-wrap gap-2">
+          {next && <Link href={next} className="btn btn-sun" data-testid="continue-draft">{t('elig.continueDraft')}</Link>}
           <Link href="/me" className="btn btn-primary">{t('auth.goMe')}</Link>
           <button className="btn btn-ghost" disabled={busy} onClick={async () => { await call({ action: 'logout' }); router.refresh(); }}>{t('auth.logout')}</button>
         </div>
@@ -51,7 +52,7 @@ export function AccountForms({ email: signedInEmail }: { email: string | null })
         if (!ok) return setMsg({ kind: 'err', text: j.error || t('auth.errGeneric') });
         if (j.pendingConfirmation) return setMsg({ kind: 'ok', text: j.message });
         setMsg({ kind: 'ok', text: `${t('auth.done')}${j.claimed ? ' ' + t('auth.claimed', { n: j.claimed }) : ''}` });
-        router.refresh();
+        if (next) { router.push(next); router.refresh(); } else router.refresh();
       }}>
         <div><label className="label" htmlFor="email">{t('auth.email')}</label><input id="email" type="email" dir="ltr" className="input" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required maxLength={254} /></div>
         {mode !== 'recover' && (

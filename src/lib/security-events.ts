@@ -6,7 +6,8 @@ import { db } from './db';
 export type SecurityKind =
   | 'rate_limited' | 'injection_flag' | 'safety_block' | 'honeypot' | 'duplicate_payment' | 'decline_spike'
   | 'campaign_flagged' | 'campaign_reported' | 'campaign_auto_hidden' | 'campaign_auto_paused' | 'report_brigading' | 'campaign_moderated' | 'policy_block'
-  | 'price_changed' | 'auth_failed' | 'ai_budget_exhausted' | 'cross_border_block';
+  | 'price_changed' | 'auth_failed' | 'ai_budget_exhausted' | 'cross_border_block'
+  | 'fraud_intent' | 'publish_clarification' | 'update_blocked' | 'demo_session';
 
 export async function recordSecurityEvent(kind: SecurityKind, severity: 'info' | 'warn' | 'alert', subject: string | null, detail: Record<string, unknown> = {}): Promise<void> {
   try {
@@ -20,6 +21,15 @@ export async function recentEventCount(kind: string, minutes: number, table: 'se
   try {
     const since = new Date(Date.now() - minutes * 60_000).toISOString();
     const r = await db().from(table).select('id', { count: 'exact', head: true }).eq(column, kind).gte('created_at', since);
+    return r.count ?? 0;
+  } catch { return 0; }
+}
+
+/** Count recent events of a kind for one hashed subject (prior abuse indicators, retry counting). Returns 0 if the table is unavailable. */
+export async function subjectEventCount(kind: SecurityKind, subject: string, minutes: number): Promise<number> {
+  try {
+    const since = new Date(Date.now() - minutes * 60_000).toISOString();
+    const r = await db().from('security_events').select('id', { count: 'exact', head: true }).eq('kind', kind).eq('subject', subject).gte('created_at', since);
     return r.count ?? 0;
   } catch { return 0; }
 }
