@@ -16,6 +16,13 @@ const device = (() => {
   return d;
 })();
 
+// Automated browser tests must not spend the production Gemini quota. Locally the app refuses the
+// production key on its own; a remote target needs an explicit, deliberate opt-in.
+const target = process.env.E2E_BASE_URL || 'http://localhost:3100';
+if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(target) && process.env.ALLOW_PRODUCTION_AI !== '1') {
+  throw new Error(`E2E target ${target} is remote: it would use the production Gemini quota. Run against a local server, or set ALLOW_PRODUCTION_AI=1 deliberately.`);
+}
+
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 240_000,
@@ -25,7 +32,7 @@ export default defineConfig({
   outputDir: 'test-results',
   reporter: [['list'], ['json', { outputFile: 'test-results/e2e-report.json' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3100',
+    baseURL: target,
     channel: 'chrome',
     headless: process.env.E2E_HEADED ? false : true,
     viewport: { width: 1366, height: 900 },

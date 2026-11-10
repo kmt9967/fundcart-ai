@@ -40,6 +40,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   const r = await generateJson<{ update: string }>({
     system: 'You write short, honest campaign progress updates (max 70 words) for a personal fundraising page. Use ONLY the facts given. Never exaggerate or invent numbers. Thank supporters warmly.',
     prompt: facts,
+    purpose: 'update_draft',
     schema: { type: 'object', properties: { update: { type: 'string' } }, required: ['update'] },
     temperature: 0.6,
   });

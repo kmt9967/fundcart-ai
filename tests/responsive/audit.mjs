@@ -9,6 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const BASE = (process.argv[2] || 'http://localhost:3100').replace(/\/$/, '');
+import { guardProduction } from '../guard-production.mjs';
+guardProduction(BASE, { label: 'the responsive audit', geminiCallsEstimate: 6 });
 const OUT = process.argv[3] || 'private/responsive/run';
 fs.mkdirSync(OUT, { recursive: true });
 const env = Object.fromEntries(fs.readFileSync('.env.local', 'utf8').split(/\r?\n/).filter(l => l.includes('=') && !l.startsWith('#')).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));

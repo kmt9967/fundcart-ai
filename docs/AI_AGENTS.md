@@ -40,5 +40,7 @@ The shopping pipeline lives in `src/lib/shopping/` and is orchestrated by `/api/
 
 ## Model and fallback
 
-- **Model:** Gemini (`GEMINI_MODEL`, a comma-separated chain, default `gemini-flash-lite-latest,gemini-flash-latest`), with a total time budget per call so a slow model falls through quickly.
+- **Model:** Gemini (`GEMINI_MODEL`, stable IDs tried in order, default `gemini-3.5-flash-lite,gemini-3.1-flash-lite`; moving `-latest` aliases are rejected), with minimal thinking and a total time budget per call so a slow model falls through quickly.
+- **Quota safeguards** (`src/lib/ai/llm.ts`): a daily-quota 429 puts that model in cooldown until midnight Pacific; a per-minute 429 gives a short cooldown (one retry if the delay is tiny); 5xx/network errors get one jittered retry; when every model is cooling down the call returns at once and the rule-based fallback answers. The production key is used only by the production deployment; everything else uses a separate development project key (`GEMINI_API_KEY_DEV`), and test scripts refuse remote targets unless `ALLOW_PRODUCTION_AI=1`.
+- **Diagnostics:** `GET /api/diagnostics/ai` (bearer `CRON_SECRET`) reports configured models, which key project is in use, request counts, error classes, cooldowns and fallback reasons; one structured log line per call. No keys, prompts or user text are recorded.
 - **Fallback:** without a key, or when a call fails, the rule-based parser and templates are used. The UI says so ("Rule-based analysis").

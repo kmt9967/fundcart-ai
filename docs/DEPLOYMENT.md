@@ -57,8 +57,10 @@ The server refuses to start payments unless `PAYPAL_ENV=sandbox`.
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | server-only |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public values (the app does not query Supabase from the browser) |
 | `CHANNEL3_API_KEY` | server-only |
-| `GEMINI_API_KEY` | optional, server-only |
-| `GEMINI_MODEL` | optional; comma-separated chain, default `gemini-flash-latest,gemini-flash-lite-latest` |
+| `GEMINI_API_KEY` | optional, server-only; production project, used only when `VERCEL_ENV=production` |
+| `GEMINI_API_KEY_DEV` | optional, server-only; a separate development/test project for local, test and preview use |
+| `GEMINI_MODEL` | optional; stable IDs tried in order, default `gemini-3.5-flash-lite,gemini-3.1-flash-lite` (`-latest` aliases are rejected) |
+| `GEMINI_THINKING_LEVEL` | optional; `minimal` (default), `low`, `medium`, `high` or `off` |
 | `SESSION_SECRET` | random 32+ bytes; signs the guest identity cookie |
 | `CRON_SECRET` | random; Vercel sends it to the cron route |
 

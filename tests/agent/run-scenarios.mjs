@@ -5,10 +5,12 @@
 import fs from 'node:fs';
 
 const BASE = (process.argv[2] || 'http://localhost:3200').replace(/\/$/, '');
+import { guardProduction } from '../guard-production.mjs';
 const FILE = process.argv[3] || 'tests/agent/scenarios.json';
 const OUT = process.argv[4] && !process.argv[4].startsWith('--') ? process.argv[4] : null;
 const only = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const scenarios = JSON.parse(fs.readFileSync(FILE, 'utf8')).filter(s => !only.length || only.includes(s.id));
+guardProduction(BASE, { label: 'the assistant scenarios', geminiCallsEstimate: scenarios.reduce((n, s) => n + s.turns.length * 2, 0) });
 
 // The assistant allows 12 requests per minute per client; SCENARIO_DELAY_MS spaces turns out on long runs.
 const DELAY = Number(process.env.SCENARIO_DELAY_MS || 0);

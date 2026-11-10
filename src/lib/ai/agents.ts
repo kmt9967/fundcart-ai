@@ -69,7 +69,7 @@ export async function intentAgent(prompt: string, emit: Emit): Promise<{ intent:
   const r = await generateJson<{ category: string; searchQuery: string; purpose: string; budgetMaxUsd?: number | null; ownFundsUsd?: number | null; mustHaves: string[]; preferredBrands: string[]; followUpQuestion?: string | null }>({
     system: SYSTEM_GUARD,
     prompt: `Extract the shopping intent from this user request. User request: """${prompt.slice(0, 600)}"""`,
-    schema: INTENT_JSON_SCHEMA,
+    schema: INTENT_JSON_SCHEMA, purpose: 'intent',
     temperature: 0.1,
   });
   if (r.ok) {
@@ -145,6 +145,7 @@ export async function comparisonAgent(intent: Intent, ranked: Scored[], emit: Em
     prompt: `User need: ${intent.purpose}. Budget: ${intent.budgetMaxCents ? formatUSD(intent.budgetMaxCents) : 'not stated'}. Must-haves: ${intent.mustHaves.join(', ') || 'none stated'}.
 Pick up to 3 products from the data and explain them. Labels should be like "Best overall", "Best value", "Best for <purpose>". Base every claim ONLY on the fields given. If a fact is missing, say it is not listed.
 <product_data>${JSON.stringify(data)}</product_data>`,
+    purpose: 'explain',
     schema: {
       type: 'object',
       properties: {
@@ -198,6 +199,7 @@ export async function campaignAgent(input: { creatorName: string; itemTitle: str
   const r = await generateJson<{ title: string; story: string; thankYou: string }>({
     system: `${SYSTEM_GUARD}\nWrite honest personal fundraising copy. Do NOT claim charity status, tax deductibility, urgency you were not told about, or medical/financial hardship that wasn't stated. Mention that contributions are made through PayPal. The creator SAVED their own money themselves — never say they "raised" it or that anyone has contributed yet. Never call PayPal "safe" or "guaranteed"; just say contributions go through PayPal. Keep the story under 120 words, first person.`,
     prompt: `Creator: ${input.creatorName.slice(0, 40)}. Item: ${input.itemTitle.slice(0, 120)} (${formatUSD(input.itemPriceCents)}). They have saved ${formatUSD(input.ownFundsCents)} of their own money; they are raising ${formatUSD(gap)}. Why they need it: """${input.purpose.slice(0, 400)}"""`,
+    purpose: 'campaign_story',
     schema: { type: 'object', properties: { title: { type: 'string', description: 'Max 70 characters' }, story: { type: 'string' }, thankYou: { type: 'string', description: 'Short thank-you message for supporters, max 40 words' } }, required: ['title', 'story', 'thankYou'] },
     temperature: 0.7,
   });

@@ -140,7 +140,7 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
   return parsed.success ? parsed.data : null;
 }
 
-async function intentStep(raw: string, prev: SessionState | null, locale: Locale, emit: Emit): Promise<{ intent: IntentV2; usedModel: boolean }> {
+export async function intentStep(raw: string, prev: SessionState | null, locale: Locale, emit: Emit): Promise<{ intent: IntentV2; usedModel: boolean }> {
   emit({ agent: 'Intent Agent', step: prev ? 'Reading your follow-up with the earlier requirements in mind' : 'Reading your request' });
   const priorSummary = prev ? `Previous turn state (for refinements): category=${prev.category}; query="${prev.searchQuery}"; goal="${prev.goal}"; stated=${JSON.stringify(prev.stated)}; brandsExclude=${prev.brandsExclude.join(',') || 'none'}; budget=${prev.budget?.raw || 'none'}; ${prev.lastProductIds.length} results were shown.` : 'No previous turn.';
   const r = await generateJson<RawIntent>({
@@ -148,7 +148,7 @@ async function intentStep(raw: string, prev: SessionState | null, locale: Locale
     prompt: `Extract the shopping intent. The user may write in English, Urdu (Arabic script), Roman Urdu, Spanish, French or a mix. Normalize categories, use cases, software and colours to English. Put ONLY explicitly stated requirements in hardConstraints (do not invent derived ones). Keep budgetRaw/ownFundsRaw exactly as written. Response language for followUpQuestion: ${LANG_NAME[locale]}.
 ${priorSummary}
 <user_message>${raw.slice(0, 600)}</user_message>`,
-    schema: INTENT_SCHEMA,
+    schema: INTENT_SCHEMA, purpose: 'intent',
     temperature: 0.1,
     timeoutMs: 16000,
   });
@@ -160,7 +160,11 @@ ${priorSummary}
     }
   }
   const intent = parseIntentFallback(raw, !!prev);
-  emit({ agent: 'Intent Agent', step: llmAvailable() ? 'AI model was slow or unavailable, so rule-based multilingual parsing was used' : 'Rule-based parsing (no AI key configured)', detail: { category: intent.category } });
+  const why = !r.ok ? r.error : 'invalid_model_output';
+  const step = !llmAvailable() ? 'Rule-based multilingual parsing (AI not configured for this environment)'
+    : /quota|cooling/.test(why) ? 'AI usage limit reached for now, so rule-based multilingual parsing was used'
+    : 'AI model was slow or unavailable, so rule-based multilingual parsing was used';
+  emit({ agent: 'Intent Agent', step, detail: { category: intent.category, fallbackReason: why } });
   return { intent, usedModel: false };
 }
 
@@ -342,7 +346,7 @@ function dedupeReqs(reqs: Requirement[]): Requirement[] {
 }
 
 
-async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need: string | null, cheapestId: string | null, locale: Locale): Promise<{ picks: TurnResult['picks']; summary: string; usedModel: boolean }> {
+export async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need: string | null, cheapestId: string | null, locale: Locale): Promise<{ picks: TurnResult['picks']; summary: string; usedModel: boolean }> {
   if (!picks.length) return { picks: [], summary: t(locale, 'summary.none'), usedModel: false };
   const data = picks.map(p => ({
     id: p.externalId, title: p.title, brand: p.brand, price: formatUSD(p.priceCents), tier: p.evaluation.tier, cheapestSuitable: p.externalId === cheapestId,
@@ -354,6 +358,7 @@ async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need
     prompt: `Need: ${need || state.goal}. Skill level: ${state.skillLevel}. Budget: ${state.budget?.usable ? formatUSD(state.budget.maxCents) : 'not stated'}. Ranking mode: ${state.rankingMode}.
 These products were ALREADY verified by code to meet the minimum requirements. Explain each in 1-2 sentences using ONLY the given fields. Labels like "Best value", "Cheapest suitable", "Best overall". Mention optional upgrades honestly. Write everything in ${LANG_NAME[locale]}, but keep product names, model numbers and units unchanged.
 <product_data>${JSON.stringify(data)}</product_data>`,
+    purpose: 'explain',
     schema: { type: 'object', properties: { summary: { type: 'string', description: '2 short sentences' }, picks: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, label: { type: 'string' }, reason: { type: 'string' }, tradeoff: { type: 'string' } }, required: ['id', 'label', 'reason', 'tradeoff'] } } }, required: ['summary', 'picks'] },
     temperature: 0.3,
     timeoutMs: 14000,

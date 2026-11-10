@@ -1,6 +1,8 @@
 // Opt-in evaluation of the team's 100-case workbook (intent + safety layer only; no product search).
 // Run: RUN_WORKBOOK=1 WORKBOOK_JSON=private/research/test_cases.json npx vitest run tests/unit/workbook.eval.test.ts
-// Writes private/research/workbook_run.json. Calls Gemini once per case when a key is configured.
+// Writes private/research/workbook_run.json. Calls Gemini once per case, and ONLY with the development/test
+// project key (GEMINI_API_KEY_DEV). The production key is never used here, so an evaluation cannot drain
+// the quota the live site depends on. Without a dev key the run measures the rule-based fallback.
 import { describe, it, vi } from 'vitest';
 import fs from 'node:fs';
 
@@ -11,6 +13,8 @@ const RUN = !!process.env.RUN_WORKBOOK;
 
 describe.skipIf(!RUN)('workbook evaluation', () => {
   it('runs every workbook input through safety + intent + session merge', async () => {
+    delete process.env.GEMINI_ALLOW_PROD_KEY; // never the production project
+    delete process.env.VERCEL_ENV;
     const { screenMessage } = await import('@/lib/shopping/safety');
     const { validateIntent } = await import('@/lib/shopping/pipeline');
     const { parseIntentFallback } = await import('@/lib/shopping/fallback-intent');
@@ -26,7 +30,7 @@ describe.skipIf(!RUN)('workbook evaluation', () => {
       if (safety.block) { Object.assign(rec, { action: 'blocked', safetyFlags: safety.flags }); out.push(rec); continue; }
       if (safety.supportRoute) { Object.assign(rec, { action: `support:${safety.supportRoute}` }); out.push(rec); continue; }
       let intent = null; let usedModel = false;
-      const g = await generateJson<Record<string, unknown>>({ system: 'Extract the shopping intent as JSON. Normalize categories to English. Keep budgetRaw exactly as written.', prompt: `<user_message>${safety.redacted}</user_message>`, schema: { type: 'object', properties: { category: { type: 'string' }, productKind: { type: 'string' }, searchQuery: { type: 'string' }, goal: { type: 'string' }, useCases: { type: 'array', items: { type: 'string' } }, software: { type: 'array', items: { type: 'string' } }, budgetRaw: { type: 'string', nullable: true }, brandsExclude: { type: 'array', items: { type: 'string' } }, language: { type: 'string' }, requestedAction: { type: 'string' }, primaryFamily: { type: 'string' }, followUpQuestion: { type: 'string', nullable: true } }, required: ['category', 'searchQuery'] }, temperature: 0.1, timeoutMs: 20000 });
+      const g = await generateJson<Record<string, unknown>>({ purpose: 'eval', system: 'Extract the shopping intent as JSON. Normalize categories to English. Keep budgetRaw exactly as written.', prompt: `<user_message>${safety.redacted}</user_message>`, schema: { type: 'object', properties: { category: { type: 'string' }, productKind: { type: 'string' }, searchQuery: { type: 'string' }, goal: { type: 'string' }, useCases: { type: 'array', items: { type: 'string' } }, software: { type: 'array', items: { type: 'string' } }, budgetRaw: { type: 'string', nullable: true }, brandsExclude: { type: 'array', items: { type: 'string' } }, language: { type: 'string' }, requestedAction: { type: 'string' }, primaryFamily: { type: 'string' }, followUpQuestion: { type: 'string', nullable: true } }, required: ['category', 'searchQuery'] }, temperature: 0.1, timeoutMs: 20000 });
       if (g.ok) { intent = validateIntent(g.data, safety.redacted, false); usedModel = !!intent; }
       if (!intent) intent = parseIntentFallback(safety.redacted, false);
       const st = mergeState(null, intent, safety.redacted, null);
