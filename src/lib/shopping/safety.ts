@@ -60,6 +60,8 @@ const SUPPORT_ROUTES: Array<[SupportRoute, RegExp]> = [
   ['medical_symptom', /\b(dry cough|chest pain|fever|rash|toothache|migraine|infection|bleeding|khansi|bukhar)\b.{0,40}\b(at night|for days|won'?t stop|what (should|can) i (take|buy)|medicine|kya lun|dawai)\b|^\s*(dry cough|khansi)( at night)?\s*$|what medicine (should|can) i (take|buy)/i],
 ];
 
+const SHOPPING_REQUEST = /\b(chahiye|dikhao|batao|need|want|show me|looking for|find me|buy|necesito|quiero|je cherche|besoin)\b|چاہیے|دکھاؤ/i;
+
 // Card numbers (13–19 digits, optional spaces/dashes, Luhn-checked).
 const CARD_RE = /\b(?:\d[ -]?){12,18}\d\b/g;
 const CNIC_RE = /\b\d{5}-\d{7}-\d\b/g;
@@ -82,7 +84,10 @@ export function screenMessage(text: string): SafetyResult {
   const flags = RULES.filter(([, re]) => re.test(redacted)).map(([f]) => f);
   const notices = NOTICES.filter(([, re]) => re.test(redacted)).map(([n]) => n);
   if (removed) notices.push('pii_removed');
-  const supportRoute = SUPPORT_ROUTES.find(([, re]) => re.test(redacted))?.[0] ?? null;
+  let supportRoute = SUPPORT_ROUTES.find(([, re]) => re.test(redacted))?.[0] ?? null;
+  // "cash on delivery wala dikhao, power bank chahiye" is a product request with a payment preference:
+  // keep shopping (the capability note explains COD isn't available) instead of answering a policy question.
+  if (supportRoute === 'payment_info' && SHOPPING_REQUEST.test(redacted)) supportRoute = null;
   return { flags, notices, redacted, piiRedacted: removed, block: flags.length > 0, supportRoute };
 }
 
