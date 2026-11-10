@@ -1,5 +1,6 @@
 import type { Dict } from './en';
 import { pagesUr } from './pages';
+import { trustUr } from './trust';
 
 // اردو — machine-assisted translation; please have a native speaker review before final submission.
 const core = {
@@ -219,4 +220,4 @@ const core = {
   'safety.deceptive_campaign': 'میں ایسی مہم نہیں لکھ سکتا جو غلط بیماری یا مشکل کا دعویٰ کرے۔ سچی کہانیاں بھی رقم جمع کرتی ہیں، اور میں ایسی کہانی لکھنے میں خوشی سے مدد کروں گا۔',
 };
 
-export const ur: Dict = { ...core, ...pagesUr };
+export const ur: Dict = { ...core, ...pagesUr, ...trustUr };

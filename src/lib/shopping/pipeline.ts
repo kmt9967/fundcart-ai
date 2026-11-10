@@ -9,7 +9,8 @@ import { mergeState, buildRequirements, categoryInfo, mergeConstraints } from '.
 import { evaluateProduct, rankEvaluated, rejectionSummary, fmtRequired, type EvalContext, type EvaluatedProduct } from './evaluate';
 import { DEVICE_CATEGORIES } from './knowledge';
 import { parseBudget } from './money-parse';
-import type { SafetyResult } from './safety';
+import { listingInjection, type SafetyResult } from './safety';
+import { analyzeFamilies, matchType, type Directive } from './families';
 
 // The FundCart shopping pipeline (one conversation turn):
 //   safety gate (route) → intent (model, validated; rules as fallback and cross-check) → session merge (code)
@@ -140,8 +141,13 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
   return parsed.success ? parsed.data : null;
 }
 
-export async function intentStep(raw: string, prev: SessionState | null, locale: Locale, emit: Emit): Promise<{ intent: IntentV2; usedModel: boolean }> {
+export async function intentStep(raw: string, prev: SessionState | null, locale: Locale, emit: Emit, allowModel = true): Promise<{ intent: IntentV2; usedModel: boolean }> {
   emit({ agent: 'Intent Agent', step: prev ? 'Reading your follow-up with the earlier requirements in mind' : 'Reading your request' });
+  if (!allowModel) {
+    const intent = parseIntentFallback(raw, !!prev);
+    emit({ agent: 'Intent Agent', step: 'Daily AI allowance is used up, so rule-based multilingual parsing was used', detail: { category: intent.category, fallbackReason: 'ai_budget' } });
+    return { intent, usedModel: false };
+  }
   const priorSummary = prev ? `Previous turn state (for refinements): category=${prev.category}; query="${prev.searchQuery}"; goal="${prev.goal}"; stated=${JSON.stringify(prev.stated)}; brandsExclude=${prev.brandsExclude.join(',') || 'none'}; budget=${prev.budget?.raw || 'none'}; ${prev.lastProductIds.length} results were shown.` : 'No previous turn.';
   const r = await generateJson<RawIntent>({
     system: SYSTEM_GUARD,
@@ -195,12 +201,29 @@ export type TurnResult = {
   aiUsed: boolean;
   dataSource: { provider: string; fetchedAt: string; cached: boolean; queries: number };
   safety: { flags: string[]; piiRedacted: boolean };
+  /** Intent families detected by code (multi-label) and the model's primary family. */
+  families: { primary: string | null; detected: string[] };
+  /** Localized cautions and honest capability limits (no invented history, stock, delivery or certifications). */
+  notices: string[];
+  kit: { id: string; title: string; items: string[] } | null;
+  problem: { id: string; solutions: string[] } | null;
+  /** ESCI-style labels: exact model, alternative (substitute), or fit not confirmed (compatibility). */
+  matchTypes: Record<string, 'exact' | 'alternative' | 'fit_unconfirmed'>;
+  listingFlags: string[];
+  funding: { available: boolean; mode: string; realMoney: false };
 };
 
 function emptyResult(kind: TurnResult['kind'], message: string, state: SessionState | null, safety: SafetyResult, links: TurnResult['links'] = []): TurnResult {
   return { kind, message, links, state, profile: null, requirements: [], products: [], bestFit: [], cheapestAdequate: [], needsVerification: [], unsuitable: [], mode: 'best_fit', picks: [], summary: '', followUp: null,
     budget: { budgetCents: null, currency: null, raw: null, usable: false, ownFundsCents: null, priceCapCents: null, cheapestAdequate: null, noneWithinBudget: false, rejections: [], note: '' },
-    compareIds: [], aiUsed: false, dataSource: { provider: 'Channel3', fetchedAt: new Date().toISOString(), cached: false, queries: 0 }, safety: { flags: safety.flags, piiRedacted: safety.piiRedacted } };
+    compareIds: [], aiUsed: false, dataSource: { provider: 'Channel3', fetchedAt: new Date().toISOString(), cached: false, queries: 0 }, safety: { flags: safety.flags, piiRedacted: safety.piiRedacted },
+    families: { primary: null, detected: [] }, notices: [], kit: null, problem: null, matchTypes: {}, listingFlags: [], funding: { available: false, mode: 'disabled', realMoney: false } };
+}
+
+const NOTICE_KEY: Record<string, string> = { medical: 'cap.medical', allergen: 'cap.allergen', spending_pressure: 'cap.spending', sensitive_purchase: 'cap.sensitive', child_spend: 'cap.childSpend', pii_removed: 'cap.pii' };
+function noticeTexts(d: Directive | null, safety: SafetyResult, locale: Locale): string[] {
+  const keys = [...(safety.notices || []).map(n => NOTICE_KEY[n]).filter(Boolean), ...(d?.notes || [])];
+  return [...new Set(keys)].map(k => t(locale, k as never));
 }
 
 /** Safety short-circuit reply (no products). */
@@ -211,21 +234,35 @@ export function blockedTurn(safety: SafetyResult, locale: Locale): TurnResult {
 
 const HIGH_TICKET = new Set(['laptop', 'desktop', 'phone', 'tv', 'tablet', 'camera', 'monitor']);
 
-export async function runTurn(opts: { raw: string; prev: SessionState | null; ownOverrideCents: number | null; locale: Locale; modeOverride: 'best_fit' | 'cheapest_adequate' | null; safety: SafetyResult; emit: Emit }): Promise<TurnResult> {
+export async function runTurn(opts: { raw: string; prev: SessionState | null; ownOverrideCents: number | null; locale: Locale; modeOverride: 'best_fit' | 'cheapest_adequate' | null; safety: SafetyResult; emit: Emit; allowModel?: boolean; funding?: TurnResult['funding'] }): Promise<TurnResult> {
   const { raw, prev, locale, emit, safety } = opts;
+  const allowModel = opts.allowModel !== false;
+  const funding = opts.funding ?? { available: true, mode: 'sandbox_demo', realMoney: false as const };
   emit({ agent: 'Orchestrator', step: 'Plan: safety check → understand the need → work out requirements → search → verify specs → rank → budget' });
 
   if (safety.supportRoute) {
-    const key = safety.supportRoute === 'zakat' ? 'support.zakat' : safety.supportRoute === 'donor' ? 'support.donor' : 'support.orders';
-    const links = safety.supportRoute === 'orders' ? [{ href: '/me', label: t(locale, 'nav.me') }] : [{ href: '/campaigns', label: t(locale, 'nav.campaigns') }];
-    emit({ agent: 'Orchestrator', step: 'This is a support / donor question, not a product search' });
-    return emptyResult('support', t(locale, key as never), prev, safety, links);
+    const route = safety.supportRoute;
+    const links = ['orders', 'returns', 'payment_info', 'donation_refund'].includes(route) ? [{ href: '/me', label: t(locale, 'nav.me') }]
+      : route === 'medical_symptom' ? [] : [{ href: '/campaigns', label: t(locale, 'nav.campaigns') }];
+    emit({ agent: 'Orchestrator', step: `Support question (${route}), not a product search: answered from FundCart policy, no products searched` });
+    const donorSide = ['donor', 'zakat', 'cross_border', 'donation_refund'].includes(route);
+    return { ...emptyResult('support', t(locale, `support.${route}` as never), prev, safety, links), funding, families: { primary: donorSide ? 'donor' : 'non_product_support', detected: [] } };
   }
 
-  const { intent, usedModel } = await intentStep(raw, prev, locale, emit);
+  // Deterministic family behaviour (identical with or without the model).
+  const pre = analyzeFamilies(raw);
+  if (pre.askFirst && !prev) {
+    emit({ agent: 'Orchestrator', step: pre.askFirst === 'vehicle' ? 'Safety-critical part: asked for the exact make, model and year before recommending anything' : 'Compatibility item without a model number: asked for the exact model instead of guessing the fit' });
+    return { ...emptyResult('clarify', t(locale, `ask.${pre.askFirst}` as never), null, safety), funding, families: { primary: pre.askFirst === 'vehicle' ? 'replacement' : 'compatibility', detected: pre.families }, notices: noticeTexts(pre, safety, locale) };
+  }
+
+  const { intent, usedModel } = await intentStep(raw, prev, locale, emit, allowModel);
   if (intent.injectionSuspected) emit({ agent: 'Safety', step: 'Instruction-like text was ignored; only the shopping request was used' });
   const state = mergeState(prev, intent, raw, opts.ownOverrideCents, locale);
   if (opts.modeOverride) state.rankingMode = opts.modeOverride;
+  // Spending pressure: no upsell, show the cheapest option that works.
+  if (!opts.modeOverride && safety.notices?.includes('spending_pressure')) state.rankingMode = 'cheapest_adequate';
+  const d = analyzeFamilies(raw, { budgetCents: state.budget?.usable ? state.budget.maxCents : null });
   const { requirements, profile } = buildRequirements(state);
   const cat = categoryInfo(state.category);
 
@@ -233,7 +270,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const followUpTurn = !!prev && intent.isRefinement && state.searchQuery.trim().length > 1;
   if (!followUpTurn && state.category === 'unknown' && !profile && (intent.requestedAction === 'ask_clarifying' || intent.primaryFamily === 'vague_exploratory' || !state.searchQuery.trim())) {
     emit({ agent: 'Orchestrator', step: 'Asked one question instead of guessing' });
-    return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel };
+    return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel, funding, families: { primary: intent.primaryFamily, detected: d.families }, notices: noticeTexts(d, safety, locale) };
   }
 
   emit({ agent: 'Requirements Agent', step: profile ? `Applied requirements for “${profile.label}”` : requirements.length ? 'Applied the requirements you stated' : 'No special requirements: ranking by fit, price and ratings',
@@ -245,7 +282,14 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const brand = state.brandsInclude[0] ? `${state.brandsInclude[0]} ` : '';
   const color = state.colors[0] ? ` ${state.colors[0]}` : '';
   const statedTerms = state.stated.filter(c => c.field === 'ram_gb' || c.field === 'storage_type').map(c => (c.field === 'ram_gb' ? `${c.value}GB RAM` : 'SSD')).join(' ');
-  const baseQueries = profile ? profile.queries : [`${state.searchQuery} ${statedTerms}`.trim()];
+  // Kits search the main item first; problems search solution types (never keyword-matching the symptom);
+  // comparisons search both named products.
+  const baseQueries = profile ? profile.queries
+    : d.comparison && !prev ? d.comparison
+    : d.problem && !prev ? d.problem.solutions.slice(0, 2)
+    : d.kit && !prev ? [d.kit.items[0]]
+    : [`${state.searchQuery} ${statedTerms}`.trim()];
+  if (!profile && !prev && (d.problem || d.kit)) state.searchQuery = baseQueries[0];
   const osPref = state.stated.find(c => c.field === 'os' && c.op === '==')?.value;
   const queries = baseQueries
     .filter(q => !(osPref === 'windows' && /macbook/i.test(q)) && !(osPref === 'macos' && !/mac/i.test(q)))
@@ -287,7 +331,17 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   let mode = state.rankingMode;
   if (!opts.modeOverride && own != null && cheapest && cheapest.priceCents! > own) mode = 'cheapest_adequate'; // affordability problem → minimum fundable need
   state.rankingMode = mode;
-  const order = mode === 'cheapest_adequate' ? ranked.cheapestAdequate : ranked.bestFit;
+  let order = mode === 'cheapest_adequate' ? ranked.cheapestAdequate : ranked.bestFit;
+  // ESCI labels: exact model / alternative / compatibility fit not confirmed (from listing titles only).
+  const matchTypes: TurnResult['matchTypes'] = {};
+  for (const p of ranked.all) { const m = matchType(p.title, d); if (m) matchTypes[p.externalId] = m; }
+  if (d.compatTarget && order.some(id => matchTypes[id] === 'exact')) order = [...order.filter(id => matchTypes[id] === 'exact'), ...order.filter(id => matchTypes[id] !== 'exact')];
+  if (d.rankBy && mode === 'best_fit') {
+    const by = (id: string) => { const p = ranked.all.find(x => x.externalId === id)!; return d.rankBy === 'rating_count' ? (p.ratingCount ?? 0) : p.compareAtCents && p.priceCents && p.compareAtCents > p.priceCents ? (p.compareAtCents - p.priceCents) / p.compareAtCents : 0; };
+    order = [...order].sort((a, b) => by(b) - by(a));
+  }
+  const listingFlags = ranked.all.filter(p => listingInjection(`${p.title} ${p.description ?? ''}`)).map(p => p.externalId);
+  if (listingFlags.length) emit({ agent: 'Safety', step: `${listingFlags.length} listing(s) contained instruction-like text; it was treated as data and did not affect ranking` });
   const rejections = rejectionSummary(ranked, cheapest?.priceCents ?? null);
   let note = '';
   if (state.ownFundsAmbiguous) note = t(locale, 'budget.ownUnknownCurrency', { raw: state.ownFundsAmbiguous }) + ' ';
@@ -297,12 +351,14 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   else if (own != null && cheapest) note += cheapest.priceCents! > own ? t(locale, 'budget.gap', { own: formatUSD(own), price: formatUSD(cheapest.priceCents), gap: formatUSD(fundingGap(cheapest.priceCents!, own)) }) : t(locale, 'budget.affordable', { own: formatUSD(own) });
   else if (cheapest && !state.ownFundsAmbiguous) note += t(locale, 'budget.addOwn');
   if (state.budget?.assumed && state.budget.usable) note = `${t(locale, 'budget.assumedUsd', { raw: state.budget.raw || '' })} ${note}`;
+  if (d.contradiction) note = `${t(locale, d.contradiction as never)} ${note}`;
+  if (cheapest && own != null && cheapest.priceCents! > own && !funding.available) note += ` ${t(locale, 'policy.fundingOff')}`;
   note = note.trim();
   emit({ agent: 'Budget Agent', step: 'Calculated budget fit and the funding gap with exact cent arithmetic', detail: { cheapestAdequate: cheapest ? formatUSD(cheapest.priceCents) : 'none', ownFunds: own != null ? formatUSD(own) : 'unknown' } });
 
   // ---- Explanations (model, grounded in evaluated data, interface language) ----
   const topIds = order.slice(0, 3);
-  const explain = await explainPicks(topIds.map(id => ranked.suitable.find(p => p.externalId === id)!), state, profile?.label ?? null, cheapest?.externalId ?? null, locale);
+  const explain = await explainPicks(topIds.map(id => ranked.suitable.find(p => p.externalId === id)!).filter(Boolean), state, profile?.label ?? null, cheapest?.externalId ?? null, locale, allowModel);
   if (explain.usedModel) emit({ agent: 'Comparison Agent', step: 'Wrote explanations grounded only in the verified listing data' });
   else if (topIds.length) emit({ agent: 'Comparison Agent', step: 'Explained the picks with rule-based templates' });
 
@@ -310,6 +366,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   // The Android testing method changes the hardware more than anything else, so it is asked first.
   const androidUnknown = !!profile?.id.startsWith('android_studio') && !state.androidWorkflow;
   let followUp = androidUnknown ? t(locale, 'followup.androidTesting') : intent.followUpQuestion;
+  if (!followUp && d.askAlongside) followUp = t(locale, `ask.${d.askAlongside}` as never);
   if (!followUp && HIGH_TICKET.has(state.category) && !state.budget && own == null) followUp = t(locale, 'followup.budget');
   if (!followUp && profile?.id.startsWith('android_studio') && !osPref && state.turn === 1) followUp = t(locale, 'followup.os');
   const profileKey = profile ? (androidUnknown ? 'android_studio_unconfirmed' : profile.id) : null;
@@ -337,6 +394,11 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     compareIds, aiUsed: usedModel || explain.usedModel,
     dataSource: { provider: 'Channel3', fetchedAt, cached, queries: calls },
     safety: { flags: safety.flags, piiRedacted: safety.piiRedacted },
+    families: { primary: intent.primaryFamily, detected: d.families },
+    notices: noticeTexts(d, safety, locale),
+    kit: d.kit && !prev ? { id: d.kit.id, title: t(locale, `kit.${d.kit.id}` as never), items: d.kit.items } : null,
+    problem: d.problem && !prev ? d.problem : null,
+    matchTypes, listingFlags, funding,
   };
 }
 
@@ -346,14 +408,14 @@ function dedupeReqs(reqs: Requirement[]): Requirement[] {
 }
 
 
-export async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need: string | null, cheapestId: string | null, locale: Locale): Promise<{ picks: TurnResult['picks']; summary: string; usedModel: boolean }> {
+export async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need: string | null, cheapestId: string | null, locale: Locale, allowModel = true): Promise<{ picks: TurnResult['picks']; summary: string; usedModel: boolean }> {
   if (!picks.length) return { picks: [], summary: t(locale, 'summary.none'), usedModel: false };
   const data = picks.map(p => ({
     id: p.externalId, title: p.title, brand: p.brand, price: formatUSD(p.priceCents), tier: p.evaluation.tier, cheapestSuitable: p.externalId === cheapestId,
     withinBudget: p.evaluation.withinBudget, verifiedSpecs: p.evaluation.checks.filter(c => c.status === 'met').map(c => `${c.field}: ${c.actual}`).slice(0, 6),
     optionalUpgrade: p.evaluation.overkill?.note ?? null, rating: p.rating,
   }));
-  const r = await generateJson<{ summary: string; picks: Array<{ id: string; label: string; reason: string; tradeoff: string }> }>({
+  const r = !allowModel ? { ok: false as const, error: 'ai_budget' } : await generateJson<{ summary: string; picks: Array<{ id: string; label: string; reason: string; tradeoff: string }> }>({
     system: SYSTEM_GUARD,
     prompt: `Need: ${need || state.goal}. Skill level: ${state.skillLevel}. Budget: ${state.budget?.usable ? formatUSD(state.budget.maxCents) : 'not stated'}. Ranking mode: ${state.rankingMode}.
 These products were ALREADY verified by code to meet the minimum requirements. Explain each in 1-2 sentences using ONLY the given fields. Labels like "Best value", "Cheapest suitable", "Best overall". Mention optional upgrades honestly. Write everything in ${LANG_NAME[locale]}, but keep product names, model numbers and units unchanged.

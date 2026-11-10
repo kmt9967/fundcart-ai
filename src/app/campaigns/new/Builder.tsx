@@ -2,13 +2,19 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fundingGap, toCents } from '@/lib/money';
+import { campaignGap, toCents } from '@/lib/money';
 import Link from 'next/link';
 import { useFormat, useT } from '@/i18n/client';
 import type { Product } from '@/lib/channel3';
+import type { DictKey } from '@/i18n';
 
-export function Builder({ product, initialOwn }: { product: Product; initialOwn: string }) {
+type Props = { product: Product; initialOwn: string; sessionId?: string | null; fundraisingAvailable?: boolean; needCategories?: string[]; disclosures?: string[]; bufferPct?: number };
+
+export function Builder({ product, initialOwn, sessionId = null, fundraisingAvailable = true, needCategories = [], disclosures = [], bufferPct = 5 }: Props) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const formatUSD = f.usd;
+  const [needCategory, setNeedCategory] = useState('');
+  const [premium, setPremium] = useState<{ message: string; cheapest: { externalId: string; title: string; priceCents: number } } | null>(null);
+  const [website, setWebsite] = useState('');
   const [creatorName, setCreatorName] = useState('');
   const [own, setOwn] = useState(initialOwn);
   const [purpose, setPurpose] = useState('');
@@ -22,7 +28,9 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
   const reviewRef = useRef<HTMLElement>(null);
 
   const ownCents = useMemo(() => { try { return own ? toCents(own) : 0; } catch { return null; } }, [own]);
-  const gap = product.priceCents != null && ownCents != null ? fundingGap(product.priceCents, ownCents) : null;
+  // Same formula as the server (the server recomputes it; this is only a preview).
+  const calc = product.priceCents != null && ownCents != null ? campaignGap({ priceCents: product.priceCents, bufferPct, ownFundsCents: ownCents }) : null;
+  const gap = calc ? calc.totalCents : null;
 
   async function draft() {
     setBusy('draft'); setError(null);
@@ -34,13 +42,16 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
     requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
-  async function publish() {
+  async function publish(ownerPaysDifference = false) {
     setBusy('publish'); setError(null);
-    const r = await fetch('/api/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ externalId: product.externalId, ownFunds: own || '0', creatorName, title, story, thankYou, deadline: deadline || null }) });
+    const r = await fetch('/api/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ externalId: product.externalId, ownFunds: own || '0', creatorName, title, story, thankYou, deadline: deadline || null, needCategory: needCategory || null, sessionId, ownerPaysDifference, website }) });
     const j = await r.json().catch(() => ({}));
+    if (r.status === 409 && j.code === 'premium_over_adequate' && j.cheapest) { setBusy(null); return setPremium({ message: j.error, cheapest: j.cheapest }); }
     if (!r.ok) { setBusy(null); return setError(j.error || t('b.errPublish')); }
     router.push(`/c/${j.slug}?created=1`);
   }
+
+  if (!fundraisingAvailable) return <div className="card mt-6 p-5 text-sm" role="alert">{t('policy.noFundraising')}</div>;
 
   return (
     <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[1fr_340px]">
@@ -54,6 +65,11 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
               {ownCents == null && <p id="own-err" role="alert" className="mt-1 text-sm text-bad">{t('b.ownErr')}</p>}
             </div>
           </div>
+          <div className="mt-4"><label className="label" htmlFor="need">{t('need.label')}</label>
+            <select id="need" className="input" value={needCategory} onChange={e => setNeedCategory(e.target.value)} required>
+              <option value="">—</option>
+              {needCategories.map(n => <option key={n} value={n}>{t(`need.${n}` as DictKey)}</option>)}
+            </select></div>
           <div className="mt-4"><label className="label" htmlFor="purpose">{t('b.why')}</label>
             <textarea id="purpose" className="input min-h-24" value={purpose} onChange={e => setPurpose(e.target.value)} maxLength={400} placeholder={t('b.whyPh')} dir="auto" /></div>
           <button className="btn btn-primary mt-4 w-full sm:w-auto" onClick={draft} disabled={!creatorName || ownCents == null || busy !== null || !gap}>{busy === 'draft' ? t('b.drafting') : t('b.draft')}</button>
@@ -70,8 +86,21 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
           </div>
           <div className="mt-5 rounded-xl bg-paper p-4 text-xs leading-relaxed text-ink-2">
             {t('b.legal')}
+            {disclosures.length > 0 && <><p className="mt-2 font-semibold">{t('policy.title')}</p><ul className="mt-1 list-disc space-y-0.5 ps-4">{disclosures.map(d => <li key={d}>{t(d as DictKey)}</li>)}</ul></>}
           </div>
-          <button className="btn btn-sun mt-4 w-full px-5 sm:w-auto" onClick={publish} disabled={!title || story.length < 20 || busy !== null}>{busy === 'publish' ? t('b.publishing') : t('b.publish')}</button>
+          {/* Honeypot: invisible to people and screen readers; bots tend to fill it. */}
+          <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] h-px w-px opacity-0" />
+          {premium && (
+            <div className="mt-4 rounded-xl border border-warn/40 bg-sun-soft p-4 text-sm" role="alert">
+              <p className="font-bold">{t('builder.premiumTitle')}</p>
+              <p className="mt-1" dir="auto">{premium.message}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link className="btn btn-primary min-h-11 px-4 text-sm" href={`/campaigns/new?product=${encodeURIComponent(premium.cheapest.externalId)}${own ? `&own=${own}` : ''}${sessionId ? `&s=${sessionId}` : ''}`}>{premium.cheapest.title.slice(0, 40)}… · {formatUSD(premium.cheapest.priceCents)}</Link>
+                <button className="btn btn-ghost min-h-11 px-4 text-sm" onClick={() => publish(true)} disabled={busy !== null}>{t('builder.payDifference')}</button>
+              </div>
+            </div>
+          )}
+          <button className="btn btn-sun mt-4 w-full px-5 sm:w-auto" onClick={() => publish(false)} disabled={!title || story.length < 20 || !needCategory || busy !== null}>{busy === 'publish' ? t('b.publishing') : t('b.publish')}</button>
           {error && <p role="alert" className="mt-3 text-sm text-bad">{error}</p>}
         </section>
       </div>
@@ -86,7 +115,8 @@ export function Builder({ product, initialOwn }: { product: Product; initialOwn:
             <h3 className="mt-1 text-sm font-bold leading-snug" dir="auto">{product.title}</h3>
             <dl className="mt-2 space-y-1.5 text-sm lg:mt-4 lg:space-y-2">
               <div className="flex justify-between"><dt className="text-mute">{t('b.livePrice')}</dt><dd className="font-bold">{formatUSD(product.priceCents)}</dd></div>
-              <div className="flex justify-between"><dt className="text-mute">{t('b.youHave')}</dt><dd className="font-bold">{ownCents == null ? '—' : formatUSD(ownCents)}</dd></div>
+              {calc && calc.formula.buffer > 0 && <div className="flex justify-between"><dt className="text-mute">{t('trust.gapBuffer', { pct: bufferPct })}</dt><dd className="font-bold">+{formatUSD(calc.formula.buffer)}</dd></div>}
+              <div className="flex justify-between"><dt className="text-mute">{t('b.youHave')}</dt><dd className="font-bold">{ownCents == null ? '—' : `−${formatUSD(ownCents)}`}</dd></div>
               <div className="flex justify-between border-t border-line pt-2"><dt className="font-semibold">{t('b.goal')}</dt><dd className="text-lg font-extrabold text-sun">{gap == null ? '—' : formatUSD(gap)}</dd></div>
             </dl>
             <p className="mt-2 text-xs text-mute lg:mt-3">{t('b.goalNote', { time: f.date(product.fetchedAt) })} <Link className="tap inline-flex items-center underline hover:text-brand" href="/account">{t('b.accountTip')}</Link></p>

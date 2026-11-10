@@ -41,16 +41,16 @@ export function verifyAccountToken(token: string | undefined): Account | null {
   return { profileId, authUserId, exp };
 }
 
-export async function currentAccount(): Promise<(Account & { email: string | null }) | null> {
+export async function currentAccount(): Promise<(Account & { email: string | null; emailVerified: boolean; role: string }) | null> {
   const jar = await cookies();
   const a = verifyAccountToken(jar.get(ACCOUNT_COOKIE)?.value);
   if (!a) return null;
-  const p = await db().from('profiles').select('email, auth_user_id').eq('id', a.profileId).maybeSingle();
+  const p = await db().from('profiles').select('email, auth_user_id, email_verified, role').eq('id', a.profileId).maybeSingle();
   if (!p.data || p.data.auth_user_id !== a.authUserId) return null; // unlinked or tampered
-  return { ...a, email: (p.data.email as string) || null };
+  return { ...a, email: (p.data.email as string) || null, emailVerified: p.data.email_verified === true, role: (p.data.role as string) || 'user' };
 }
 
-type AuthResult = { ok: true; userId: string; email: string } | { ok: false; error: string; status: number };
+type AuthResult = { ok: true; userId: string; email: string; emailVerified?: boolean } | { ok: false; error: string; status: number };
 
 async function gotrue(path: string, init: RequestInit & { admin?: boolean }): Promise<Response> {
   const key = init.admin ? env.supabaseSecretKey : publishableKey();
@@ -65,11 +65,29 @@ export async function passwordSignIn(email: string, password: string): Promise<A
   const res = await gotrue('/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j?.user?.id) return { ok: false, error: 'auth.errInvalid', status: 401 };
-  return { ok: true, userId: j.user.id, email: j.user.email };
+  return { ok: true, userId: j.user.id, email: j.user.email, emailVerified: emailConfirmationEnabled() && !!j.user.email_confirmed_at };
 }
 
-export async function createAccount(email: string, password: string): Promise<AuthResult> {
-  const res = await gotrue('/admin/users', { method: 'POST', admin: true, body: JSON.stringify({ email, password, email_confirm: true }) });
+/**
+ * Provider-verified sign-up is used when the Supabase project has a working email sender
+ * (AUTH_EMAIL_CONFIRMATION=1, set only after custom SMTP is configured and tested): Supabase sends the
+ * confirmation link and sign-in is refused until the address is confirmed. Without it, the demo
+ * creates the user through the admin API so sign-in works, and FundCart records the address as NOT
+ * verified (profiles.email_verified = false) and says so in the interface.
+ */
+export function emailConfirmationEnabled(): boolean { return process.env.AUTH_EMAIL_CONFIRMATION === '1'; }
+
+export async function createAccount(email: string, password: string, redirectTo?: string): Promise<AuthResult | { ok: true; pendingConfirmation: true }> {
+  if (emailConfirmationEnabled()) {
+    const res = await gotrue(`/signup${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ''}`, { method: 'POST', body: JSON.stringify({ email, password }) });
+    if (!res.ok && res.status !== 200) {
+      const j = await res.json().catch(() => ({}));
+      if (/password/i.test(String(j?.msg || j?.error_description || ''))) return { ok: false, error: 'auth.errWeak', status: 422 };
+    }
+    // Same answer whether or not the address already had an account (no enumeration).
+    return { ok: true, pendingConfirmation: true };
+  }
+  const res = await gotrue('/admin/users', { method: 'POST', admin: true, body: JSON.stringify({ email, password, email_confirm: true, app_metadata: { fundcart_email_verified: false } }) });
   const j = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = String(j?.msg || j?.message || j?.error_description || '');
@@ -96,7 +114,7 @@ export async function resetPassword(accessToken: string, password: string): Prom
  * Link the signed-in Supabase user to a FundCart profile and set the cookies.
  * Returns how many guest campaigns were claimed (moved) into the account.
  */
-export async function linkAndSignIn(authUserId: string, email: string): Promise<{ profileId: string; claimed: number }> {
+export async function linkAndSignIn(authUserId: string, email: string, emailVerified = false): Promise<{ profileId: string; claimed: number }> {
   const jar = await cookies();
   const guest = verifyToken(jar.get(GUEST_COOKIE)?.value);
   const existing = await db().from('profiles').select('id').eq('auth_user_id', authUserId).maybeSingle();
@@ -129,7 +147,8 @@ export async function linkAndSignIn(authUserId: string, email: string): Promise<
     profileId = crypto.randomUUID();
     await db().from('profiles').insert({ id: profileId, display_name: email.split('@')[0].slice(0, 60), auth_user_id: authUserId, email });
   }
-  await db().from('profiles').update({ email }).eq('id', profileId);
+  // email_verified is true only when Supabase confirmed the address through its own email link.
+  await db().from('profiles').update({ email, email_verified: emailVerified }).eq('id', profileId);
 
   const exp = Math.floor(Date.now() / 1000) + MAX_AGE;
   const payload = `${profileId}.${authUserId}.${exp}`;

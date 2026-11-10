@@ -3,6 +3,7 @@ import { formatUSD } from './money';
 import { db } from './db';
 import { captureOrder, extractCapture, getOrder, PayPalError, type PayPalOrder } from './paypal';
 import { sendReceiptIfPending } from './receipts';
+import { recentEventCount, recordSecurityEvent } from './security-events';
 
 // Payment state machine. A payment only counts once PayPal itself reports a COMPLETED capture
 // whose amount and currency match the order we created. Browser redirects never mark success.
@@ -46,6 +47,8 @@ export async function captureAndRecord(paypalOrderId: string, source: 'api' | 'w
       pp = await getOrder(paypalOrderId);
     } else {
       await logPaymentEvent({ paymentOrderId: order.id, paypalOrderId, source, eventType: 'capture.error', status: 'ERROR', summary: { message: err.message, issue: err.issue, debugId: err.debugId } });
+      // Decline-spike alert (card-testing signal): 5+ failed captures across the platform in 10 minutes.
+      if ((await recentEventCount('capture.error', 10, 'payment_events', 'event_type')) >= 5) void recordSecurityEvent('decline_spike', 'alert', 'platform', { windowMinutes: 10 });
       return { state: 'failed', message: err.issue === 'INSTRUMENT_DECLINED' ? 'The payment method was declined. Please try another one in PayPal.' : 'PayPal could not complete this payment.' };
     }
   }

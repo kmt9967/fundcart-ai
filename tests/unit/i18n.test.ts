@@ -16,7 +16,7 @@ const SAME_OK = /^(FundCart( AI)?|PayPal( Sandbox)?|Channel3|Gemini|Supabase|AG 
 const REVIEWED_SAME: Record<string, string[]> = {
   ur: ['assistant.ex2', 'assistant.ex4', 'contrib.emailPh'],
   es: ['pu.total', 'dc.total', 'contrib.emailPh'],
-  fr: ['assistant.budgetChip', 'assistant.source', 'field.microphone', 'pick.alternative', 'contrib.capture', 'lg.capture', 'lg.type', 'pu.total', 'dc.total', 'contrib.emailPh'],
+  fr: ['assistant.budgetChip', 'assistant.source', 'field.microphone', 'pick.alternative', 'match.alternative', 'contrib.capture', 'lg.capture', 'lg.type', 'pu.total', 'dc.total', 'contrib.emailPh'],
 };
 
 describe('translations', () => {

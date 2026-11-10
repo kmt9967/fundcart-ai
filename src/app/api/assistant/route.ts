@@ -4,7 +4,9 @@ import { screenMessage } from '@/lib/shopping/safety';
 import { INTENT_VERSION, type SessionState } from '@/lib/shopping/types';
 import { db } from '@/lib/db';
 import { ensureUser } from '@/lib/identity';
-import { rateLimit, clientKey } from '@/lib/ratelimit';
+import { sharedRateLimit, clientKey, bucketId } from '@/lib/ratelimit';
+import { policyFor, requestCountry, fundingOffer, POLICY_VERSION } from '@/lib/policy';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { toCents } from '@/lib/money';
 import { isLocale, DEFAULT_LOCALE, t, type Locale } from '@/i18n';
 import { getLocale } from '@/i18n/server';
@@ -22,13 +24,27 @@ const Body = z.object({
 });
 
 // Streams the agent timeline as NDJSON lines: {type:'event'|'result'|'error', ...}
+// Per-visitor and global daily allowances for model-backed turns (Gemini free tier is ~500 requests per
+// model per day). Beyond them the assistant keeps working in rule-based mode instead of failing.
+const AI_TURNS_PER_VISITOR_PER_DAY = 40;
+const AI_TURNS_GLOBAL_PER_DAY = 600;
+
 export async function POST(req: Request) {
-  const rl = rateLimit(`assistant:${clientKey(req)}`, 12, 60_000);
+  const len = Number(req.headers.get('content-length') || 0);
+  if (len > 8_000) return Response.json({ error: 'Request too large.' }, { status: 413 });
+  const ip = clientKey(req);
   const parsed = Body.safeParse(await req.json().catch(() => null));
   const locale: Locale = parsed.success && isLocale(parsed.data.locale) ? parsed.data.locale : await getLocale().catch(() => DEFAULT_LOCALE);
-  if (!rl.ok) return Response.json({ error: `Too many searches. Try again in ${rl.retryAfterSec}s.` }, { status: 429 });
+  const rl = await sharedRateLimit([['assistant_ip_min', ip, 12, 60], ['assistant_ip_hour', ip, 120, 3600]]);
+  if (!rl.ok) {
+    void recordSecurityEvent('rate_limited', 'info', bucketId('ip', ip), { route: 'assistant', rule: rl.rule });
+    return Response.json({ error: `Too many searches. Try again in ${rl.retryAfterSec}s.` }, { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } });
+  }
   if (!parsed.success) return Response.json({ error: 'Please describe what you need (2–600 characters).' }, { status: 400 });
   const userId = await ensureUser();
+  const policy = policyFor(requestCountry(req));
+  const budget = await sharedRateLimit([['ai_user_day', userId, AI_TURNS_PER_VISITOR_PER_DAY, 86400], ['ai_global_day', 'all', AI_TURNS_GLOBAL_PER_DAY, 86400]]);
+  if (!budget.ok) void recordSecurityEvent('ai_budget_exhausted', budget.rule === 'ai_global_day' ? 'warn' : 'info', budget.rule === 'ai_global_day' ? 'global' : bucketId('user', userId), {});
   let ownOverride: number | null = null;
   if (parsed.data.ownFunds != null && parsed.data.ownFunds !== '') {
     try { ownOverride = toCents(parsed.data.ownFunds); } catch { return Response.json({ error: 'Invalid amount for money you already have.' }, { status: 400 }); }
@@ -45,7 +61,10 @@ export async function POST(req: Request) {
     if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) prev = st;
   }
 
-  const session = await db().from('ai_sessions').insert({ user_id: userId, prompt: safety.redacted }).select('id').single();
+  // Sensitive purchases are never stored in readable history; flags and policy version are kept for audit.
+  const storedPrompt = safety.notices.includes('sensitive_purchase') ? '[sensitive purchase: not stored]' : safety.redacted;
+  const session = await db().from('ai_sessions').insert({ user_id: userId, prompt: storedPrompt, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted }, policy_version: POLICY_VERSION }).select('id').single();
+  if (safety.block) void recordSecurityEvent(safety.flags.some(f => ['injection', 'fake_authority', 'fake_verification'].includes(f)) ? 'injection_flag' : 'safety_block', 'info', bucketId('user', userId), { flags: safety.flags });
   const sessionId = session.data?.id as string | undefined;
   const encoder = new TextEncoder();
 
@@ -66,7 +85,8 @@ export async function POST(req: Request) {
           return;
         }
         if (safety.piiRedacted) emit({ agent: 'Safety', step: 'Removed a card number from the message before processing' });
-        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit });
+        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: budget.ok, funding: fundingOffer(policy) });
+        if (result.listingFlags.length) void recordSecurityEvent('injection_flag', 'info', 'listing', { count: result.listingFlags.length });
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
           intent: result.state,

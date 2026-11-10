@@ -1,5 +1,5 @@
 import { captureAndRecord } from '@/lib/payments';
-import { rateLimit, clientKey } from '@/lib/ratelimit';
+import { sharedRateLimit, clientKey } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 
@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request, ctx: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await ctx.params;
   if (!/^[A-Z0-9]{10,30}$/.test(orderId)) return Response.json({ error: 'Invalid order.' }, { status: 400 });
-  if (!rateLimit(`capture:${clientKey(req)}`, 20, 60_000).ok) return Response.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!(await sharedRateLimit([['capture_ip_min', clientKey(req), 20, 60]])).ok) return Response.json({ error: 'Too many requests.' }, { status: 429 });
   const outcome = await captureAndRecord(orderId, 'api');
   const status = outcome.state === 'completed' ? 200 : outcome.state === 'pending' ? 202 : outcome.state === 'not_approved' ? 409 : outcome.state === 'not_found' ? 404 : 502;
   return Response.json(outcome, { status });

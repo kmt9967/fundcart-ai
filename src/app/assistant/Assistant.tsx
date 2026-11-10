@@ -23,6 +23,9 @@ type Result = {
   mode: 'best_fit' | 'cheapest_adequate'; picks: Pick[]; summary: string; followUp: string | null;
   budget: { budgetCents: number | null; usable: boolean; raw: string | null; ownFundsCents: number | null; priceCapCents: number | null; cheapestAdequate: { externalId: string; priceCents: number; gapCents: number | null } | null; noneWithinBudget: boolean; rejections: Array<{ label: string; count: number }>; note: string };
   compareIds: string[]; aiUsed: boolean; dataSource: { provider: string; fetchedAt: string; cached: boolean; queries: number }; safety: { flags: string[]; piiRedacted: boolean };
+  notices?: string[]; kit?: { id: string; title: string; items: string[] } | null; problem?: { id: string; solutions: string[] } | null;
+  matchTypes?: Record<string, 'exact' | 'alternative' | 'fit_unconfirmed'>; listingFlags?: string[]; funding?: { available: boolean; mode: string };
+  families?: { primary: string | null; detected: string[] };
 };
 
 export function Assistant({ initialQuery }: { initialQuery: string }) {
@@ -92,7 +95,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
   const compared = compare.map(id => byId.get(id)).filter((p): p is Product => !!p);
   const examples: DictKey[] = ['assistant.ex1', 'assistant.ex2', 'assistant.ex3', 'assistant.ex4'];
 
-  const cardProps = { t, f, picks, ownCents, cheapest, compare, setCompare, saved, save };
+  const cardProps = { t, f, picks, ownCents, cheapest, compare, setCompare, saved, save, sessionId: result?.sessionId ?? null, fundingAvailable: result?.funding?.available !== false, matchTypes: result?.matchTypes ?? {}, listingFlags: result?.listingFlags ?? [] };
 
   return (
     <div className={`mt-6 grid gap-6 sm:mt-8 lg:grid-cols-[1fr_320px] ${compare.length && result ? 'pb-20 lg:pb-0' : ''}`}>
@@ -140,6 +143,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
         {result && (result.kind !== 'results' || result.message) && (
           <div role="status" className={`card fade-up p-4 text-sm leading-relaxed sm:p-5 ${result.kind === 'blocked' ? 'border-warn/40 bg-sun-soft' : ''}`}>
             <p dir="auto">{result.message}</p>
+            {!!result.notices?.length && result.kind !== 'results' && <ul className="mt-2 list-disc space-y-0.5 ps-5 text-xs text-ink-2" data-testid="notices">{result.notices.map(n => <li key={n} dir="auto">{n}</li>)}</ul>}
             {result.links.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{result.links.map(l => <Link key={l.href} className="btn btn-ghost min-h-11 px-4 text-sm" href={l.href}>{l.label}</Link>)}</div>}
           </div>
         )}
@@ -163,6 +167,22 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
               {result.summary && <p className="mt-3 leading-relaxed text-ink-2" dir="auto">{result.summary}</p>}
               {result.budget.note && <p className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm font-medium" dir="auto">{result.budget.note}</p>}
               {result.followUp && <p className="mt-2 text-sm text-mute" dir="auto"><b>{t('assistant.followUp')}</b> {result.followUp}</p>}
+              {!!result.notices?.length && (
+                <div className="mt-3 rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink-2" data-testid="notices">
+                  <p className="font-semibold">{t('assistant.notices')}</p>
+                  <ul className="mt-1 list-disc space-y-0.5 ps-4">{result.notices.map(n => <li key={n} dir="auto">{n}</li>)}</ul>
+                </div>
+              )}
+              {(result.kit || result.problem) && (
+                <div className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm" data-testid="kit">
+                  <p className="font-semibold">{result.kit ? result.kit.title : t('assistant.solutions')}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(result.kit ? result.kit.items : result.problem!.solutions).map(item => (
+                      <button key={item} type="button" dir="ltr" className="chip min-h-10 border border-line bg-white px-3 text-ink-2 hover:border-brand" disabled={loading} onClick={() => { setPrompt(item); void run(item); }}>{t('assistant.search')}: {item}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {result.profile?.workflow !== undefined && (
                 <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('assistant.androidSwitch')}>
                   <span className="text-xs font-semibold text-mute">{t('assistant.androidSwitch')}</span>
@@ -308,10 +328,12 @@ function Requirements({ result, t }: { result: Result; t: T }) {
   );
 }
 
-function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompare, saved, save }: {
+function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompare, saved, save, sessionId = null, fundingAvailable = true, matchTypes = {}, listingFlags = [] }: {
   p: Product; i: number; t: T; f: F; picks: Map<string, Pick>; ownCents: number | null; cheapest: Result['budget']['cheapestAdequate'];
   compare: string[]; setCompare: (fn: (c: string[]) => string[]) => void; saved: Record<string, 'saving' | 'saved'>; save: (id: string) => void;
+  sessionId?: string | null; fundingAvailable?: boolean; matchTypes?: Record<string, 'exact' | 'alternative' | 'fit_unconfirmed'>; listingFlags?: string[];
 }) {
+  const match = matchTypes[p.externalId];
   const e = p.evaluation; const pick = picks.get(p.externalId);
   const gap = ownCents != null && p.priceCents != null ? Math.max(0, p.priceCents - ownCents) : null;
   const isCheapest = cheapest?.externalId === p.externalId;
@@ -338,6 +360,7 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
             {isCheapest && <span className="chip bg-ok px-2 py-0.5 text-xs text-white">{t('assistant.cheapestBadge')}</span>}
             {pick && <span className="chip bg-brand px-2 py-0.5 text-xs text-white sm:hidden">{pick.label}</span>}
             {e.withinBudget === false && <span className="chip bg-sun-soft px-2 py-0.5 text-xs text-sun">{t('assistant.overBudget')}</span>}
+            {match && <span className={`chip px-2 py-0.5 text-xs ${match === 'exact' ? 'bg-ok-soft text-ok' : 'bg-paper text-ink-2'}`} data-testid="match">{t(`match.${match}` as DictKey)}</span>}
             {cond && cond !== 'new' && <span className="chip bg-paper px-2 py-0.5 text-xs text-ink-2">{t(cond === 'refurbished' ? 'assistant.condition.refurbished' : 'assistant.condition.used')}</span>}
           </div>
           <p className="truncate text-xs font-semibold text-mute" dir="auto">{p.brand || t('assistant.unknownBrand')}{p.merchantDomain ? ` · ${p.merchantDomain}` : ''}</p>
@@ -348,6 +371,7 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
           </div>
           {p.rating && <p className="text-xs text-mute">★ {p.rating.toFixed(1)}{p.ratingCount ? ` (${p.ratingCount})` : ''}</p>}
           {gap != null && e.status === 'suitable' && <p className={`mt-1 text-xs font-bold ${gap > 0 ? 'text-sun' : 'text-ok'}`}>{gap > 0 ? t('assistant.gap', { amount: f.usd(gap) }) : t('assistant.canAfford')}</p>}
+          {listingFlags.includes(p.externalId) && <p className="mt-1 text-xs text-warn">{t('assistant.listingFlag')}</p>}
           {e.overkill && <p className="mt-1 text-xs font-semibold text-warn">{t('assistant.overkill', { extra: f.usd(e.overkill.extraCents) })}</p>}
         </div>
       </div>
@@ -371,8 +395,8 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
         )}
         {e.status === 'needs_verification' && <ul className="mt-2 space-y-0.5 text-xs text-warn" dir="ltr">{e.unknownReasons.slice(0, 3).map(r => <li key={r}>? {r}</li>)}</ul>}
         <div className="mt-auto grid grid-cols-2 gap-2 pt-3 sm:pt-4">
-          {p.priceCents != null && e.status === 'suitable' && (gap == null || gap > 0) && <Link className="btn btn-sun min-h-11 px-3 text-sm" href={`/campaigns/new?product=${encodeURIComponent(p.externalId)}${ownCents != null ? `&own=${ownCents / 100}` : ''}`}>{t('assistant.fund')}</Link>}
-          {p.priceCents != null && <Link className={`btn btn-ghost min-h-11 px-3 text-sm ${gap === 0 || e.status !== 'suitable' ? 'col-span-2' : ''}`} href={`/checkout/${encodeURIComponent(p.externalId)}`}>{t('assistant.buy')}</Link>}
+          {fundingAvailable && p.priceCents != null && e.status === 'suitable' && (gap == null || gap > 0) && <Link className="btn btn-sun min-h-11 px-3 text-sm" href={`/campaigns/new?product=${encodeURIComponent(p.externalId)}${ownCents != null ? `&own=${ownCents / 100}` : ''}${sessionId ? `&s=${sessionId}` : ''}`}>{t('assistant.fund')}</Link>}
+          {p.priceCents != null && <Link className={`btn btn-ghost min-h-11 px-3 text-sm ${gap === 0 || e.status !== 'suitable' || !fundingAvailable ? 'col-span-2' : ''}`} href={`/checkout/${encodeURIComponent(p.externalId)}`}>{t('assistant.buy')}</Link>}
           <label className={`btn btn-ghost min-h-11 px-3 text-sm ${compare.includes(p.externalId) ? 'border-brand/50 bg-brand-soft text-brand' : ''}`}>
             <input type="checkbox" className="size-4 accent-brand" checked={compare.includes(p.externalId)} onChange={ev => setCompare(c => ev.target.checked ? [...c, p.externalId].slice(-3) : c.filter(x => x !== p.externalId))} /> {t('assistant.compare')}</label>
           <button className="btn btn-ghost min-h-11 px-3 text-sm" onClick={() => save(p.externalId)} disabled={!!saved[p.externalId]} aria-label={saved[p.externalId] === 'saved' ? t('assistant.savedAria', { title: p.title }) : t('assistant.saveAria', { title: p.title })}>{saved[p.externalId] === 'saved' ? t('assistant.saved') : t('assistant.save')}</button>

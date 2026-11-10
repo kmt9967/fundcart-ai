@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { getT } from '@/i18n/server';
 import { findRecentProduct } from '@/lib/channel3';
+import { headers } from 'next/headers';
 import { Builder } from './Builder';
+import { policyFor, countryFromHeaders, NEED_CATEGORIES } from '@/lib/policy';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewCampaign({ searchParams }: { searchParams: Promise<{ product?: string; own?: string }> }) {
-  const { product: pid, own } = await searchParams;
+export default async function NewCampaign({ searchParams }: { searchParams: Promise<{ product?: string; own?: string; s?: string }> }) {
+  const { product: pid, own, s: sessionId } = await searchParams;
+  const policy = policyFor(countryFromHeaders(await headers()));
   const { t } = await getT();
   const product = pid && /^[A-Za-z0-9_-]{3,40}$/.test(pid) ? await findRecentProduct(pid).catch(() => null) : null;
   if (!product) {
@@ -23,7 +26,8 @@ export default async function NewCampaign({ searchParams }: { searchParams: Prom
       <p className="eyebrow">{t('nb.eyebrow')}</p>
       <h1 className="h-page mt-2">{t('nb.title')}</h1>
       <p className="mt-2 max-w-2xl text-sm text-ink-2 sm:text-base">{t('nb.lead')}</p>
-      <Builder product={product} initialOwn={own && /^\d+(\.\d{1,2})?$/.test(own) ? own : ''} />
+      <Builder product={product} initialOwn={own && /^\d+(\.\d{1,2})?$/.test(own) ? own : ''} sessionId={sessionId && /^[0-9a-f-]{36}$/.test(sessionId) ? sessionId : null}
+        fundraisingAvailable={policy.fundraising !== 'disabled'} needCategories={policy.allowedNeedCategories.filter(n => (NEED_CATEGORIES as readonly string[]).includes(n))} disclosures={[...policy.requiredDisclosures]} bufferPct={5} />
     </div>
   );
 }

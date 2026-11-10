@@ -9,7 +9,17 @@ export type CampaignRow = {
   product_snapshot_id: string | null; item_price_cents: number; own_funds_cents: number; target_cents: number; currency: string;
   suggested_amounts_cents: number[]; image_url: string | null; visibility: string; status: string; allow_overfunding: boolean;
   deadline: string | null; is_demo_seed: boolean; created_at: string; updated_at: string;
+  // Trust fields (migration 005; null/defaults on campaigns created before it).
+  country?: string | null; need_category?: string | null; ranking_mode?: string; buffer_cents?: number; shipping_cents?: number; tax_cents?: number;
+  gap_formula?: { price: number; shipping: number; tax: number; buffer: number; bufferPct: number; ownFunds: number; basisPrice?: number; ownerPaysDifferenceCents?: number } | null;
+  moderation_status?: 'auto_approved' | 'pending_review' | 'approved' | 'rejected' | 'hidden'; moderation_reasons?: string[];
+  verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected'; live_price_cents?: number | null; price_rechecked_at?: string | null; policy_version?: string | null;
 };
+
+/** Contributions are accepted, and the campaign is listed publicly, only after moderation allows it. */
+export function isPubliclyActive(c: Pick<CampaignRow, 'moderation_status'>): boolean {
+  return !c.moderation_status || c.moderation_status === 'auto_approved' || c.moderation_status === 'approved';
+}
 
 export function makeSlug(title: string): string {
   const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'campaign';

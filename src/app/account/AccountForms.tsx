@@ -49,6 +49,7 @@ export function AccountForms({ email: signedInEmail }: { email: string | null })
         if (mode === 'recover') { const { ok, j } = await call({ action: 'recover', email }); setMsg({ kind: ok ? 'ok' : 'err', text: ok ? j.message : j.error }); return; }
         const { ok, j } = await call({ action: mode, email, password });
         if (!ok) return setMsg({ kind: 'err', text: j.error || t('auth.errGeneric') });
+        if (j.pendingConfirmation) return setMsg({ kind: 'ok', text: j.message });
         setMsg({ kind: 'ok', text: `${t('auth.done')}${j.claimed ? ' ' + t('auth.claimed', { n: j.claimed }) : ''}` });
         router.refresh();
       }}>

@@ -36,7 +36,11 @@ Shoppers who can already afford an item can also check out directly, with the sa
 | **AI-assisted campaigns** | Honest campaign story, thank-you note and progress updates drafted by AI; the creator edits before publishing |
 | **PayPal contributions** | PayPal Checkout for supporters; progress counts only PayPal-confirmed payments; overfunding is rejected; optional private email receipt after PayPal verifies the payment |
 | **Creator accounts & dashboard** | Optional sign-in to manage campaigns from any device; every PayPal payment with its status and reference, plus an audit history |
-| **Human-approved purchase** | A separate PayPal checkout that the creator explicitly approves |
+| **Human-approved purchase** | A separate PayPal checkout that the creator explicitly approves; the live price is re-checked first and a price rise pauses the purchase |
+| **29 shopping intents** | Exact items, compatibility, problems, gifts, comparisons, deals, kits, contradictions, support and donor questions and more, each with its own behaviour; when data is missing (delivery dates, trends, certifications, order history, images) the assistant says so instead of inventing it |
+| **Safety engine** | Rules run before any AI call and check the planned action as well as the message: prompt injection in five languages, fake admin claims, other people's data, restricted items, return fraud, covert tracking, self-harm. Cautions keep normal shopping going |
+| **Campaign trust** | Cheapest-suitable-item rule, an itemised goal (price + buffer − own money), content review with personal-data removal, duplicate and velocity checks, public reports, a moderator queue, and an "unverified" label until a real verification provider exists |
+| **Country policy** | Fundraising, cross-border contributions and campaign categories are set per country in versioned configuration. Real-money fundraising is off everywhere; some countries are shopping-only |
 
 ## AI agents
 
@@ -75,7 +79,7 @@ Server route handlers ───────────────────�
 Supabase Postgres (row-level security on; server-only access)
 ```
 
-More detail: [Architecture](docs/ARCHITECTURE.md) · [AI agents](docs/AI_AGENTS.md) · [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [Sponsor integrations](docs/SPONSOR_INTEGRATIONS.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md) · [Test evidence](docs/TEST_EVIDENCE.md)
+More detail: [Architecture](docs/ARCHITECTURE.md) · [AI intelligence](docs/AI_INTELLIGENCE.md) · [Shopping intents](docs/SHOPPING_INTENTS.md) · [Product suitability](docs/PRODUCT_SUITABILITY.md) · [Multilingual](docs/MULTILINGUAL.md) · [Testing](docs/TESTING.md) · [Known limitations](docs/KNOWN_LIMITATIONS.md) · [AI agents](docs/AI_AGENTS.md) · [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [PayPal Sandbox](docs/PAYPAL_SANDBOX.md) · [Sponsor integrations](docs/SPONSOR_INTEGRATIONS.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md) · [Test evidence](docs/TEST_EVIDENCE.md)
 
 ## Built with
 
@@ -91,7 +95,10 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - Campaign management and purchase approval are checked on the server against the campaign owner. Owners are identified by a signed guest cookie or an optional account (Supabase Auth); guest campaigns move into an account only from the browser that holds the signed guest cookie.
 - A safety check runs before any search (prompt injection, self-harm, restricted items, covert surveillance, counterfeits); card numbers are removed from messages before they are stored or sent to the AI.
 - Supporter emails for receipts are collected only when receipt emails are enabled, stored privately and never shown publicly.
-- Sensitive endpoints are rate-limited.
+- Rate limits are shared across server instances (Postgres counters with hashed keys) and apply per IP and per visitor, with a daily AI allowance so automated traffic cannot drain the model quota.
+- Payments: $5 minimum (card-testing defence), contribution velocity limits, duplicate-order reuse, hidden bot fields, idempotent capture, deduplicated webhooks and decline-spike alerts.
+- Moderation and verification state can only be changed by moderators (role from the database) or by an approved verification process, never by chat or request fields.
+- See [Security](docs/SECURITY.md), [Anti-fraud](docs/ANTI_FRAUD.md) and [Policy engine](docs/POLICY_ENGINE.md).
 
 ## Limitations
 
@@ -99,7 +106,8 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - **Not escrow or charity:** FundCart AI does not hold funds and is not a charity or bank.
 - **Single recipient:** one authorized Sandbox account currently receives contributions on behalf of every campaign creator. A production version would let each creator connect their own PayPal account.
 - **Refunds:** only the recipient can issue a refund. FundCart's handling of refund notifications is built but has not yet been exercised with a recipient-issued refund.
-- **Accounts:** email addresses are not verified in this demo build, and password-reset emails need a custom email provider to arrive reliably. Rate limiting is per server instance.
+- **Accounts:** email addresses are not verified in this demo build (shown as "Email not verified"); provider-verified sign-up switches on once a custom email provider is configured. Password-reset emails need that provider to arrive reliably.
+- **Verification:** no identity or need-verification provider is connected, so every campaign is labelled unverified. Country rules are research summaries, not legal advice.
 - **Receipts:** the receipt email integration is built but switched off until a transactional email provider is configured. While it is off, the receipt email field is hidden and no email address is collected; receipts are still available on the receipt page.
 - **Spec checks** depend on what retailers list; unconfirmed specs are labelled "check before buying". Translations are machine-assisted.
 - Prices come from live retailer data and may change.

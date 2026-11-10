@@ -9,7 +9,7 @@ export type CampaignSummary = {
 
 export async function listPublicCampaigns(limit = 24, ownerId?: string): Promise<CampaignSummary[]> {
   let q = db().from('campaigns').select('id, slug, title, creator_name, image_url, status, category, target_cents, is_demo_seed, created_at').order('created_at', { ascending: false }).limit(limit);
-  q = ownerId ? q.eq('owner_id', ownerId) : q.eq('visibility', 'public').neq('status', 'cancelled');
+  q = ownerId ? q.eq('owner_id', ownerId) : q.eq('visibility', 'public').neq('status', 'cancelled').in('moderation_status', ['auto_approved', 'approved']);
   const c = await q;
   const rows = c.data || [];
   if (!rows.length) return [];

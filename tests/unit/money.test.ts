@@ -31,7 +31,9 @@ describe('money helpers', () => {
   });
   it('validates contributions including overfunding rules', () => {
     expect(validateContribution(2500, 0, 50000, false)).toEqual({ ok: true, amountCents: 2500 });
-    expect(validateContribution(50, 0, 50000, false).ok).toBe(false);          // below $1
+    expect(validateContribution(50, 0, 50000, false).ok).toBe(false);          // below $5
+    expect(validateContribution(499, 0, 50000, false).ok).toBe(false);         // below $5
+    expect(validateContribution(300, 49700, 50000, false).ok).toBe(true);      // exact remainder may be below $5
     expect(validateContribution(20000, 40000, 50000, false).ok).toBe(false);   // more than remaining
     expect(validateContribution(10000, 40000, 50000, false).ok).toBe(true);    // exactly remaining
     expect(validateContribution(100, 50000, 50000, false).ok).toBe(false);     // already funded

@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getCampaignBySlug, publicContributions, campaignUpdates } from '@/lib/campaigns';
+import { getCampaignBySlug, publicContributions, campaignUpdates, isPubliclyActive } from '@/lib/campaigns';
+import { canContribute, countryFromHeaders, policyFor } from '@/lib/policy';
+import { ReportCampaign } from './ReportCampaign';
 import { currentUserId } from '@/lib/identity';
 import { ProgressBar } from '@/components/ProgressBar';
 import { StatusChip } from '@/components/StatusChip';
@@ -35,13 +37,19 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const [supporters, updates, uid] = await Promise.all([publicContributions(c.id), campaignUpdates(c.id), currentUserId()]);
   const { t, usd, date, dateTime, ago } = await getT();
   const isOwner = uid === c.owner_id;
+  // Rejected or hidden campaigns are visible only to their creator.
+  if ((c.moderation_status === 'rejected' || c.moderation_status === 'hidden') && !isOwner) notFound();
+  const publicActive = isPubliclyActive(c);
+  const viewerCountry = countryFromHeaders(await headers());
+  const contributionGate = canContribute(c.country ?? null, viewerCountry);
+  const gf = c.gap_formula;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       {created && isOwner && <ShareBox url={`${await siteOrigin()}/c/${c.slug}`} title={c.title} />}
       <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-x-8">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} />{c.is_demo_seed && <span className="chip bg-ink text-white">{t('card.demo')}</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
+          <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} /><span className="chip bg-white text-mute" title={t('trust.unverifiedHelp')} data-testid="verification">{c.verification_status === 'verified' ? '✓' : t('trust.unverified')}</span>{c.is_demo_seed && <span className="chip bg-ink text-white">{t('card.demo')}</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
           <h1 className="h-page mt-3 [overflow-wrap:anywhere]" dir="auto">{c.title}</h1>
           <p className="mt-2 text-sm text-mute">{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</p>
 
@@ -66,9 +74,11 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             {isOwner && <Link href={`/c/${c.slug}/manage`} className="btn btn-ghost mt-4 w-full">{t('camp.dashboard')}</Link>}
           </div>
 
-          {c.status === 'active' ? (
-            <Contribute receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
-          ) : (
+          {!publicActive && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" role="status" data-testid="moderation-banner">{c.moderation_status === 'pending_review' ? t('trust.pending') : t('trust.unavailable')}</div>}
+          {c.status === 'active' && publicActive && !contributionGate.allowed && <div className="card p-4 text-sm" role="status" data-testid="policy-gate">{t(contributionGate.messageKey as DictKey)}</div>}
+          {c.status === 'active' && publicActive && contributionGate.allowed ? (
+            <Contribute disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
+          ) : c.status === 'active' ? null : (
             <div className="card p-5 text-sm">
               {c.status === 'goal_reached' && <p><b className="text-ok">{t('camp.goalReachedT')}</b> {t('camp.goalReachedB')}</p>}
               {c.status === 'purchased' && <p><b>{t('camp.completedT')}</b> {t('camp.completedB')}</p>}
@@ -104,23 +114,40 @@ export default async function CampaignPage({ params, searchParams }: { params: P
                     <div><dt className="text-xs text-mute">{t('camp.raising')}</dt><dd className="font-bold text-sun"><bdi>{usd(c.target_cents)}</bdi></dd></div>
                   </dl>
                   <p className="mt-2 text-xs text-mute">{t('camp.snapshot', { time: dateTime(product.fetched_at) })}</p>
+                  <details className="mt-3 rounded-xl bg-paper p-3 text-xs" data-testid="gap-formula">
+                    <summary className="cursor-pointer font-semibold">{t('trust.gapTitle')}</summary>
+                    {gf ? (
+                      <dl className="mt-2 space-y-1">
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapPrice')}</dt><dd><bdi>{usd(gf.basisPrice ?? gf.price)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapShipping')}</dt><dd><bdi>{usd(gf.shipping)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapTax')}</dt><dd><bdi>{usd(gf.tax)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapBuffer', { pct: gf.bufferPct })}</dt><dd><bdi>+{usd(gf.buffer)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapOwn')}</dt><dd><bdi>−{usd(gf.ownFunds)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2 border-t border-line pt-1 font-bold"><dt>{t('trust.gapTotal')}</dt><dd><bdi>{usd(c.target_cents)}</bdi></dd></div>
+                        {!!gf.ownerPaysDifferenceCents && gf.ownerPaysDifferenceCents > 0 && <p className="pt-1 text-mute">{t('trust.ownerPays', { diff: usd(gf.ownerPaysDifferenceCents) })}</p>}
+                      </dl>
+                    ) : <p className="mt-2 text-mute">{t('trust.legacy')}</p>}
+                    {c.country && <p className="mt-2 text-mute">{t('trust.country', { country: c.country })}</p>}
+                    <p className="mt-2 text-mute">{t('trust.unverifiedHelp')}</p>
+                  </details>
                 </div>
               </div>
             </section>
           )}
 
+          {!isOwner && <div className="mt-4"><ReportCampaign slug={c.slug} /></div>}
           <section className="mt-6 sm:mt-8">
             <h2 className="text-lg font-bold">{t('camp.updates')}</h2>
             {updates.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.noUpdates')}</p> : (
               <ol className="mt-3 space-y-3">{updates.map(u => (
-                <li key={u.id} className="card p-4 text-sm"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span className="font-semibold uppercase tracking-wide">{(['update', 'thank_you', 'goal_reached', 'purchase'].includes(u.kind) ? t(`upd.${u.kind}` as DictKey) : u.kind.replace('_', ' '))}{u.ai_generated ? ` · ${t('camp.aiAssisted')}` : ''}</span><span>{ago(u.created_at)}</span></div><p className="mt-1.5 leading-relaxed text-ink-2" dir="auto">{u.body}</p></li>
+                <li key={u.id} className="card p-4 text-sm"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span className="font-semibold uppercase tracking-wide">{(['update', 'thank_you', 'goal_reached', 'purchase', 'refund', 'price_change', 'moderation'].includes(u.kind) ? t(`upd.${u.kind}` as DictKey) : u.kind.replace('_', ' '))}{u.ai_generated ? ` · ${t('camp.aiAssisted')}` : ''}</span><span>{ago(u.created_at)}</span></div><p className="mt-1.5 leading-relaxed text-ink-2" dir="auto">{u.body}</p></li>
               ))}</ol>
             )}
           </section>
         </div>
 
       </div>
-      {c.status === 'active' && <StickySupport remaining={usd(totals.remainingCents)} />}
+      {c.status === 'active' && publicActive && contributionGate.allowed && <StickySupport remaining={usd(totals.remainingCents)} />}
     </div>
   );
 }

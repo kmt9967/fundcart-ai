@@ -182,3 +182,19 @@ export async function findRecentProduct(externalId: string): Promise<Product | n
   if (!res.ok) return null;
   return normalize(await res.json(), new Date().toISOString());
 }
+
+/**
+ * Live re-check of one product (free product-detail endpoint), used before a campaign purchase so a
+ * stale snapshot price is never charged silently. 'gone' = the retailer listing no longer exists.
+ */
+export async function fetchLiveProduct(externalId: string): Promise<{ state: 'ok'; product: Product } | { state: 'gone' } | { state: 'unavailable' }> {
+  try {
+    const res = await fetch(`https://api.trychannel3.com/v1/products/${encodeURIComponent(externalId)}?country=US&currency=USD`, {
+      headers: { 'x-api-key': env.channel3Key }, signal: AbortSignal.timeout(12000), cache: 'no-store',
+    });
+    if (res.status === 404) return { state: 'gone' };
+    if (!res.ok) return { state: 'unavailable' };
+    const p = normalize(await res.json(), new Date().toISOString());
+    return p ? { state: 'ok', product: p } : { state: 'unavailable' };
+  } catch { return { state: 'unavailable' }; }
+}

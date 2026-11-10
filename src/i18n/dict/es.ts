@@ -1,5 +1,6 @@
 import type { Dict } from './en';
 import { pagesEs } from './pages';
+import { trustEs } from './trust';
 
 // Español — machine-assisted translation; please have a native speaker review before final submission.
 const core = {
@@ -219,4 +220,4 @@ const core = {
   'safety.deceptive_campaign': 'No puedo escribir una campaña que afirme una enfermedad o dificultad que no es cierta. Las historias honestas también recaudan dinero y con gusto te ayudo a escribir una.',
 };
 
-export const es: Dict = { ...core, ...pagesEs };
+export const es: Dict = { ...core, ...pagesEs, ...trustEs };

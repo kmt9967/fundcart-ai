@@ -5,20 +5,22 @@ import { useRouter } from 'next/navigation';
 import { PayPalCheckout, type CaptureResult } from '@/components/PayPalCheckout';
 import { toCents, MIN_CONTRIBUTION_CENTS } from '@/lib/money';
 import { useFormat, useLocale, useT } from '@/i18n/client';
+import type { DictKey } from '@/i18n';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
 
-export function Contribute({ slug, clientId, remainingCents, suggested, receiptsEnabled = false }: { slug: string; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean }) {
+export function Contribute({ slug, clientId, remainingCents, suggested, receiptsEnabled = false, disclosures = [] }: { slug: string; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean; disclosures?: string[] }) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const locale = useLocale();
   const [amount, setAmount] = useState(suggested[0] ? String(suggested[0] / 100) : '10');
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
   const [anonymous, setAnonymous] = useState(false);
+  const [website, setWebsite] = useState('');
   const [done, setDone] = useState<CaptureResult | null>(null);
 
   const cents = useMemo(() => { try { return toCents(amount); } catch { return null; } }, [amount]);
-  const invalid = cents == null ? t('contrib.errFormat') : cents < MIN_CONTRIBUTION_CENTS ? t('contrib.errMin') : cents > remainingCents ? t('contrib.errMax', { amount: f.usd(remainingCents) }) : null;
+  const invalid = cents == null ? t('contrib.errFormat') : cents < MIN_CONTRIBUTION_CENTS && cents !== remainingCents ? t('contrib.errMin') : cents > remainingCents ? t('contrib.errMax', { amount: f.usd(remainingCents) }) : null;
   const emailInvalid = email.trim() !== '' && !EMAIL_RE.test(email.trim());
 
   if (done) {
@@ -54,10 +56,12 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
         <input id="semail" type="email" dir="ltr" className="input" value={email} onChange={e => setEmail(e.target.value)} maxLength={254} placeholder={t('contrib.emailPh')} autoComplete="email" enterKeyHint="done" aria-invalid={emailInvalid} aria-describedby="semail-hint" />
         <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>}
       <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
+      <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] h-px w-px opacity-0" />
+      {disclosures.length > 0 && <ul className="mt-3 list-disc space-y-0.5 rounded-xl bg-paper p-3 ps-6 text-xs text-ink-2" data-testid="disclosures">{disclosures.map(d => <li key={d}>{t(d as DictKey)}</li>)}</ul>}
       <div className="mt-4">
         {clientId ? (
           <PayPalCheckout clientId={clientId} disabled={!!invalid || emailInvalid}
-            body={() => (cents && !invalid && !emailInvalid ? { kind: 'contribution', slug, amountCents: cents, supporterName: name, message, anonymous, supporterEmail: email.trim(), locale } : null)}
+            body={() => (cents && !invalid && !emailInvalid ? { kind: 'contribution', slug, amountCents: cents, supporterName: name, message, anonymous, supporterEmail: email.trim(), locale, website } : null)}
             onResult={r => { setDone(r); router.refresh(); }} />
         ) : <p className="text-sm text-bad">{t('contrib.noPaypal')}</p>}
       </div>

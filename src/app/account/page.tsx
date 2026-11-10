@@ -18,6 +18,7 @@ export default async function AccountPage() {
       <p className="eyebrow">{t('nav.me')}</p>
       <h1 className="h-page mt-2">{t('auth.title')}</h1>
       <p className="mt-2 text-sm text-ink-2">{t('auth.lead')}</p>
+      {account && <p className="mt-3"><span className={`chip ${account.emailVerified ? 'bg-ok-soft text-ok' : 'bg-sun-soft text-warn'}`} data-testid="email-status">{t(account.emailVerified ? 'auth.emailVerified' : 'auth.emailUnverified')}</span></p>}
       <AccountForms email={account?.email ?? null} />
     </div>
   );

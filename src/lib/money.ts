@@ -3,7 +3,7 @@
 
 export const CURRENCY = 'USD' as const;
 export const MAX_CONTRIBUTION_CENTS = 1_000_000; // $10,000 sandbox cap per contribution
-export const MIN_CONTRIBUTION_CENTS = 100; // $1.00
+export const MIN_CONTRIBUTION_CENTS = 500; // $5.00: small amounts are the favourite card-testing pattern on donation forms
 
 /** Parse a decimal dollar value (number or string like "12.50") into integer cents without float drift. */
 export function toCents(value: number | string): number {
@@ -34,6 +34,21 @@ export function fundingGap(priceCents: number, ownFundsCents: number): number {
   return Math.max(0, priceCents - ownFundsCents);
 }
 
+export type GapFormula = { price: number; shipping: number; tax: number; buffer: number; bufferPct: number; ownFunds: number };
+
+/**
+ * Campaign gap = live price + shipping + tax + buffer − own funds (integer cents, buffer rounded up).
+ * The buffer covers price rises during the campaign; it is shown to supporters before they pay.
+ */
+export function campaignGap(o: { priceCents: number; shippingCents?: number; taxCents?: number; bufferPct?: number; ownFundsCents: number }): { totalCents: number; formula: GapFormula } {
+  const shipping = o.shippingCents ?? 0; const tax = o.taxCents ?? 0; const pct = o.bufferPct ?? 0;
+  [o.priceCents, shipping, tax, o.ownFundsCents].forEach(assertCents);
+  if (!(pct >= 0 && pct <= 25)) throw new Error(`Invalid buffer percent: ${pct}`);
+  const buffer = Math.ceil((o.priceCents * pct) / 100);
+  const totalCents = Math.max(0, o.priceCents + shipping + tax + buffer - o.ownFundsCents);
+  return { totalCents, formula: { price: o.priceCents, shipping, tax, buffer, bufferPct: pct, ownFunds: o.ownFundsCents } };
+}
+
 /** Whole-number funding percentage, floored so we never round up to "100%" early. */
 export function fundingPercent(raisedCents: number, targetCents: number): number {
   assertCents(raisedCents); assertCents(targetCents);
@@ -52,9 +67,10 @@ export function remainingCents(raisedCents: number, targetCents: number): number
 export function validateContribution(amountCents: number, raisedCents: number, targetCents: number, allowOverfunding: boolean):
   { ok: true; amountCents: number } | { ok: false; error: string } {
   if (!Number.isSafeInteger(amountCents)) return { ok: false, error: 'Amount must be a whole number of cents.' };
-  if (amountCents < MIN_CONTRIBUTION_CENTS) return { ok: false, error: 'The minimum contribution is $1.00.' };
   if (amountCents > MAX_CONTRIBUTION_CENTS) return { ok: false, error: 'The maximum sandbox contribution is $10,000.' };
   const remaining = remainingCents(raisedCents, targetCents);
+  // Below the minimum is allowed only to finish a campaign exactly (otherwise the last few dollars could never be raised).
+  if (amountCents < MIN_CONTRIBUTION_CENTS && !(amountCents > 0 && amountCents === remaining)) return { ok: false, error: 'The minimum contribution is $5.00.' };
   if (!allowOverfunding && remaining === 0) return { ok: false, error: 'This campaign has already reached its goal.' };
   if (!allowOverfunding && amountCents > remaining) return { ok: false, error: `Only ${formatUSD(remaining)} is still needed.` };
   return { ok: true, amountCents };
