@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         }
         if (safety.piiRedacted) emit({ agent: 'Safety', step: 'Removed a card number from the message before processing' });
         const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit });
-        emit({ agent: 'Orchestrator', step: 'Done. Nothing is purchased without your explicit approval.' });
+        emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
           intent: result.state,
           result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, picks: result.picks.map(p => p.externalId), parent: prev ? parsed.data.conversationId : null },

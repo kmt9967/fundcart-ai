@@ -67,7 +67,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </div>
 
           {c.status === 'active' ? (
-            <Contribute slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
+            <Contribute receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
           ) : (
             <div className="card p-5 text-sm">
               {c.status === 'goal_reached' && <p><b className="text-ok">{t('camp.goalReachedT')}</b> {t('camp.goalReachedB')}</p>}

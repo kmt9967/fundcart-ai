@@ -8,7 +8,7 @@ import { useFormat, useLocale, useT } from '@/i18n/client';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
 
-export function Contribute({ slug, clientId, remainingCents, suggested }: { slug: string; clientId: string; remainingCents: number; suggested: number[] }) {
+export function Contribute({ slug, clientId, remainingCents, suggested, receiptsEnabled = false }: { slug: string; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean }) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const locale = useLocale();
   const [amount, setAmount] = useState(suggested[0] ? String(suggested[0] / 100) : '10');
   const [name, setName] = useState('');
@@ -49,9 +49,10 @@ export function Contribute({ slug, clientId, remainingCents, suggested }: { slug
         {invalid && <p id="amt-err" role="alert" className="mt-1 text-sm text-bad">{invalid}</p>}</div>
       <div className="mt-3"><label className="label" htmlFor="sname">{t('contrib.name')}</label><input id="sname" dir="auto" className="input" value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder={t('contrib.namePh')} autoComplete="given-name" enterKeyHint="next" /></div>
       <div className="mt-3"><label className="label" htmlFor="msg">{t('contrib.msg')}</label><input id="msg" dir="auto" className="input" value={message} onChange={e => setMessage(e.target.value)} maxLength={200} placeholder={t('contrib.msgPh')} enterKeyHint="next" /></div>
-      <div className="mt-3"><label className="label" htmlFor="semail">{t('contrib.email')}</label>
+      {/* Receipt email is only collected when a provider is configured to actually send it. */}
+      {receiptsEnabled && <div className="mt-3"><label className="label" htmlFor="semail">{t('contrib.email')}</label>
         <input id="semail" type="email" dir="ltr" className="input" value={email} onChange={e => setEmail(e.target.value)} maxLength={254} placeholder={t('contrib.emailPh')} autoComplete="email" enterKeyHint="done" aria-invalid={emailInvalid} aria-describedby="semail-hint" />
-        <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>
+        <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>}
       <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
       <div className="mt-4">
         {clientId ? (

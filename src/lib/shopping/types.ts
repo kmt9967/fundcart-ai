@@ -105,12 +105,17 @@ export type SessionState = {
   brandsExclude: string[];
   colors: string[];
   usedOk: boolean | null;
-  budget: { maxCents: number | null; minCents: number | null; currency: string; raw: string | null; usable: boolean } | null;
+  /** currency '?' = ambiguous, not applied until the user says which currency. assumed = USD inferred from a plain English amount (shown to the user). */
+  budget: { maxCents: number | null; minCents: number | null; currency: string; raw: string | null; usable: boolean; assumed?: boolean } | null;
   ownFundsCents: number | null;
   priceCapCents: number | null; // from "cheaper" refinements: below the previous top pick
   rankingMode: 'best_fit' | 'cheapest_adequate';
   profileId: string | null;
   noEmulator: boolean;
+  /** Android testing method: physical phone, Emulator, or not stated yet (null). */
+  androidWorkflow?: 'device' | 'emulator' | null;
+  /** Own funds were stated without a recognisable currency, so they were not used. */
+  ownFundsAmbiguous?: string | null;
   language: IntentV2['language'];
   primaryFamily: Family;
   lastProductIds: string[];

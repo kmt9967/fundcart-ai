@@ -81,10 +81,54 @@ describe('spec extraction from real listings', () => {
 describe('Android Studio regression (the reported failure)', () => {
   const state = firstState();
   const ctx = ctxFor(state);
+  // Same learner, after saying they will use the Emulator.
+  const emu = mergeState(state, parseIntentFallback('I will use the emulator', true), 'I will use the emulator', null);
+  const ctxE = ctxFor(emu);
   it('resolves the request to a laptop with the Android Studio profile, not a software purchase', () => {
     expect(state.category).toBe('laptop');
-    expect(state.profileId).toBe('android_studio');
+    expect(state.profileId?.startsWith('android_studio')).toBe(true);
     expect(state.skillLevel).toBe('beginner');
+  });
+  it('does not assume a beginner needs the Emulator: testing method unknown → Android Studio\'s own official minimum', () => {
+    expect(state.androidWorkflow).toBeNull();
+    expect(state.profileId).toBe('android_studio_device');
+    const { requirements } = buildRequirements(state);
+    expect(requirements.find(r => r.field === 'ram_gb' && r.level === 'minimum')?.value).toBe(8);
+    expect(requirements.some(r => r.field === 'gpu_vram_gb' && r.level === 'minimum')).toBe(false);
+    expect(requirements.find(r => r.field === 'os' && r.level === 'minimum')?.value).toEqual(['windows', 'macos', 'linux']); // no ChromeOS dead end
+    expect(requirements.find(r => r.field === 'ram_gb' && r.level === 'recommended')?.value).toBe(16); // keeps the Emulator option open
+  });
+  it('switches to the Emulator requirements (16 GB, 4 GB VRAM) only when the Emulator is chosen', () => {
+    expect(emu.androidWorkflow).toBe('emulator');
+    expect(emu.profileId).toBe('android_studio');
+    const { requirements } = buildRequirements(emu);
+    expect(requirements.find(r => r.field === 'ram_gb' && r.level === 'minimum')?.value).toBe(16);
+    expect(requirements.find(r => r.field === 'gpu_vram_gb' && r.level === 'minimum')?.value).toBe(4);
+  });
+  it('recommends cheaper suitable equipment for phone testing than for the Emulator', () => {
+    const dev = mergeState(state, parseIntentFallback('I have an Android phone to test on', true), 'I have an Android phone to test on', null);
+    expect(dev.androidWorkflow).toBe('device');
+    const rd = rankEvaluated(laptops.map(p => evaluateProduct(p, ctxFor(dev))), ctxFor(dev));
+    const re = rankEvaluated(laptops.map(p => evaluateProduct(p, ctxE)), ctxE);
+    const price = (r: typeof rd) => r.suitable.find(p => p.externalId === r.cheapestAdequateId)!.priceCents!;
+    expect(rd.suitable.length).toBeGreaterThan(re.suitable.length);
+    expect(price(rd)).toBeLessThan(price(re));
+    for (const p of rd.suitable) { expect(p.specs.ramGB!.value).toBeGreaterThanOrEqual(8); expect(p.specs.cpu?.modern).toBe(true); }
+  });
+  it('reads the testing method in five languages, and "no Android phone" means the Emulator', async () => {
+    const { parseAndroidTesting } = await import('@/lib/shopping/fallback-intent');
+    for (const m of ['I have an Android phone', 'I will test on my own phone', 'no emulator please', 'mere paas android phone hai', 'میں اپنے فون پر ٹیسٹ کروں گا', 'Probaré en mi propio teléfono Android', 'Je testerai sur mon propre téléphone Android'])
+      expect(parseAndroidTesting(m), m).toBe(true);
+    for (const m of ['I will use the emulator', "I don't have an Android phone", 'mere paas phone nahi hai', 'میں ایمولیٹر استعمال کروں گا', 'Usaré el emulador', 'no tengo teléfono', "J'utiliserai l'émulateur", "je n'ai pas de téléphone"])
+      expect(parseAndroidTesting(m), m).toBe(false);
+    expect(parseAndroidTesting(ANDROID)).toBeNull();
+  });
+  it('keeps a laptop search when the user mentions the phone they test on', () => {
+    const msg = 'Laptop for Android Studio, I have an Android phone for testing';
+    const s = mergeState(null, parseIntentFallback(msg, false), msg, null);
+    expect(s.category).toBe('laptop'); expect(s.androidWorkflow).toBe('device');
+    const m2 = 'I want to learn Android Studio, I have an Android phone';
+    expect(mergeState(null, parseIntentFallback(m2, false), m2, null).category).toBe('laptop');
   });
   it('rejects books, toy "Android laptops", Chromebooks and tablets from the original bad results', () => {
     const r = rankEvaluated(baseline.map(p => evaluateProduct(p, ctx)), ctx);
@@ -95,19 +139,19 @@ describe('Android Studio regression (the reported failure)', () => {
     expect(evaluateProduct(byTitle(baseline, /10\.1 inch Android 13/), ctx).evaluation.status).toBe('unsuitable');
     expect(evaluateProduct(byTitle(baseline, /Chromebook/), ctx).evaluation.status).toBe('unsuitable');
   });
-  it('never marks an 8GB/4GB/2GB laptop as suitable, and never trusts an ARM Windows laptop', () => {
-    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctx)), ctx);
+  it('with the Emulator, never marks an 8GB/4GB/2GB laptop as suitable, and never trusts an ARM Windows laptop', () => {
+    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctxE)), ctxE);
     for (const p of r.suitable) {
       expect(p.specs.ramGB!.value).toBeGreaterThanOrEqual(16);
       expect(p.specs.cpu?.modern).toBe(true);
       if (p.specs.os?.value !== 'macos') { expect(p.specs.arm?.value).toBe(false); expect(p.specs.gpuVramGB!.value).toBeGreaterThanOrEqual(4); }
     }
     const snapdragon = laptops.filter(p => /Snapdragon/i.test(p.title));
-    for (const p of snapdragon) expect(evaluateProduct(p, ctx).evaluation.status).toBe('unsuitable');
+    for (const p of snapdragon) { expect(evaluateProduct(p, ctxE).evaluation.status).toBe('unsuitable'); expect(evaluateProduct(p, ctx).evaluation.status).toBe('unsuitable'); }
     expect(r.suitable.length).toBeGreaterThan(0);
   });
   it('does not present an expensive gaming laptop as the default best value', () => {
-    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctx)), ctx);
+    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctxE)), ctxE);
     const cheapest = r.suitable.find(p => p.externalId === r.cheapestAdequateId)!;
     const top = r.suitable[0];
     expect(top.priceCents!).toBeLessThanOrEqual(cheapest.priceCents! * 1.6);
@@ -117,23 +161,23 @@ describe('Android Studio regression (the reported failure)', () => {
   it('treats an implausibly cheap "suitable" listing (e.g. a deposit price) as needing verification, never the cheapest pick', () => {
     const mk = (id: string, price: number) => normalize({ id, title: `Apple MacBook Air 13.6" M4 16GB RAM 512GB SSD ${id}`, category: { path: [{ slug: 'electronics' }, { slug: 'laptops' }] }, offers: [{ url: 'https://x.invalid', domain: 'shop.example', price: { price, currency: 'USD' }, availability: 'InStock' }] }, 'now')!;
     const list = [mk('M4AAA1', 344), mk('M4AAA2', 1217), mk('M4AAA3', 1299), mk('M4AAA4', 1374), mk('M4AAA5', 1399)];
-    const r = rankEvaluated(list.map(p => evaluateProduct(p, ctx)), ctx);
+    const r = rankEvaluated(list.map(p => evaluateProduct(p, ctxE)), ctxE);
     expect(r.cheapestAdequateId).toBe('M4AAA2');
     expect(r.needsVerification.map(p => p.externalId)).toContain('M4AAA1');
   });
   it('flags a price that is impossible for the specs (e.g. an RTX gaming laptop for $40) even with few results', () => {
     const p = normalize({ id: 'AWA51X', title: 'Alienware Area-51 Gaming Laptop, Intel Core i9-14900HX, 32GB RAM, 1TB SSD, NVIDIA GeForce RTX 4080 12GB, Windows 11', category: { path: [{ slug: 'electronics' }, { slug: 'gaming-laptops' }] }, offers: [{ url: 'https://x.invalid', domain: 'shop.example', price: { price: 40, currency: 'USD' }, availability: 'InStock' }] }, 'now')!;
-    const r = rankEvaluated([evaluateProduct(p, ctx)], ctx);
+    const r = rankEvaluated([evaluateProduct(p, ctxE)], ctxE);
     expect(r.suitable).toHaveLength(0);
     expect(r.needsVerification[0].evaluation.unknownReasons.join(' ')).toMatch(/implausibly low/);
   });
   it('explains why cheaper options were rejected', () => {
-    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctx)), ctx);
+    const r = rankEvaluated(laptops.map(p => evaluateProduct(p, ctxE)), ctxE);
     const reasons = rejectionSummary(r, null).map(x => x.label).join(' | ');
     expect(reasons).toMatch(/Graphics memory|RAM|Processor/);
   });
   it('lowers the requirements when the learner tests on their own phone instead of the emulator', () => {
-    const s = mergeState(state, parseIntentFallback('I will test on my own Android phone, no emulator', true), 'I will test on my own Android phone, no emulator', null);
+    const s = mergeState(emu, parseIntentFallback('I will test on my own Android phone, no emulator', true), 'I will test on my own Android phone, no emulator', null);
     expect(s.profileId).toBe('android_studio_device');
     const { requirements } = buildRequirements(s);
     expect(requirements.find(r => r.field === 'ram_gb' && r.level === 'minimum')?.value).toBe(8);
@@ -153,11 +197,33 @@ describe('multilingual understanding (fallback parser)', () => {
     it(`resolves to the same laptop + Android Studio requirements: ${lang}`, () => {
       const s = mergeState(null, parseIntentFallback(msg, false), msg, null);
       expect(s.category).toBe('laptop');
-      expect(s.profileId).toBe('android_studio');
+      expect(s.profileId).toBe('android_studio_device'); // testing method not stated → Studio's own minimum, then asked
+      expect(s.androidWorkflow).toBeNull();
       expect(detectLanguage(msg)).toBe(lang);
-      expect(buildRequirements(s).requirements.find(r => r.field === 'ram_gb' && r.level === 'minimum')?.value).toBe(16);
+      expect(buildRequirements(s).requirements.find(r => r.field === 'ram_gb' && r.level === 'minimum')?.value).toBe(8);
     });
   }
+  it('reads phone storage ("256GB", "8/256") and slang shoe words (workbook FC-001, FC-024)', async () => {
+    const { parseStatedConstraints } = await import('@/lib/shopping/fallback-intent');
+    expect(parseStatedConstraints('I want the iPhone 15 Pro 256GB in natural titanium')).toEqual([{ field: 'storage_gb', op: '>=', value: 256 }]);
+    expect(parseStatedConstraints('samsung a55 ka price kya hai 8/256 wala')).toEqual(expect.arrayContaining([{ field: 'ram_gb', op: '>=', value: 8 }, { field: 'storage_gb', op: '>=', value: 256 }]));
+    expect(parseStatedConstraints('laptop 16GB RAM 512GB SSD')).toEqual(expect.arrayContaining([{ field: 'ram_gb', op: '>=', value: 16 }, { field: 'storage_gb', op: '>=', value: 512 }]));
+    expect(detectCategory('kicks for gym')).toBe('shoes');
+    expect(detectCategory('Show me sneakers')).toBe('shoes');
+    expect(detectCategory('kick scooter for my son')).toBeNull();
+    expect(detectCategory('Case for Samsung Galaxy S24 Ultra')).toBeNull(); // accessory, searched by name
+    expect(detectCategory('Need a phone charger delivered today')).toBeNull();
+    expect(detectCategory('samsung a55 ka price kya hai 8/256 wala')).toBe('phone');
+    expect(detectCategory('Sony WH1000XM5 chahiye, black color')).toBe('headphones');
+    expect(detectCategory('gaming laptop RTX 4060')).toBe('laptop');
+    expect(detectCategory('Lightweight laptop with 17 inch screen aur battery bohat lambi')).toBe('laptop');
+  });
+  it('without the AI, a named product outside the known categories is searched, and only open requests ask', () => {
+    for (const m of ['My Dell Inspiron 15 charger stopped working, need a replacement', 'Fridge that fits a 70cm wide space, inverter hona chahiye', 'Halal certified chocolates', 'microwave dikhao koi'])
+      expect(parseIntentFallback(m, false).requestedAction, m).toBe('find_options');
+    for (const m of ['Help me shop', 'kuch acha dikhao'])
+      expect(parseIntentFallback(m, false).requestedAction, m).toBe('ask_clarifying');
+  });
   it('treats "computer science" as a degree, not a product', () => {
     expect(detectCategory('laptop for my computer science degree')).toBe('laptop');
     expect(detectCategory('I study computer science')).toBeNull();
@@ -206,14 +272,18 @@ describe('multi-turn memory', () => {
     s = mergeState(s, parseIntentFallback('I need 16GB RAM.', true), 'I need 16GB RAM.', null);
     expect(s.stated.find(c => c.field === 'ram_gb')?.value).toBe(16);
     expect(s.category).toBe('laptop');
-    expect(s.profileId).toBe('android_studio');
+    expect(s.profileId).toBe('android_studio_device');
     expect(s.priceCapCents).toBe(89899);
+    s = mergeState(s, parseIntentFallback('I will use the emulator', true), 'I will use the emulator', null);
+    expect(s.profileId).toBe('android_studio');
+    expect(s.brandsExclude).toContain('hp'); // earlier turns survive the workflow change
     expect(s.brandsExclude).toContain('hp');
     s = mergeState(s, parseIntentFallback('Actually I want Windows', true), 'Actually I want Windows', null);
     expect(s.stated.find(c => c.field === 'os')?.value).toBe('windows');
+    expect(s.androidWorkflow).toBe('emulator'); // remembered
     s = mergeState(s, parseIntentFallback('Forget the budget', true), 'Forget the budget', null);
     expect(s.budget).toBeNull(); expect(s.priceCapCents).toBeNull();
-    expect(s.turn).toBe(6);
+    expect(s.turn).toBe(7);
   });
   it('resolves ordinal references ("compare the first and third", "second wala")', () => {
     expect(parseIntentFallback('Compare the first and third', true).references).toEqual([1, 3]);
@@ -279,8 +349,39 @@ describe('model output validation (write locks)', () => {
     for (const label of ['laptops', 'Notebook computers', 'computers']) {
       const i = validateIntent({ category: label, searchQuery: 'laptop' }, msg, false)!;
       expect(i.category).toBe('laptop');
-      expect(mergeState(null, i, msg, null).profileId).toBe('android_studio');
+      expect(mergeState(null, i, msg, null).profileId).toBe('android_studio_device');
     }
+  });
+  it('accepts the model\'s testing method only as a stated fact, and rules win when the text is explicit', async () => {
+    const { validateIntent } = await import('@/lib/shopping/pipeline');
+    const msg = 'I want a laptop for Android Studio';
+    expect(validateIntent({ category: 'laptop', searchQuery: 'laptop', androidTesting: 'emulator' }, msg, false)!.noEmulator).toBe(false);
+    expect(validateIntent({ category: 'laptop', searchQuery: 'laptop', androidTesting: 'unknown' }, msg, false)!.noEmulator).toBeNull();
+    expect(validateIntent({ category: 'laptop', searchQuery: 'laptop', androidTesting: 'emulator' }, 'laptop for Android Studio, I have an Android phone', false)!.noEmulator).toBe(true);
+    expect(validateIntent({ category: 'phone', searchQuery: 'android phone' }, 'Android Studio seekhna hai, mere paas android phone hai', false)!.category).toBe('laptop');
+  });
+  it('never silently guesses a currency for shorthand or non-English amounts', () => {
+    const st = (m: string, prev: SessionState | null = null) => mergeState(prev, parseIntentFallback(m, !!prev), m, null);
+    expect(st('perfume for my mother, budget 5k').budget).toMatchObject({ currency: '?', usable: false });
+    expect(st('Necesito auriculares, presupuesto 500').budget).toMatchObject({ currency: '?', usable: false });
+    expect(st('Je cherche un casque, budget 300').budget).toMatchObject({ currency: '?', usable: false });
+    expect(st('bhai koi acha headphone batao 5k tak').budget).toMatchObject({ currency: 'PKR', usable: false });
+    const plain = st('headphones under 200');
+    expect(plain.budget).toMatchObject({ currency: 'USD', usable: true, assumed: true, maxCents: 20000 }); // shown to the user as an assumption
+    expect(st('headphones under $200').budget).toMatchObject({ currency: 'USD', usable: true, assumed: false });
+  });
+  it('asks once, then applies the answer to the earlier amount; an established currency carries over', () => {
+    const first = mergeState(null, parseIntentFallback('perfume for my mother, budget 5k', false), 'perfume for my mother, budget 5k', null);
+    const answered = mergeState(first, parseIntentFallback('dollars', true), 'dollars', null);
+    expect(answered.budget).toMatchObject({ currency: 'USD', usable: true, maxCents: 500000 });
+    const pk = mergeState(null, parseIntentFallback('perfume budget Rs 8000', false), 'perfume budget Rs 8000', null);
+    expect(mergeState(pk, parseIntentFallback('actually under 6000', true), 'actually under 6000', null).budget).toMatchObject({ currency: 'PKR', maxCents: 600000 });
+  });
+  it('does not assume the currency of money the user already has', () => {
+    const a = mergeState(null, parseIntentFallback('laptop for university, I have 50k saved', false), 'laptop for university, I have 50k saved', null);
+    expect(a.ownFundsCents).toBeNull(); expect(a.ownFundsAmbiguous).toBeTruthy();
+    const b = mergeState(null, parseIntentFallback('laptop for university, I have $200', false), 'laptop for university, I have $200', null);
+    expect(b.ownFundsCents).toBe(20000); expect(b.ownFundsAmbiguous).toBeNull();
   });
   it('does not apply an ambiguous large "30k" budget as US dollars', () => {
     const msg = 'Camping trip for 4 people, 2 nights, budget 30k';

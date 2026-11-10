@@ -55,7 +55,10 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await sp.getByLabel('Your name').fill('Sam');
   await sp.getByLabel('Message (optional)').fill('Good luck with your degree!');
   // Optional private email for a receipt; only used after PayPal verifies the capture.
-  await sp.getByLabel('Email for your receipt (optional)').fill('e2e.supporter@fundcart-demo.example');
+  // The field is shown only when a receipt email provider is configured; otherwise no email is collected.
+  const receiptEmail = sp.getByLabel('Email for your receipt (optional)');
+  if (process.env.RESEND_API_KEY) await receiptEmail.fill('e2e.supporter@fundcart-demo.example');
+  else await expect(receiptEmail).toHaveCount(0);
   await payWithPayPalSandbox(sp, supporter);
   await expect(sp.getByText('Thank you — contribution verified')).toBeVisible({ timeout: 90_000 });
   const captureId = await sp.locator('dt:has-text("Capture") + dd').innerText();
@@ -77,9 +80,9 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await page.reload();
   await expect(page.getByText('order.captured').first()).toBeVisible();
   await expect(page.getByText('campaign.goal_reached')).toBeVisible();
-  // Receipt handled only after the verified capture; with no email provider configured it is recorded
-  // as disabled (never reported as sent).
-  if (!process.env.RESEND_API_KEY) await expect(page.getByText('receipt.disabled')).toBeVisible();
+  // Receipt handled only after the verified capture. With no email provider configured no email is
+  // collected at all, so there is nothing to send or report.
+  if (process.env.RESEND_API_KEY) await expect(page.getByText(/receipt\.(sent|failed)/)).toBeVisible();
   await page.screenshot({ path: `${evidence}/05-dashboard-history.png`, fullPage: true });
 
   fs.writeFileSync(`${evidence}/journey.json`, JSON.stringify({ campaignUrl, goalCents, contributionCaptureId: captureId, at: new Date().toISOString() }, null, 2));

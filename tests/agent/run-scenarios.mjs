@@ -58,6 +58,11 @@ function check(sc, r) {
   if (a.noteMatches && !new RegExp(a.noteMatches, 'i').test(x.budget?.note || '')) fails.push(`budget note "${(x.budget?.note || '').slice(0, 80)}" !~ ${a.noteMatches}`);
   if (a.compare && (x.compareIds || []).length < 2) fails.push('compare ids not resolved');
   if (a.capSet && !x.state?.priceCapCents) fails.push('price cap not set');
+  if ('workflow' in a && (x.profile?.workflow ?? null) !== a.workflow) fails.push(`workflow ${x.profile?.workflow} != ${a.workflow}`);
+  if (a.reqRamMin) { const r = (x.requirements || []).find(r => r.field === 'ram_gb' && r.level === 'minimum'); if (!r || !new RegExp(`\\b${a.reqRamMin}\\b`).test(r.required)) fails.push(`RAM minimum ${r?.required} != ${a.reqRamMin}`); }
+  if (a.followUpMatches && !new RegExp(a.followUpMatches, 'i').test(x.followUp || '')) fails.push(`follow-up "${(x.followUp || '').slice(0, 60)}" !~ ${a.followUpMatches}`);
+  if ('budgetUsable' in a && !!x.budget?.usable !== a.budgetUsable) fails.push(`budget usable ${x.budget?.usable} != ${a.budgetUsable}`);
+  if (a.budgetCents && x.budget?.budgetCents !== a.budgetCents) fails.push(`budget ${x.budget?.budgetCents} != ${a.budgetCents}`);
   return fails;
 }
 

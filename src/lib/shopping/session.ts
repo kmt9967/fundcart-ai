@@ -10,7 +10,22 @@
 // Memory never stores or grants identity, verification or payment authority.
 
 import { INTENT_VERSION, type Constraint, type IntentV2, type Requirement, type SessionState } from './types';
-import { parseBudget, parseOwnFunds } from './money-parse';
+import { detectCurrency, parseBudget, parseOwnFunds, type ParsedMoney } from './money-parse';
+
+/**
+ * Currency for an amount written without one. Never a silent guess:
+ *   1. a currency already established in this conversation is reused;
+ *   2. Urdu / Roman Urdu / mixed Urdu-English messages are rupees ("5k tak");
+ *   3. shorthand ("5k"), large amounts and Spanish/French messages are ambiguous ('?') and are not applied: the user is asked;
+ *   4. a plain English amount below 10,000 ("under 700") is read as US dollars, and the UI says so.
+ */
+export function resolveCurrency(parsed: ParsedMoney['currency'], rawAmount: string, minor: number, language: string, established: string | null): { currency: string; assumed: boolean } {
+  if (parsed) return { currency: parsed, assumed: false };
+  if (established && established !== '?') return { currency: established, assumed: false };
+  if (['ur', 'roman_ur', 'mixed'].includes(language)) return { currency: 'PKR', assumed: false };
+  if (/\d\s*k\b|thousand|mil\b/i.test(rawAmount) || minor >= 1_000_000 || ['es', 'fr', 'other'].includes(language)) return { currency: '?', assumed: false };
+  return { currency: 'USD', assumed: true };
+}
 import { matchProfile, profileById, CATEGORY_MAP, type Profile } from './knowledge';
 
 export function mergeConstraints(prev: Constraint[], next: Constraint[]): Constraint[] {
@@ -24,7 +39,9 @@ export function mergeConstraints(prev: Constraint[], next: Constraint[]): Constr
 }
 
 /** Merge the new turn's intent into the session state. `raw` is the (redacted) user message. */
-export function mergeState(prev: SessionState | null, intent: IntentV2, raw: string, ownOverrideCents: number | null): SessionState {
+export function mergeState(prev: SessionState | null, intent: IntentV2, raw: string, ownOverrideCents: number | null, locale: string = 'en'): SessionState {
+  // An English-looking message typed on the Urdu/Spanish/French site is not evidence of US dollars.
+  const moneyLang = intent.language === 'en' && locale !== 'en' ? 'other' : intent.language;
   const refining = !!prev && (intent.isRefinement || intent.category === 'unknown' || (intent.category === prev.category && intent.primaryFamily === 'refinement')
     || (intent.noEmulator != null && !!prev.profileId?.startsWith('android_studio')));
   const base: SessionState | null = refining ? prev : null;
@@ -36,14 +53,29 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
   const modelBudget = intent.budgetRaw ? parseBudget(intent.budgetRaw) : null;
   const b = parseBudget(raw) || (modelBudget && !(ownParsed && ownParsed.minor === modelBudget.maxMinor) && !(intent.ownFundsRaw && intent.ownFundsRaw.trim() === intent.budgetRaw?.trim()) ? modelBudget : null);
   let budget = base?.budget ?? null;
+  const established = base?.budget && base.budget.currency !== '?' && !base.budget.assumed ? base.budget.currency : null;
   if (b) {
-    // An amount without a currency sign in an Urdu / Roman Urdu message ("5k tak") is almost certainly rupees.
-    // No currency sign and implausibly large for a dollar budget ("30k" for a camping trip): ask, don't assume USD.
-    const currency = b.currency || (['ur', 'roman_ur', 'mixed'].includes(intent.language) ? 'PKR' : (b.maxMinor ?? 0) >= 1_000_000 ? '?' : 'USD');
-    budget = { maxCents: b.maxMinor, minCents: b.minMinor, currency, raw: b.raw, usable: currency === 'USD' };
+    const r = resolveCurrency(b.currency, b.raw, b.maxMinor ?? 0, moneyLang, established);
+    budget = { maxCents: b.maxMinor, minCents: b.minMinor, currency: r.currency, raw: b.raw, usable: r.currency === 'USD', assumed: r.assumed };
+  } else if (budget && budget.currency === '?') {
+    // Answer to "which currency?": "dollars", "USD", "rupees", "PKR", "euros".
+    const named = detectCurrency(raw.toLowerCase());
+    if (named) budget = { ...budget, currency: named, usable: named === 'USD', assumed: false };
   }
   if (intent.clearBudget) budget = null;
-  const own = ownOverrideCents ?? (() => { const o = parseOwnFunds(raw) || (intent.ownFundsRaw ? parseOwnFunds(`I have ${intent.ownFundsRaw}`) : null); return o && (o.currency || 'USD') === 'USD' ? o.minor : null; })() ?? base?.ownFundsCents ?? null;
+  // Own funds follow the same currency rules; an ambiguous amount is reported back, never assumed.
+  let ownFundsAmbiguous: string | null = null;
+  const ownStated = (() => {
+    const text = parseOwnFunds(raw) ? raw : intent.ownFundsRaw ? `I have ${intent.ownFundsRaw}` : null;
+    const o = text ? parseOwnFunds(text) : null;
+    if (!o) return null;
+    const m = asciiAmount(text!);
+    const r = resolveCurrency(o.currency, m, o.minor, moneyLang, budget?.currency && budget.currency !== '?' && !budget.assumed ? budget.currency : established);
+    if (r.currency === 'USD') return o.minor;
+    if (r.currency === '?') ownFundsAmbiguous = m;
+    return null;
+  })();
+  const own = ownOverrideCents ?? ownStated ?? base?.ownFundsCents ?? null;
 
   let brandsExclude = [...new Set([...(base?.brandsExclude || []), ...intent.brandsExclude.map(b => b.toLowerCase())])];
   let brandsInclude = intent.brandsInclude.length ? intent.brandsInclude.map(b => b.toLowerCase()) : (base?.brandsInclude || []);
@@ -62,9 +94,11 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
   const haystack = [intent.goal, intent.searchQuery, ...intent.useCases, ...intent.software, raw].join(' ');
   const matched = matchProfile(category === 'unknown' ? null : category, haystack);
   let profileId = matched?.id ?? base?.profileId ?? null;
-  const noEmulator = intent.noEmulator ?? base?.noEmulator ?? false;
-  if (profileId === 'android_studio' && noEmulator) profileId = 'android_studio_device';
-  if (profileId === 'android_studio_device' && intent.noEmulator === false) profileId = 'android_studio';
+  // Android: the testing method decides the hardware. Unknown is NOT treated as "needs the Emulator": the
+  // requirements are Android Studio's own official minimum, and the user is asked how they will test.
+  const androidWorkflow: 'device' | 'emulator' | null = intent.noEmulator === true ? 'device' : intent.noEmulator === false ? 'emulator' : (base?.androidWorkflow ?? (base?.noEmulator ? 'device' : null));
+  const noEmulator = androidWorkflow === 'device';
+  if (profileId?.startsWith('android_studio')) profileId = androidWorkflow === 'emulator' ? 'android_studio' : 'android_studio_device';
   const profileCategory = profileId ? profileById(profileId)?.categories[0] : null;
 
   return {
@@ -88,6 +122,8 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
     rankingMode: intent.rankingMode ?? (intent.priceDirection === 'cheaper' ? 'cheapest_adequate' : base?.rankingMode ?? 'best_fit'),
     profileId,
     noEmulator,
+    androidWorkflow,
+    ownFundsAmbiguous,
     language: intent.language,
     primaryFamily: intent.primaryFamily,
     lastProductIds: prev?.lastProductIds || [],
@@ -95,10 +131,21 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
   };
 }
 
+function asciiAmount(text: string): string {
+  const m = text.match(/(?:only have|i have|i've got|i got|saved(?: up)?|have saved|only got|mere paas|mery pas|mere pas|tengo|j'ai|میرے پاس)\s*(?:only\s*|sirf\s*)?(.{1,24})/i);
+  return (m ? m[1] : text).trim().slice(0, 30);
+}
+
 /** Requirements for a state: knowledge-base profile + user-stated constraints (stated ones override). */
 export function buildRequirements(state: SessionState): { requirements: Requirement[]; profile: Profile | null } {
   const profile = state.profileId ? profileById(state.profileId) ?? null : null;
   const reqs: Requirement[] = profile ? profile.requirements.map(r => ({ ...r })) : [];
+  // Testing method not stated yet: keep Android Studio's own minimum, but leave out ChromeOS, which can never
+  // run the Emulator, so nothing recommended becomes a dead end if the user then chooses the Emulator.
+  if (profile?.id === 'android_studio_device' && !state.androidWorkflow) {
+    const os = reqs.find(r => r.field === 'os' && r.level === 'minimum');
+    if (os) { os.value = ['windows', 'macos', 'linux']; os.why = 'Windows, macOS or Linux. ChromeOS is left out until you confirm you will test on a phone, because it cannot run the Emulator.'; }
+  }
   for (const c of state.stated) {
     const req: Requirement = { field: c.field, op: c.op, value: c.value, level: 'minimum', origin: 'stated', why: 'You asked for this.' };
     // A stated requirement on a field replaces derived minimums on the same field when it is stricter or an OS choice.

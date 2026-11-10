@@ -35,7 +35,8 @@ describe.skipIf(!RUN)('workbook evaluation', () => {
         model: usedModel ? 'gemini' : 'rules', action: intent.requestedAction, category: st.category, family: intent.primaryFamily, detectedLanguage: st.language,
         budget: st.budget ? `${st.budget.raw} → ${st.budget.currency} ${(st.budget.maxCents ?? 0) / 100}${st.budget.usable ? '' : ' (not applied: not USD)'}` : null,
         profile: req.profile?.id ?? null, minimum: req.requirements.filter(x => x.level === 'minimum').map(x => `${x.field} ${x.op} ${Array.isArray(x.value) ? x.value.join('/') : x.value}`),
-        stated: st.stated.map(c => `${c.field} ${c.op} ${c.value}`), exclusions: st.brandsExclude, followUp: intent.followUpQuestion, piiRedacted: safety.piiRedacted,
+        stated: st.stated.map(c => `${c.field} ${c.op} ${c.value}`), exclusions: st.brandsExclude, colors: st.colors, searchQuery: st.searchQuery, ownFunds: st.ownFundsCents,
+        ownFundsAmbiguous: st.ownFundsAmbiguous ?? null, androidWorkflow: st.androidWorkflow ?? null, followUp: intent.followUpQuestion, piiRedacted: safety.piiRedacted,
       });
       out.push(rec);
       await new Promise(res => setTimeout(res, 3500)); // stay inside free-tier rate limits

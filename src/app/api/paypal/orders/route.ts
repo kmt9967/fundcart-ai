@@ -9,7 +9,7 @@ import { getCampaignBySlug } from '@/lib/campaigns';
 import { validateContribution } from '@/lib/money';
 import { cleanText, findRecentProduct, saveSnapshot } from '@/lib/channel3';
 import { rateLimit, clientKey } from '@/lib/ratelimit';
-import { saveReceiptRequest, validEmail } from '@/lib/receipts';
+import { receiptProvider, saveReceiptRequest, validEmail } from '@/lib/receipts';
 
 export const runtime = 'nodejs';
 
@@ -89,7 +89,8 @@ export async function POST(req: Request) {
         supporter_name: cleanText(p.data.supporterName, 40) || null, supporter_message: cleanText(p.data.message, 200) || null, is_anonymous: p.data.anonymous,
       });
       if (ins.error) throw new Error(ins.error.message);
-      if (p.data.supporterEmail) await saveReceiptRequest(paymentOrderId, p.data.supporterEmail, p.data.locale).catch(() => {});
+      // Store the receipt email only when a provider can actually send it; otherwise it is not collected.
+      if (p.data.supporterEmail && receiptProvider()) await saveReceiptRequest(paymentOrderId, p.data.supporterEmail, p.data.locale).catch(() => {});
       await logPaymentEvent({ paymentOrderId, paypalOrderId: order.id, source: 'api', eventType: 'order.created', status: order.status, summary: { kind: 'contribution', amountCents: v.amountCents, receiptRequested: !!p.data.supporterEmail } });
       return Response.json({ orderId: order.id });
     }

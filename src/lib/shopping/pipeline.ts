@@ -58,7 +58,7 @@ const INTENT_SCHEMA = {
     priceDirection: { type: 'string', enum: ['cheaper', 'premium'], nullable: true },
     references: { type: 'array', items: { type: 'integer' }, description: 'Ordinal positions referenced, e.g. "the second one" → [2]; "compare the first and third" → [1,3]' },
     rankingMode: { type: 'string', enum: ['best_fit', 'cheapest_adequate'], nullable: true },
-    noEmulator: { type: 'boolean', nullable: true, description: 'true if they will test Android apps on their own phone instead of the emulator' },
+    androidTesting: { type: 'string', enum: ['physical_device', 'emulator', 'unknown'], description: 'How they will run Android apps they build: physical_device ONLY if they say they will test on their own phone/device; emulator ONLY if they mention the emulator or say they have no Android phone; otherwise unknown. Never guess.' },
     language: { type: 'string', enum: [...LANGS], description: 'Language of the user message: en, ur (Urdu script), roman_ur (Urdu in Latin letters), es, fr, mixed (English+Urdu), other' },
     requestedAction: { type: 'string', enum: [...ACTIONS] },
     missingCritical: { type: 'array', items: { type: 'string' } },
@@ -98,7 +98,9 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
     // Canonical categories so requirement profiles always match ("laptops" → "laptop"); rules win when the model is vague.
     category: (() => {
       const m = typeof d.category === 'string' && d.category.trim() ? normalizeCategory(d.category).slice(0, 40) : 'unknown';
-      return ['unknown', 'general', 'electronics', 'computers', 'gifts'].includes(m) && fb.category !== 'unknown' ? fb.category : m;
+      // Generic labels are not categories: use the rule-based category, or 'unknown' so a vague request is asked about.
+      if (['general', 'electronics', 'gifts', 'products', 'shopping', 'misc', 'other', 'various', 'none'].includes(m)) return fb.category;
+      return ['unknown', 'computers'].includes(m) && fb.category !== 'unknown' ? fb.category : m;
     })(),
     productKind: ['physical', 'software', 'service', 'unknown'].includes(d.productKind as string) ? d.productKind : fb.productKind,
     searchQuery: typeof d.searchQuery === 'string' && d.searchQuery.trim().length >= 2 ? d.searchQuery.trim().slice(0, 100) : fb.searchQuery,
@@ -121,7 +123,8 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
     priceDirection: d.priceDirection === 'cheaper' || d.priceDirection === 'premium' ? d.priceDirection : fb.priceDirection,
     references: [...new Set([...(Array.isArray(d.references) ? d.references : []).filter(n => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 30) as number[], ...parseReferences(raw)])].slice(0, 3),
     rankingMode: d.rankingMode === 'best_fit' || d.rankingMode === 'cheapest_adequate' ? d.rankingMode : fb.rankingMode,
-    noEmulator: typeof d.noEmulator === 'boolean' ? d.noEmulator : fb.noEmulator,
+    // Rules win when the text states the testing method; the model only fills in other phrasings.
+    noEmulator: fb.noEmulator ?? (d.androidTesting === 'physical_device' ? true : d.androidTesting === 'emulator' ? false : null),
     language: LANGS.includes(d.language as never) ? d.language : fb.language,
     requestedAction: ACTIONS.includes(d.requestedAction as never) ? d.requestedAction : fb.requestedAction,
     missingCritical: arr(d.missingCritical, 3, 40),
@@ -131,6 +134,8 @@ export function validateIntent(d: RawIntent, raw: string, hasPrior: boolean): In
   };
   // A "laptop" request that names software must never be treated as a software purchase.
   if (candidate.productKind === 'software' && fb.category !== 'unknown' && fb.category !== 'software') { candidate.productKind = 'physical'; candidate.category = fb.category; }
+  // "Android Studio … I have an Android phone" is a computer search; the phone is only the test device.
+  if (candidate.category === 'phone' && fb.category !== 'phone' && /android\s*studio|اینڈرائیڈ\s*سٹوڈیو/i.test(raw)) candidate.category = fb.category !== 'unknown' ? fb.category : 'laptop';
   const parsed = IntentV2Schema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 }
@@ -166,7 +171,7 @@ export type TurnResult = {
   message: string | null;
   links: Array<{ href: string; label: string }>;
   state: SessionState | null;
-  profile: { id: string; label: string; sources: Array<{ title: string; url: string }>; variantNote: string | null } | null;
+  profile: { id: string; label: string; sources: Array<{ title: string; url: string }>; variantNote: string | null; workflow?: 'device' | 'emulator' | null } | null;
   requirements: Array<Pick<Requirement, 'field' | 'level' | 'origin' | 'why' | 'source'> & { required: string; label: string }>;
   products: ClientProduct[];
   bestFit: string[];
@@ -215,12 +220,14 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
 
   const { intent, usedModel } = await intentStep(raw, prev, locale, emit);
   if (intent.injectionSuspected) emit({ agent: 'Safety', step: 'Instruction-like text was ignored; only the shopping request was used' });
-  const state = mergeState(prev, intent, raw, opts.ownOverrideCents);
+  const state = mergeState(prev, intent, raw, opts.ownOverrideCents, locale);
   if (opts.modeOverride) state.rankingMode = opts.modeOverride;
   const { requirements, profile } = buildRequirements(state);
   const cat = categoryInfo(state.category);
 
-  if (state.category === 'unknown' && !profile && (intent.requestedAction === 'ask_clarifying' || intent.primaryFamily === 'vague_exploratory' || intent.searchQuery.split(' ').length < 2)) {
+  // A short follow-up ("dollars", "cheaper") refines the remembered search; it is not a new vague request.
+  const followUpTurn = !!prev && intent.isRefinement && state.searchQuery.trim().length > 1;
+  if (!followUpTurn && state.category === 'unknown' && !profile && (intent.requestedAction === 'ask_clarifying' || intent.primaryFamily === 'vague_exploratory' || !state.searchQuery.trim())) {
     emit({ agent: 'Orchestrator', step: 'Asked one question instead of guessing' });
     return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel };
   }
@@ -279,11 +286,14 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const order = mode === 'cheapest_adequate' ? ranked.cheapestAdequate : ranked.bestFit;
   const rejections = rejectionSummary(ranked, cheapest?.priceCents ?? null);
   let note = '';
-  if (state.budget && !state.budget.usable) note = state.budget.currency === '?' ? t(locale, 'budget.unknownCurrency', { raw: state.budget.raw || '' }) : t(locale, 'budget.notUsd', { raw: state.budget.raw || '', currency: state.budget.currency });
-  else if (!ranked.suitable.length) note = t(locale, 'budget.noneSuitable');
-  else if (noneWithinBudget && cheapest) note = t(locale, 'budget.noneWithin', { budget: formatUSD(budgetCents), price: formatUSD(cheapest.priceCents), gap: formatUSD(cheapest.priceCents! - budgetCents!) });
-  else if (own != null && cheapest) note = cheapest.priceCents! > own ? t(locale, 'budget.gap', { own: formatUSD(own), price: formatUSD(cheapest.priceCents), gap: formatUSD(fundingGap(cheapest.priceCents!, own)) }) : t(locale, 'budget.affordable', { own: formatUSD(own) });
-  else if (cheapest) note = t(locale, 'budget.addOwn');
+  if (state.ownFundsAmbiguous) note = t(locale, 'budget.ownUnknownCurrency', { raw: state.ownFundsAmbiguous }) + ' ';
+  if (state.budget && !state.budget.usable) note += state.budget.currency === '?' ? t(locale, 'budget.unknownCurrency', { raw: state.budget.raw || '' }) : t(locale, 'budget.notUsd', { raw: state.budget.raw || '', currency: state.budget.currency });
+  else if (!ranked.suitable.length) note += t(locale, 'budget.noneSuitable');
+  else if (noneWithinBudget && cheapest) note += t(locale, 'budget.noneWithin', { budget: formatUSD(budgetCents), price: formatUSD(cheapest.priceCents), gap: formatUSD(cheapest.priceCents! - budgetCents!) });
+  else if (own != null && cheapest) note += cheapest.priceCents! > own ? t(locale, 'budget.gap', { own: formatUSD(own), price: formatUSD(cheapest.priceCents), gap: formatUSD(fundingGap(cheapest.priceCents!, own)) }) : t(locale, 'budget.affordable', { own: formatUSD(own) });
+  else if (cheapest && !state.ownFundsAmbiguous) note += t(locale, 'budget.addOwn');
+  if (state.budget?.assumed && state.budget.usable) note = `${t(locale, 'budget.assumedUsd', { raw: state.budget.raw || '' })} ${note}`;
+  note = note.trim();
   emit({ agent: 'Budget Agent', step: 'Calculated budget fit and the funding gap with exact cent arithmetic', detail: { cheapestAdequate: cheapest ? formatUSD(cheapest.priceCents) : 'none', ownFunds: own != null ? formatUSD(own) : 'unknown' } });
 
   // ---- Explanations (model, grounded in evaluated data, interface language) ----
@@ -293,9 +303,12 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   else if (topIds.length) emit({ agent: 'Comparison Agent', step: 'Explained the picks with rule-based templates' });
 
   // Follow-up question (act-or-clarify): high-ticket item without a budget, or OS unknown for a dev profile.
-  let followUp = intent.followUpQuestion;
+  // The Android testing method changes the hardware more than anything else, so it is asked first.
+  const androidUnknown = !!profile?.id.startsWith('android_studio') && !state.androidWorkflow;
+  let followUp = androidUnknown ? t(locale, 'followup.androidTesting') : intent.followUpQuestion;
   if (!followUp && HIGH_TICKET.has(state.category) && !state.budget && own == null) followUp = t(locale, 'followup.budget');
   if (!followUp && profile?.id.startsWith('android_studio') && !osPref && state.turn === 1) followUp = t(locale, 'followup.os');
+  const profileKey = profile ? (androidUnknown ? 'android_studio_unconfirmed' : profile.id) : null;
 
   // Record the order shown, so "cheaper" / "the second one" resolve against it next turn.
   const shown = order.slice(0, 9);
@@ -308,7 +321,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
 
   return {
     kind: 'results', message: null, links: [], state,
-    profile: profile ? { id: profile.id, label: profile.label, sources: profile.sources, variantNote: profile.variant?.note ?? null } : null,
+    profile: profile ? { id: profile.id, label: t(locale, `profile.${profileKey}` as never) || profile.label, sources: profile.sources, variantNote: profile.variant ? t(locale, `variant.${profileKey}` as never) || profile.variant.note : null, workflow: profile.id.startsWith('android_studio') ? state.androidWorkflow ?? null : undefined } : null,
     requirements: dedupeReqs(requirements).map(r => ({ field: r.field, level: r.level, origin: r.origin, why: r.why, source: r.source, label: r.field, required: fmtRequired(r) })),
     products: client,
     bestFit: ranked.bestFit.slice(0, 9), cheapestAdequate: ranked.cheapestAdequate.slice(0, 9),

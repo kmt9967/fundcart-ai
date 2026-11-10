@@ -8,12 +8,13 @@ import { GPU_MIN_VRAM } from './specs';
 const CATEGORY_WORDS: Array<[string, RegExp]> = [
   ['laptop', /\b(lap ?tops?|labtops?|leptops?|notebook computer|macbook|macbok|chromebook|ultrabook|gaming notebook|computadora port[aá]til|port[aá]til|ordinateur portable|pc portable)\b|لیپ\s?ٹاپ|لیپٹاپ/i],
   ['desktop', /\b(desktop|gaming pc|pc build|tower pc|all[- ]in[- ]one pc|ordenador de sobremesa|ordinateur de bureau)\b|ڈیسک\s?ٹاپ/i],
-  ['phone', /\b(phones?|smartphones?|mobiles?|iphone|galaxy [asz]\d+|pixel \d|redmi|tel[eé]fono|celular|m[oó]vil|t[eé]l[eé]phone|smartphone)\b|موبائل|فون/i],
-  ['headphones', /\b(head ?phones?|earbuds?|airpods|headsets?|earphones?|auriculares|casque|[eé]couteurs)\b|ہیڈ\s?فون/i],
+  ['phone', /\b(phones?|smartphones?|mobiles?|iphone|galaxy [asz]\d+|samsung (galaxy )?[asmz]\d{2,3}|pixel \d|redmi|tel[eé]fono|celular|m[oó]vil|t[eé]l[eé]phone|smartphone)\b|موبائل|فون/i],
+  ['headphones', /\b(head ?phones?|earbuds?|airpods|wh-?1000 ?xm\d|wf-?1000 ?xm\d|headsets?|earphones?|auriculares|casque|[eé]couteurs)\b|ہیڈ\s?فون/i],
   ['tablet', /\b(tablets?|ipad|tableta|tablette)\b|ٹیبلٹ/i],
   ['monitor', /\b(monitors?|moniteur)\b/i],
   ['camera', /\b(cameras?|dslr|mirrorless|c[aá]mara|appareil photo)\b|کیمرہ|کیمرا/i],
   ['tv', /\b(tvs?|television|smart tv|led tv|t[eé]l[eé]vision|televisor)\b/i],
+  ['shoes', /\b(shoes?|sneakers?|kicks|trainers|joot[ae]|joote|zapatos|zapatillas|chaussures|baskets)\b|جوتے|جوتا/i],
 ];
 
 const SOFTWARE_WORDS = /android\s*studio|xcode|visual studio|vs ?code|photoshop|premiere|davinci|autocad|blender|unity|unreal|matlab|solidworks|اینڈرائیڈ\s?اسٹوڈیو/i;
@@ -27,7 +28,21 @@ const CLEAR_BUDGET = /\b(forget|ignore|remove|drop|no) (the |my )?budget\b|budge
 const COMPARE = /\b(compare|comparison|versus|vs\.?|which is better|kaunsa behtar|muqabla|comparar|comparer)\b/i;
 const USED_OK = /\b(refurbished|renewed|used is (fine|ok)|second[- ]hand|pre-?owned|reacondicionado|reconditionn[eé]|purana (bhi )?chalega)\b/i;
 const NEW_ONLY = /\b(new only|brand new|only new|sirf naya|nuevo solamente|neuf uniquement)\b/i;
-const NO_EMULATOR = /(own|my|real|physical) (android )?(phone|device)|without (the )?emulator|no emulator|usb debugging/i;
+// How an Android learner will run their apps. This decides the hardware: Android Studio alone needs 8 GB RAM and
+// no dedicated GPU; the Emulator needs 16 GB RAM and (on Windows/Linux) a 4 GB VRAM GPU.
+const ACCESSORY = /\b(cases?|covers?|chargers?|charging cable|cables?|screen protectors?|tempered glass|adapters?|stands?|holders?|mounts?|straps?|sleeves?|bags?|skins?|cartridges?|ink|blades?|keyboard cover)\b|ka charger|ki blade|کور|چارجر/i;
+const VAGUE = /\b(help me (shop|find something|choose)|show me something|something (nice|good|cool)|anything|surprise me|kuch (acha|achha|bhi|dikhao)|koi cheez|algo bonito|lo que sea|quelque chose|n'importe quoi)\b/i;
+const NO_PHONE = /\b(don'?t|do not|dont|doesn'?t) (have|own) (an? |any )?(android )?(phone|device|smartphone)|\bno (android )?(phone|smartphone)\b|without (an? |any )?(android )?(phone|smartphone)|phone nahi|phone nahin|mobile nahi|فون نہیں|no tengo (un |ningún )?(tel[eé]fono|m[oó]vil|celular)|sin (tel[eé]fono|m[oó]vil|celular)|je n'?ai pas de (t[eé]l[eé]phone|smartphone|portable)|sans (t[eé]l[eé]phone|smartphone)/i;
+const NO_EMULATOR = /without (the |an |using (the )?)?emulator|no emulator|not (use|using|need) (the |an )?emulator|(own|my|real|physical|modern) (android )?(phone|device|smartphone)( to test| for testing| over usb)?|(have|got|own) an? (android )?(phone|smartphone)|usb debugging|device streaming|physical device|mere paas (android |apna )?(phone|mobile)|apne (phone|mobile) par|میرے پاس .{0,12}فون|اپنے فون|mi (propio )?(tel[eé]fono|m[oó]vil|celular)|tengo un (tel[eé]fono|m[oó]vil|celular)|dispositivo f[ií]sico|mon (propre )?(t[eé]l[eé]phone|smartphone)|j'?ai un (t[eé]l[eé]phone|smartphone)|appareil physique/i;
+const EMULATOR = /emulat|ایمولیٹر|émulateur|emulador|virtual device|\bavd\b/i;
+
+/** true = tests on a physical phone (no emulator), false = will use the Emulator, null = not stated. */
+export function parseAndroidTesting(text: string): boolean | null {
+  if (NO_PHONE.test(text)) return false; // checked first: "I don't have an Android phone" mentions a phone
+  if (NO_EMULATOR.test(text)) return true;
+  if (EMULATOR.test(text)) return false;
+  return null;
+}
 
 const BRANDS = ['hp', 'dell', 'lenovo', 'asus', 'acer', 'apple', 'samsung', 'msi', 'microsoft', 'razer', 'sony', 'bose', 'jbl', 'xiaomi', 'huawei', 'google', 'lg', 'toshiba', 'gigabyte', 'alienware', 'anker', 'beats', 'sennheiser', 'oneplus', 'motorola', 'nokia', 'canon', 'nikon', 'fujifilm', 'realme', 'oppo', 'vivo', 'infinix', 'tecno'];
 const COLORS: Record<string, string> = { black: 'black', kala: 'black', kaala: 'black', negro: 'black', noir: 'black', white: 'white', safed: 'white', blanco: 'white', blanc: 'white', blue: 'blue', neela: 'blue', azul: 'blue', bleu: 'blue', red: 'red', laal: 'red', rojo: 'red', rouge: 'red', silver: 'silver', grey: 'gray', gray: 'gray', pink: 'pink', green: 'green', gold: 'gold', titanium: 'titanium' };
@@ -44,8 +59,8 @@ export function detectLanguage(text: string): IntentV2['language'] {
   const t = text.toLowerCase();
   const ru = (t.match(/\b(chahiye|chahye|hai|hain|ka|ki|ke|kya|mujhe|mere|mera|wala|wali|liye|kar|karna|batao|dikhao|nahi|acha|achi|sasta|tak|bhai|koi|hun|hoon|seekhne)\b/g) || []).length;
   const en = (t.match(/\b(the|a|for|i|want|need|with|and|under|my|is|to|in|of|laptop|phone)\b/g) || []).length;
-  const es = (t.match(/\b(necesito|quiero|una?|para|con|económica|computadora|portátil|aprender|barato|el|la|de|por)\b/g) || []).length;
-  const fr = (t.match(/\b(j'ai|besoin|je|veux|un|une|pour|avec|ordinateur|portable|abordable|apprendre|le|la|des|pas)\b/g) || []).length;
+  const es = (t.match(/\b(necesito|quiero|busco|una?|para|con|económica|computadora|portátil|aprender|barato|el|la|de|por|presupuesto|auriculares|regalo|teléfono|mi|tengo)\b/g) || []).length;
+  const fr = (t.match(/\b(j'ai|besoin|je|veux|cherche|un|une|pour|avec|ordinateur|portable|abordable|apprendre|le|la|des|pas|casque|cadeau|téléphone|mon|ma)\b/g) || []).length;
   if (ru >= 2 && en >= 2) return 'mixed';
   if (ru >= 1 && ru >= es && ru >= fr) return en > ru ? 'mixed' : 'roman_ur';
   if (es >= 2 && es > fr && es >= en) return 'es';
@@ -73,6 +88,8 @@ export function normalizeCategory(label: string): string {
 export function detectCategory(text: string): string | null {
   // "computer science" is a degree, not a product.
   const t = text.replace(/computer science|ciencias de la computaci[oó]n|informatique/gi, ' ');
+  // "Case for Samsung Galaxy S24", "phone charger", "laptop stand": an accessory, not the device itself.
+  if (ACCESSORY.test(t)) return null;
   for (const [cat, re] of CATEGORY_WORDS) if (re.test(t)) return cat;
   if (/\b(computer|pc|kampyutar|computadora|ordenador|ordinateur)\b|کمپیوٹر/i.test(t)) return 'laptop';
   return null;
@@ -86,6 +103,20 @@ export function parseStatedConstraints(text: string): Constraint[] {
   if (ram) out.push({ field: 'ram_gb', op: '>=', value: Number(ram[1] || ram[2]) });
   const st = t.match(/(\d+(?:\.\d)?)\s?(tb|gb)\s*(?:ssd|storage|hdd|nvme|rom)\b/i);
   if (st) out.push({ field: 'storage_gb', op: '>=', value: Number(st[1]) * (/tb/i.test(st[2]) ? 1024 : 1) });
+  // Phones and tablets are sold by storage: "iPhone 15 Pro 256GB", "Samsung A55 8/256".
+  const handheld = /\b(i?phones?|smartphones?|mobiles?|galaxy|pixel|redmi|samsung [a-z]?\d+|ipad|tablets?)\b/i.test(t);
+  const pair = handheld ? t.match(/\b(\d{1,2})\s?\/\s?(64|128|256|512|1024)\b/) : null;
+  if (pair) {
+    if (!out.some(c => c.field === 'ram_gb')) out.push({ field: 'ram_gb', op: '>=', value: Number(pair[1]) });
+    if (!st) out.push({ field: 'storage_gb', op: '>=', value: Number(pair[2]) });
+  } else if (!st && handheld) {
+    const ps = t.match(/\b(64|128|256|512)\s?gb\b|\b(1)\s?tb\b/i);
+    if (ps) {
+      const i = out.findIndex(c => c.field === 'ram_gb' && c.value === Number(ps[1])); // "256GB" on a phone is storage, not RAM
+      if (i >= 0) out.splice(i, 1);
+      out.push({ field: 'storage_gb', op: '>=', value: ps[1] ? Number(ps[1]) : 1024 });
+    }
+  }
   if (/\bssd\b/i.test(t)) out.push({ field: 'storage_type', op: '==', value: 'ssd' });
   const vram = t.match(/(\d{1,2})\s?gb\s*(?:vram|gddr\d?|graphics)/i);
   if (vram) out.push({ field: 'gpu_vram_gb', op: '>=', value: Number(vram[1]) });
@@ -136,7 +167,9 @@ const STOP = /\b(i|need|want|a|an|the|for|to|use|it|in|on|my|me|please|with|good
 export function parseIntentFallback(raw: string, hasPrior: boolean): IntentV2 {
   const text = raw.slice(0, 600);
   // "I'll test on my own phone" while choosing a laptop is not a phone search.
-  const category = hasPrior && NO_EMULATOR.test(text) ? null : detectCategory(text);
+  const testing = parseAndroidTesting(text);
+  let category = hasPrior && testing != null ? null : detectCategory(text);
+  if (category === 'phone' && testing != null && /android\s*studio|اینڈرائیڈ/i.test(text)) category = null; // the phone is the test device, not the purchase
   const software = (text.match(SOFTWARE_WORDS) || []).map(s => (/اینڈرائیڈ/.test(s) ? 'Android Studio' : s.replace(/\s+/g, ' ').trim()));
   const brandsExclude = parseBrandExclusions(text);
   const stated = parseStatedConstraints(text);
@@ -147,7 +180,10 @@ export function parseIntentFallback(raw: string, hasPrior: boolean): IntentV2 {
   const compare = COMPARE.test(text);
   const cleaned = asciiDigits(text).replace(/[$€£]\s?\d[\d.,]*|\d[\d.,]*\s?(k|lac|lakh|hazar|dollars|usd)\b/gi, ' ').replace(STOP, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
   const searchQuery = (category ? [category, ...stated.filter(c => c.field === 'ram_gb').map(c => `${c.value}GB RAM`)].join(' ') : cleaned.split(' ').slice(0, 6).join(' ')) || 'popular products';
-  const family: IntentV2['primaryFamily'] = isRefinement ? 'refinement' : compare ? 'comparison' : software.length ? 'use_case' : stated.length ? 'spec_constrained' : CHEAP.test(text) ? 'budget_led' : category ? 'category_browse' : 'vague_exploratory';
+  // Without a known category the rules cannot name the product, but a message that names one ("Dell Inspiron
+  // charger", "fridge for a 70cm space") is still a search, not a vague request. Only genuinely open requests ask.
+  const vague = !category && (VAGUE.test(text) || cleaned.split(' ').filter(w => w.length > 2).length < 1);
+  const family: IntentV2['primaryFamily'] = isRefinement ? 'refinement' : compare ? 'comparison' : software.length ? 'use_case' : stated.length ? 'spec_constrained' : CHEAP.test(text) ? 'budget_led' : vague ? 'vague_exploratory' : 'category_browse';
   return {
     version: INTENT_VERSION,
     primaryFamily: family,
@@ -173,9 +209,9 @@ export function parseIntentFallback(raw: string, hasPrior: boolean): IntentV2 {
     priceDirection: CHEAPER.test(text) ? 'cheaper' : PREMIUM.test(text) ? 'premium' : null,
     references: refs,
     rankingMode: CHEAPEST.test(text) ? 'cheapest_adequate' : null,
-    noEmulator: NO_EMULATOR.test(text) ? true : null,
+    noEmulator: parseAndroidTesting(text),
     language: detectLanguage(text),
-    requestedAction: compare && refs.length >= 2 ? 'compare' : isRefinement ? 'refine' : !category && !software.length && words <= 4 ? 'ask_clarifying' : 'find_options',
+    requestedAction: compare && refs.length >= 2 ? 'compare' : isRefinement ? 'refine' : vague && !software.length ? 'ask_clarifying' : 'find_options',
     missingCritical: [],
     followUpQuestion: null,
     confidence: 0.5,

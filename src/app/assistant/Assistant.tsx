@@ -18,7 +18,7 @@ type Req = { field: string; level: 'minimum' | 'recommended' | 'premium'; origin
 type Result = {
   kind: 'results' | 'clarify' | 'blocked' | 'support'; message: string | null; links: Array<{ href: string; label: string }>; sessionId?: string | null;
   state: { turn: number; brandsExclude: string[]; budget: { maxCents: number | null; usable: boolean; raw: string | null } | null; priceCapCents: number | null } | null;
-  profile: { id: string; label: string; sources: Array<{ title: string; url: string }>; variantNote: string | null } | null;
+  profile: { id: string; label: string; sources: Array<{ title: string; url: string }>; variantNote: string | null; workflow?: 'device' | 'emulator' | null } | null;
   requirements: Req[]; products: Product[]; bestFit: string[]; cheapestAdequate: string[]; needsVerification: string[]; unsuitable: string[];
   mode: 'best_fit' | 'cheapest_adequate'; picks: Pick[]; summary: string; followUp: string | null;
   budget: { budgetCents: number | null; usable: boolean; raw: string | null; ownFundsCents: number | null; priceCapCents: number | null; cheapestAdequate: { externalId: string; priceCents: number; gapCents: number | null } | null; noneWithinBudget: boolean; rejections: Array<{ label: string; count: number }>; note: string };
@@ -163,6 +163,18 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
               {result.summary && <p className="mt-3 leading-relaxed text-ink-2" dir="auto">{result.summary}</p>}
               {result.budget.note && <p className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm font-medium" dir="auto">{result.budget.note}</p>}
               {result.followUp && <p className="mt-2 text-sm text-mute" dir="auto"><b>{t('assistant.followUp')}</b> {result.followUp}</p>}
+              {result.profile?.workflow !== undefined && (
+                <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('assistant.androidSwitch')}>
+                  <span className="text-xs font-semibold text-mute">{t('assistant.androidSwitch')}</span>
+                  {(['device', 'emulator'] as const).map(w => (
+                    <button key={w} type="button" disabled={loading || result.profile?.workflow === w} aria-pressed={result.profile?.workflow === w}
+                      onClick={() => void run(t(w === 'device' ? 'assistant.androidPhone' : 'assistant.androidEmulator'), true)}
+                      className={`chip min-h-11 border px-3 text-sm ${result.profile?.workflow === w ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink-2 hover:border-brand'}`}>
+                      {t(w === 'device' ? 'assistant.androidPhone' : 'assistant.androidEmulator')}
+                    </button>
+                  ))}
+                </div>
+              )}
               {result.safety.piiRedacted && <p className="mt-2 text-sm text-warn">{t('assistant.piiRemoved')}</p>}
               <form className="mt-4 border-t border-line pt-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
                 <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
@@ -291,7 +303,7 @@ function Requirements({ result, t }: { result: Result; t: T }) {
           </div>
         ))}
       </div>
-      {result.profile?.variantNote && <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand" dir="ltr"><b>{t('assistant.variantNote')}:</b> {result.profile.variantNote}</p>}
+      {result.profile?.variantNote && <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand" dir="auto"><b>{t('assistant.variantNote')}:</b> {result.profile.variantNote}</p>}
     </details>
   );
 }

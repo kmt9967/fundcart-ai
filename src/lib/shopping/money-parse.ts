@@ -18,7 +18,7 @@ export function asciiDigits(s: string): string {
   return s.replace(/[۰-۹٠-٩]/g, d => String(DIGITS_UR.indexOf(d) >= 0 ? DIGITS_UR.indexOf(d) : DIGITS_AR.indexOf(d)));
 }
 
-function detectCurrency(s: string): ParsedMoney['currency'] {
+export function detectCurrency(s: string): ParsedMoney['currency'] {
   if (/\$|usd|dollars?|dólares?/i.test(s)) return /cad|canadian/i.test(s) ? 'CAD' : /aud|australian/i.test(s) ? 'AUD' : 'USD';
   if (/€|eur\b|euros?/i.test(s)) return 'EUR';
   if (/£|gbp|pounds?/i.test(s)) return 'GBP';

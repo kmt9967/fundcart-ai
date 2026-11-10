@@ -42,7 +42,7 @@ Shoppers who can already afford an item can also check out directly, with the sa
 
 FundCart's assistant is a team of cooperating agents powered by **Google Gemini**:
 
-- **Intent Agent:** turns a request in any of five languages into a validated shopping brief: the product, what it must do, skill level, budget (amounts like "1.5 lac" or "50 hazar" are parsed by code), exclusions, and follow-up references.
+- **Intent Agent:** turns a request in any of five languages into a validated shopping brief: the product, what it must do, skill level, budget (amounts like "1.5 lac" or "50 hazar" are parsed by code; an amount without a clear currency, such as "budget 5k", is asked about rather than assumed to be dollars), exclusions, and follow-up references.
 - **Requirements Agent:** maps needs such as Android development, video editing, gaming or study to minimum, best-value and optional-upgrade specs, with official sources where available (for example Google's Android Studio requirements).
 - **Research Agent:** runs targeted, category-filtered searches on **Channel3's** live catalog and widens them only when too few suitable products fit the budget.
 - **Verification Agent:** reads RAM, storage, processor, graphics and OS from each listing, flags inconsistent listings and implausible prices, and never treats a missing spec as met.
@@ -90,7 +90,7 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - Amounts and goals are calculated on the server; the client cannot set them.
 - Campaign management and purchase approval are checked on the server against the campaign owner. Owners are identified by a signed guest cookie or an optional account (Supabase Auth); guest campaigns move into an account only from the browser that holds the signed guest cookie.
 - A safety check runs before any search (prompt injection, self-harm, restricted items, covert surveillance, counterfeits); card numbers are removed from messages before they are stored or sent to the AI.
-- Supporter emails for receipts are stored privately and never shown publicly.
+- Supporter emails for receipts are collected only when receipt emails are enabled, stored privately and never shown publicly.
 - Sensitive endpoints are rate-limited.
 
 ## Limitations
@@ -100,7 +100,7 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 - **Single recipient:** one authorized Sandbox account currently receives contributions on behalf of every campaign creator. A production version would let each creator connect their own PayPal account.
 - **Refunds:** only the recipient can issue a refund. FundCart's handling of refund notifications is built but has not yet been exercised with a recipient-issued refund.
 - **Accounts:** email addresses are not verified in this demo build, and password-reset emails need a custom email provider to arrive reliably. Rate limiting is per server instance.
-- **Receipts:** the receipt email integration is built but switched off until a transactional email provider is configured; until then receipts are recorded as not sent, never reported as sent.
+- **Receipts:** the receipt email integration is built but switched off until a transactional email provider is configured. While it is off, the receipt email field is hidden and no email address is collected; receipts are still available on the receipt page.
 - **Spec checks** depend on what retailers list; unconfirmed specs are labelled "check before buying". Translations are machine-assisted.
 - Prices come from live retailer data and may change.
 
