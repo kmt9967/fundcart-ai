@@ -5,7 +5,7 @@ vi.mock('server-only', () => ({}));
 
 import { screenMessage, redactPii, listingInjection } from '@/lib/shopping/safety';
 import { reviewCampaignContent, contentFingerprint, scoreOf, REVIEW_THRESHOLD, shouldAutoPause } from '@/lib/moderation';
-import { networkKey } from '@/lib/ratelimit';
+import { networkKey, clientKey } from '@/lib/ratelimit';
 
 const flags = (s: string) => screenMessage(s).flags;
 
@@ -169,5 +169,17 @@ describe('D. report abuse: unverifiable reports cannot force a campaign offline'
   it('network key groups an IPv4 /24 and an IPv6 /48', () => {
     expect(networkKey('203.0.113.7')).toBe(networkKey('203.0.113.200'));
     expect(networkKey('2001:db8:aa:1::1')).toBe(networkKey('2001:db8:aa:ffff::2'));
+  });
+});
+
+describe('D. client IP cannot be spoofed in production', () => {
+  const mk = (h: Record<string, string>) => new Request('https://x.test/', { headers: h });
+  it('production ignores the test header and prefers the platform header', () => {
+    const old = process.env.VERCEL_ENV; process.env.VERCEL_ENV = 'production';
+    try { expect(clientKey(mk({ 'x-fc-test-ip': '1.2.3.4', 'x-vercel-forwarded-for': '203.0.113.9', 'x-real-ip': '9.9.9.9' }))).toBe('203.0.113.9'); }
+    finally { process.env.VERCEL_ENV = old; }
+  });
+  it('outside production a harness may simulate a client', () => {
+    expect(clientKey(mk({ 'x-fc-test-ip': '198.51.100.7' }))).toBe('198.51.100.7');
   });
 });

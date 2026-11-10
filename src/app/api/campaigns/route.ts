@@ -47,7 +47,9 @@ export async function POST(req: Request) {
   const country = requestCountry(req);
   const policy = policyFor(country);
   const userId = await ensureUser(p.data.creatorName);
-  const url = await sharedRateLimit([['create_user_hour', userId, 3, 3600], ['create_user_day', userId, 6, 86400]]);
+  // Attempt limits (validation retries count). Successful creations are capped separately: at most
+  // MAX_ACTIVE_PER_OWNER active campaigns and a velocity review flag for 2+ new campaigns in 24 hours.
+  const url = await sharedRateLimit([['create_user_hour', userId, 10, 3600], ['create_user_day', userId, 20, 86400]]);
   if (!url.ok) return Response.json({ error: 'Too many campaigns created. Please wait a while.' }, { status: 429 });
 
   let own: number;

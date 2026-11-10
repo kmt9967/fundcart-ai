@@ -52,7 +52,6 @@ export async function sharedRateLimit(rules: RateRule[]): Promise<RateResult> {
   return blocked ?? { ok: true, retryAfterSec: 0, shared: true };
 }
 
-/** Client IP as set by the hosting proxy (Vercel sets x-real-ip and overwrites x-forwarded-for). */
 /** Coarse network of an IP (IPv4 /24, IPv6 /48) so one household or one cloud range counts once. */
 export function networkKey(ip: string): string {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return ip.split('.').slice(0, 3).join('.');
@@ -61,5 +60,11 @@ export function networkKey(ip: string): string {
 }
 
 export function clientKey(req: Request): string {
-  return (req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'local';
+  const h = req.headers;
+  // On Vercel the platform sets these headers itself and overwrites client-supplied values. Outside Vercel
+  // production (local runs, previews) a test harness may simulate distinct clients with x-fc-test-ip.
+  const prod = process.env.VERCEL_ENV === 'production';
+  const v = prod ? (h.get('x-vercel-forwarded-for') || h.get('x-forwarded-for') || h.get('x-real-ip'))
+    : (h.get('x-fc-test-ip') || h.get('x-real-ip') || h.get('x-forwarded-for'));
+  return (v || '').split(',')[0].trim() || 'local';
 }

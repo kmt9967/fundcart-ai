@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { payWithPayPalSandbox } from './helpers';
+import { payWithPayPalSandbox, tagLocalClient } from './helpers';
 
 // Full integrated journey with REAL PayPal Sandbox payments:
 // ask AI → real Channel3 products → compare → fund this → AI campaign draft → publish →
@@ -16,6 +16,7 @@ test.skip(!supporter.email || !supporter.password, 'Sandbox buyer credentials no
 test('end-to-end: shop → fund → contribute → goal → approve purchase', async ({ browser }) => {
   fs.mkdirSync(evidence, { recursive: true });
   const creator = await browser.newContext(); // creator identity (guest cookie)
+  await tagLocalClient(creator, '198.51.100.21');
   const page = await creator.newPage();
 
   // 1-3. Ask the AI and get real products.
@@ -37,6 +38,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await expect(page.getByRole('heading', { name: 'Fund the gap together' })).toBeVisible();
   await page.getByLabel('Your first name').fill('Maya');
   await page.getByLabel('Why do you need it?').fill('I am starting my computer science degree and my old laptop cannot run the course software.');
+  await page.locator('#need').selectOption('education');
   await page.getByRole('button', { name: /Draft my campaign with AI/ }).click();
   await expect(page.getByLabel('Campaign title')).not.toHaveValue('', { timeout: 60_000 });
   const goalText = await page.locator('dd.text-sun').first().innerText();
@@ -48,6 +50,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
 
   // 7-9. A different person (new context) opens the public campaign and contributes the full goal.
   const sup = await browser.newContext();
+  await tagLocalClient(sup, '198.51.100.22');
   const sp = await sup.newPage();
   await sp.goto(campaignUrl);
   const goalCents = Math.round(parseFloat(goalText.replace(/[$,]/g, '')) * 100);

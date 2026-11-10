@@ -32,3 +32,12 @@ async function paypalButtonFrame(page: Page): Promise<Frame> {
   await frame!.locator('[data-funding-source="paypal"]').first().waitFor({ timeout: 60_000 });
   return frame!;
 }
+
+/** Local runs only: give a browser context its own simulated client address (x-fc-test-ip, ignored by the
+ *  server in Vercel production) so per-IP abuse limits apply per simulated person, not to the whole machine.
+ *  Only requests to the local app are tagged; PayPal and other origins are untouched. */
+export async function tagLocalClient(ctx: import('@playwright/test').BrowserContext, ip: string) {
+  const base = process.env.E2E_BASE_URL || 'http://localhost:3100';
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(base)) return;
+  await ctx.route(`${base.replace(/\/$/, '')}/**`, route => route.continue({ headers: { ...route.request().headers(), 'x-fc-test-ip': ip } }));
+}

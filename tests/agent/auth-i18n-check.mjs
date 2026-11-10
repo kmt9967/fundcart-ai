@@ -13,7 +13,9 @@ async function req(jar, path, opts = {}) {
   const res = await fetch(BASE + path, { redirect: 'manual', ...opts, headers: { ...(opts.headers || {}), cookie: jar.header(), 'user-agent': 'fundcart-qa-check' } });
   jar.add(res); return { status: res.status, text: await res.text(), res };
 }
-const auth = (jar, body) => req(jar, '/api/auth', { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify(body) });
+// Auth allows 10 attempts per minute per client; pace calls so the check never trips its own limit.
+const TEST_IP = `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
+const auth = async (jar, body) => { await new Promise(r => setTimeout(r, 6500)); return req(jar, '/api/auth', { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE, 'x-fc-test-ip': TEST_IP }, body: JSON.stringify(body) }); };
 
 // ---------- Authentication ----------
 const anon = new Jar();
