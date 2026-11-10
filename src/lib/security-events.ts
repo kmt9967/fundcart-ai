@@ -5,7 +5,7 @@ import { db } from './db';
 // emails, card numbers or message text here: use hashed buckets or object ids.
 export type SecurityKind =
   | 'rate_limited' | 'injection_flag' | 'safety_block' | 'honeypot' | 'duplicate_payment' | 'decline_spike'
-  | 'campaign_flagged' | 'campaign_reported' | 'campaign_auto_hidden' | 'campaign_moderated' | 'policy_block'
+  | 'campaign_flagged' | 'campaign_reported' | 'campaign_auto_hidden' | 'campaign_auto_paused' | 'report_brigading' | 'campaign_moderated' | 'policy_block'
   | 'price_changed' | 'auth_failed' | 'ai_budget_exhausted' | 'cross_border_block';
 
 export async function recordSecurityEvent(kind: SecurityKind, severity: 'info' | 'warn' | 'alert', subject: string | null, detail: Record<string, unknown> = {}): Promise<void> {
