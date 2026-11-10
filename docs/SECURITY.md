@@ -31,6 +31,8 @@ an external penetration test.
 | Mass assignment (API3) | Zod schemas pick allowed fields only; goal, status, verification and moderation are recomputed or set by the server | — |
 | Broken function-level authorization (API5) | Moderation API and page check the moderator role on the server; moderators cannot decide on their own campaigns | Single-person moderation (no two-person approval yet) |
 | Sensitive business-flow abuse (API6) | Shared velocity limits on campaign creation and contributions, honeypot fields, duplicate-content and duplicate-item checks, moderation scoring | Determined attackers with many identities |
+| Report brigading | Only established reporters on distinct networks can trigger a review pause; same-network report bursts are logged and counted once; a moderator approval is not undone by new reports | Coordinated reporters with aged identities on different networks can still request a review (they cannot remove a campaign) |
+| Client address spoofing | In production the client address comes from the hosting platform's own headers; test headers for simulated clients and countries are ignored there | Shared networks (offices, carrier NAT) share limits |
 | SSRF (API7) | The app never fetches user-supplied URLs | — |
 | Unsafe consumption of third-party APIs (API10) | Catalog data normalised and length-limited; treated as untrusted | — |
 | Insecure output handling (LLM05) | React escapes all text; links are built from catalog IDs; no model HTML is rendered | — |
