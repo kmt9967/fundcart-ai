@@ -110,9 +110,14 @@ create table if not exists campaign_reports (
   reason text not null check (reason in ('scam','misleading','personal_info','offensive','duplicate','other')),
   details text check (details is null or length(details) <= 300),
   status text not null default 'open' check (status in ('open','dismissed','actioned')),
+  -- Hashed network bucket of the reporter (never a raw IP) and whether the report may count toward an
+  -- automatic pause (established reporter). Unverifiable reports only queue for a moderator.
+  reporter_net text,
+  eligible boolean not null default false,
   created_at timestamptz not null default now(),
   unique (campaign_id, reporter_id)
 );
+create index if not exists campaign_reports_campaign_status on campaign_reports (campaign_id, status);
 alter table campaign_reports enable row level security;
 revoke all on campaign_reports from anon, authenticated;
 
@@ -121,3 +126,8 @@ alter table ai_sessions add column if not exists safety jsonb not null default '
 alter table ai_sessions add column if not exists policy_version text;
 alter table payment_orders add column if not exists payer_country text check (payer_country is null or payer_country ~ '^[A-Z]{2}$');
 alter table payment_orders add column if not exists policy_version text;
+
+-- ---------- Explicit server-role grants (the app uses the service role; browsers never reach these) ----------
+grant execute on function rate_limit_hit(text, integer, integer) to service_role;
+grant select, insert, update, delete on rate_limits, campaign_reports, verifications to service_role;
+grant select, insert on security_events to service_role;

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import { analyzeFamilies, matchType } from '@/lib/shopping/families';
-import { parseIntentFallback } from '@/lib/shopping/fallback-intent';
+import { parseIntentFallback, detectCategory } from '@/lib/shopping/fallback-intent';
 import { parseBudget } from '@/lib/shopping/money-parse';
 import { screenMessage } from '@/lib/shopping/safety';
 import { FAMILIES } from '@/lib/shopping/types';
@@ -133,4 +133,19 @@ describe('F1 multilingual consistency: same need, same constraints', () => {
     expect(parseIntentFallback('phone under 50000 PKR, not Samsung', false).brandsExclude).toContain('samsung');
     expect(parseBudget("budget 1.2 lac")?.maxMinor).toBe(12_000_000);
   });
+});
+
+describe('A. category understanding without the model (workbook FC-007-MX, FC-011-MX)', () => {
+  it.each([
+    ['Dupe for Dior Sauvage, budget 5k', 'perfume'],
+    ['something that smells like Creed Aventus but cheaper', 'perfume'],
+    ['achi khushbu chahiye 3000 tak', 'perfume'],
+    ['Food for my 10 year old cat, uska stomach sensitive hai', 'pet food'],
+    ['dry kibble for a large dog', 'pet food'],
+    ['comida para mi gato', 'pet food'],
+  ])('%s → %s', (input, cat) => expect(detectCategory(input)).toBe(cat));
+  it.each([
+    'I need a laptop for my cat videos channel',
+    'gaming laptop for food delivery app development',
+  ])('no false pet-food match: %s', input => expect(detectCategory(input)).toBe('laptop'));
 });

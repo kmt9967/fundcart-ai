@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import { screenMessage, redactPii, listingInjection } from '@/lib/shopping/safety';
-import { reviewCampaignContent, contentFingerprint, scoreOf, REVIEW_THRESHOLD } from '@/lib/moderation';
+import { reviewCampaignContent, contentFingerprint, scoreOf, REVIEW_THRESHOLD, shouldAutoPause } from '@/lib/moderation';
+import { networkKey } from '@/lib/ratelimit';
 
 const flags = (s: string) => screenMessage(s).flags;
 
@@ -148,5 +149,25 @@ describe('D7 campaign moderation (spam, PII, deceptive claims, duplicates)', () 
   it('scoring is additive and deterministic', () => {
     expect(scoreOf(['velocity', 'duplicate_content'])).toBe(7);
     expect(scoreOf([])).toBe(0);
+  });
+});
+
+describe('D. report abuse: unverifiable reports cannot force a campaign offline', () => {
+  it('three new (ineligible) reporters only queue, never pause', () => {
+    expect(shouldAutoPause([{ reporter_net: 'a', eligible: false }, { reporter_net: 'b', eligible: false }, { reporter_net: 'c', eligible: false }], 'auto_approved').pause).toBe(false);
+  });
+  it('three established reporters from one network count once and flag brigading', () => {
+    const d = shouldAutoPause([{ reporter_net: 'a', eligible: true }, { reporter_net: 'a', eligible: true }, { reporter_net: 'a', eligible: true }], 'auto_approved');
+    expect(d.pause).toBe(false); expect(d.brigading).toBe(true);
+  });
+  it('three established reporters on distinct networks pause for review', () => {
+    expect(shouldAutoPause([{ reporter_net: 'a', eligible: true }, { reporter_net: 'b', eligible: true }, { reporter_net: 'c', eligible: true }], 'auto_approved').pause).toBe(true);
+  });
+  it('a moderator-approved campaign is never auto-paused again', () => {
+    expect(shouldAutoPause([{ reporter_net: 'a', eligible: true }, { reporter_net: 'b', eligible: true }, { reporter_net: 'c', eligible: true }, { reporter_net: 'd', eligible: true }], 'approved').pause).toBe(false);
+  });
+  it('network key groups an IPv4 /24 and an IPv6 /48', () => {
+    expect(networkKey('203.0.113.7')).toBe(networkKey('203.0.113.200'));
+    expect(networkKey('2001:db8:aa:1::1')).toBe(networkKey('2001:db8:aa:ffff::2'));
   });
 });

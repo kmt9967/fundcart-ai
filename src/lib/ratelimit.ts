@@ -53,6 +53,13 @@ export async function sharedRateLimit(rules: RateRule[]): Promise<RateResult> {
 }
 
 /** Client IP as set by the hosting proxy (Vercel sets x-real-ip and overwrites x-forwarded-for). */
+/** Coarse network of an IP (IPv4 /24, IPv6 /48) so one household or one cloud range counts once. */
+export function networkKey(ip: string): string {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return ip.split('.').slice(0, 3).join('.');
+  if (ip.includes(':')) return ip.toLowerCase().split(':').slice(0, 3).join(':');
+  return ip;
+}
+
 export function clientKey(req: Request): string {
   return (req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'local';
 }

@@ -93,3 +93,24 @@ export function contentFingerprint(title: string, story: string): string {
 export const REPORT_REASONS = ['scam', 'misleading', 'personal_info', 'offensive', 'duplicate', 'other'] as const;
 /** Distinct reporters needed to pause a campaign automatically until a moderator looks at it. */
 export const AUTO_HIDE_REPORTS = 3;
+export const REPORTER_MIN_AGE_HOURS = 24;
+
+/** Decide whether open reports may pause a campaign. Only established reporters on distinct networks count;
+ *  many reports from one network are treated as possible brigading (logged, counted once). A campaign a
+ *  moderator already approved is never auto-paused again: new reports only queue for review. */
+export function shouldAutoPause(reports: Array<{ reporter_net: string | null; eligible: boolean | null }>, moderationStatus: string) {
+  const perNet = new Map<string, number>();
+  const eligibleNets = new Set<string>();
+  for (const r of reports) {
+    const n = r.reporter_net || 'unknown';
+    perNet.set(n, (perNet.get(n) || 0) + 1);
+    if (r.eligible && r.reporter_net) eligibleNets.add(r.reporter_net);
+  }
+  const maxPerNetwork = Math.max(0, ...perNet.values());
+  return {
+    pause: moderationStatus === 'auto_approved' && eligibleNets.size >= AUTO_HIDE_REPORTS,
+    brigading: maxPerNetwork >= 3,
+    maxPerNetwork,
+    distinctEligibleNetworks: eligibleNets.size,
+  };
+}

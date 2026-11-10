@@ -15,6 +15,11 @@ const CATEGORY_WORDS: Array<[string, RegExp]> = [
   ['camera', /\b(cameras?|dslr|mirrorless|c[aá]mara|appareil photo)\b|کیمرہ|کیمرا/i],
   ['tv', /\b(tvs?|television|smart tv|led tv|t[eé]l[eé]vision|televisor)\b/i],
   ['shoes', /\b(shoes?|sneakers?|kicks|trainers|joot[ae]|joote|zapatos|zapatillas|chaussures|baskets)\b|جوتے|جوتا/i],
+  // Fragrance: generic words in five languages plus well-known fragrance lines, so "dupe for Dior Sauvage"
+  // is understood as a perfume request even though the word "perfume" never appears.
+  ['perfume', /\b(perfumes?|parfums?|fragrances?|colognes?|eau de (toilette|parfum|cologne)|edp|edt|attars?|ittars?|itr|khushbu|body mist|dior sauvage|sauvage|bleu de chanel|chanel (no\.? ?5|coco|chance|allure)|creed aventus|aventus|acqua di gi[oò]|tom ford (oud|noir|tobacco)|versace eros|ysl (y|libre|myslf)|jo malone|baccarat rouge|paco rabanne|invictus|one million)\b|خوشبو|عطر|پرفیوم/i],
+  // Pet food: a pet species together with a food word ("food for my cat", "billi ka khana", "dog kibble").
+  ['pet food', /\b(cats?|kittens?|dogs?|puppy|puppies|billi|kutt[ae]|gato|perro|chat|chien)\b.{0,40}\b(food|kibble|treats?|khana|comida|pienso|croquettes|nourriture)\b|\b(food|kibble|treats?|khana|comida|pienso|croquettes|nourriture)\b.{0,40}\b(cats?|kittens?|dogs?|puppy|puppies|billi|kutt[ae]|gato|perro|chat|chien)\b|بلی.{0,20}(کھانا|خوراک)|کتے.{0,20}(کھانا|خوراک)/i],
 ];
 
 const SOFTWARE_WORDS = /android\s*studio|xcode|visual studio|vs ?code|photoshop|premiere|davinci|autocad|blender|unity|unreal|matlab|solidworks|اینڈرائیڈ\s?اسٹوڈیو/i;
