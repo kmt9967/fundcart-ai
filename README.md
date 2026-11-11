@@ -1,11 +1,14 @@
 # FundCart AI — Find what you need. Fund what you dream.
 
+![FundCart AI](docs/media/project_banner.jpg)
+
 **FundCart AI is where smart shopping meets community support.** Describe what you need in your own words. FundCart's AI finds real products that fit your purpose and budget and shows exactly how far your money goes. If the right item costs more than you have, FundCart turns the gap into a campaign your friends and family can support through **PayPal**. When the goal is reached, you approve the purchase yourself.
 
 Built for the **PayPal AI Hackathon 2026**.
 
 - **Try it:** https://fundcart-ai.vercel.app
-- **Demo video (2:17):** https://youtu.be/u3avKfEDRxQ
+- **Demo video (2:49):** https://youtu.be/VIDDhd0WFvY
+- **Explore without signing up:** press **Try Demo Account** on the home page (a read-only sample dashboard)
 
 > **Sandbox demo.** Every payment uses the PayPal Sandbox. No real money moves and no real product is bought. FundCart AI is not a charity, bank or escrow service, and it is not affiliated with PayPal.
 
@@ -24,6 +27,14 @@ Meet Maya. She needs a laptop for university, wants to spend under $700, and has
 5. **She approves the purchase.** Once the goal is reached, Maya ticks an explicit approval and pays the store in a **separate** PayPal checkout. Nothing is ever bought automatically.
 
 Shoppers who can already afford an item can also check out directly, with the same explicit approval.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Cheapest adequate laptops for Android Studio](docs/media/product_comparison.jpg) Requirements checked listing by listing; the cheapest laptop that qualifies comes first | ![Funding gap breakdown](docs/media/funding_gap.jpg) Price − savings + 5% price-change buffer = goal, calculated on the server |
+| ![Moderation queue](docs/media/moderation_queue.jpg) Moderator queue with purpose, risk, flags and goal breakdown | ![PayPal Sandbox contribution](docs/media/paypal_sandbox.jpg) Supporter approves in PayPal; the contribution counts after a verified capture |
+| ![Creator dashboard](docs/media/creator_dashboard.jpg) Verified payment ledger and the separate, human-approved purchase | ![English, Urdu, Spanish, French](docs/media/multilingual_showcase.jpg) Four languages, including right-to-left Urdu |
 
 ## Features
 
@@ -67,6 +78,8 @@ The AI never sets prices or totals. Third-party product text is treated as untru
 - **Separation of money flows:** in this prototype every Sandbox contribution is paid to one merchant account configured by FundCart (the same for every campaign, not the creator's personal PayPal) and recorded against the chosen campaign; the purchase is a separate checkout to the demo store. See [Campaign publication](docs/CAMPAIGN_PUBLICATION.md#where-sandbox-money-goes).
 
 ## Architecture
+
+![Architecture](docs/media/architecture_diagram.jpg)
 
 ```
 Browser (Next.js 16 App Router, React 19, Tailwind 4)
@@ -118,7 +131,23 @@ PayPal Orders API · PayPal JavaScript SDK · PayPal Webhooks · Google Gemini �
 
 ## What's next
 
-Creator-owned PayPal accounts, verified accounts and campaign moderation, more requirement profiles, and retailer price alerts that keep goals in sync with live prices.
+Verified email and creator identity, a licensed payment partner with payment to the retailer, real merchant fulfilment, more countries after local legal review, university and NGO pilots, broader product data, and an external security review before any real money is involved.
+
+## Documentation
+
+| Topic | Document |
+|---|---|
+| System design | [Architecture](docs/ARCHITECTURE.md) · [AI intelligence](docs/AI_INTELLIGENCE.md) · [AI agents](docs/AI_AGENTS.md) |
+| Shopping | [29 shopping intents](docs/SHOPPING_INTENTS.md) · [Product suitability](docs/PRODUCT_SUITABILITY.md) |
+| Trust | [Campaign publication and moderation](docs/CAMPAIGN_PUBLICATION.md) · [Security](docs/SECURITY.md) · [Anti-fraud](docs/ANTI_FRAUD.md) · [Policy engine](docs/POLICY_ENGINE.md) |
+| Payments | [PayPal integration](docs/PAYPAL_INTEGRATION.md) · [PayPal Sandbox](docs/PAYPAL_SANDBOX.md) |
+| Languages | [Multilingual](docs/MULTILINGUAL.md) |
+| Quality | [Testing](docs/TESTING.md) · [Test evidence](docs/TEST_EVIDENCE.md) · [Known limitations](docs/KNOWN_LIMITATIONS.md) |
+| Running it | [Deployment and environment variables](docs/DEPLOYMENT.md) |
+
+## Team
+
+Built for the PayPal AI Hackathon 2026 by **Talal Khawaja**, **Aqeela Urooj** and **Safa Kamran**.
 
 ## Run locally
 

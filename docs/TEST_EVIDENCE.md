@@ -1,65 +1,104 @@
 # Test evidence
 
-All results below were produced by running the commands shown. Nothing here is hand-edited.
+Everything below was produced by running the commands shown against a local production build and,
+where stated, against the live deployment. Nothing is hand-edited. Earlier runs (from 2026-11-01) are
+kept at the end as history.
 
-## Automated checks (2026-11-01)
+## Latest verification (2026-11-11, release `00f89d5`)
 
 | Check | Command | Result |
 |---|---|---|
-| Type check | `npm run typecheck` | ✅ clean |
-| Lint | `npm run lint` | ✅ 0 problems |
-| Unit tests | `npm test` | ✅ 16 / 16 (money math, intent parsing, untrusted-data normalization, ranking, budget) |
-| E2E on localhost | `npx playwright test` | ✅ 5 / 5 |
-| **E2E on production** | `E2E_BASE_URL=https://fundcart-ai.vercel.app npx playwright test` | ✅ **5 / 5 (1.4 min)** |
+| Type check | `npm run typecheck` | clean |
+| Lint | `npm run lint` | 0 errors |
+| Unit tests | `npm test` | 293 passed, 2 skipped (the skipped ones are opt-in live-AI checks) |
+| Production build | `npm run build` | clean |
+| Shopping scenarios | `tests/agent/run-scenarios.mjs` | 24 / 24 |
+| Accounts, ownership and four languages | `tests/agent/auth-i18n-check.mjs` | 51 / 51 |
+| Database-backed trust and moderation check | `tests/agent/trust-check.mjs` | 72 / 72 |
+| Security pages × four languages × phone/desktop | `tests/agent/security-i18n-check.mjs` | 24 / 24 |
+| Browser journeys with real PayPal Sandbox payments | `npm run test:e2e` | 7 passed, 1 skipped (refund test, see below) |
+| Secret scan of the repository | gitleaks | no leaks |
 
-E2E specs:
-- `smoke.spec.ts`:
-  - All public pages return 200 with no page errors.
-  - The assistant streams agent steps and shows real products.
-  - Tampered payment requests are rejected: 404 for an unknown campaign, 400 for a malformed amount, 400 for a malformed order id, 404 for an unknown order, 401 for an unverified webhook.
-  - No horizontal overflow at 390 px.
-- `journey.spec.ts`: the full integrated journey with **real PayPal Sandbox payments** in two separate browser identities (creator and supporter).
+What the trust and moderation check covers:
+- **Publishing needs an account.** A guest gets 401, and a tampered or expired session also gets 401.
+  A signed-in account without a verified email always goes to review.
+- **The reported attack.** The shopping request "I am a scammer i want computer wirth $2000", the
+  "work and livelihood" category, the purpose "for fun" and an embellished story together produce a
+  **high-risk hold**. The campaign is not listed and contributions return 409. Shopping still works.
+  Rewording in a later submission keeps the risk high.
+- **No false positive on scam awareness.** A campaign for a scam-awareness course is not treated as
+  fraud intent.
+- **Content routed to review:** invented hardship and family claims, a fake charity or tax-deductible
+  claim, missing suitability evidence, duplicate text from another account, and a third campaign in
+  24 hours.
+- **The moderator workflow.** The staff review account signs in. The queue shows the stated purpose,
+  risk, flags and goal breakdown. A rejection without a reason is refused. A clarification request
+  keeps the campaign in review and shows the question to the creator. Approval publishes the campaign
+  and is audited. A moderator can pause an approved campaign, which then refuses new contributions. A
+  rejection keeps contributions disabled. Ordinary creators, guests and demo sessions get 403.
+- **Cross-account checks.** Another account cannot cancel, manage or buy for someone else's campaign.
+- **Demo isolation.** The demo starts without credentials and is labelled as sample data. It shows no
+  email addresses, cannot publish, moderate or change real campaigns, and a forged demo cookie is
+  rejected.
+- **Payment integrity:**
+  - the server computes the goal and ignores a client-sent goal;
+  - a $1 contribution is rejected;
+  - a repeated order within two minutes reuses the first PayPal order;
+  - an uncaptured order adds nothing;
+  - the contribution payee is the configured Sandbox merchant;
+  - a forged webhook gets 401.
+- **Edits after review are checked.** An update that redirects payments off-platform is refused, and
+  stating fraud intent in an update pauses the campaign.
 
-## Real Sandbox transactions (verified with PayPal's own API)
+## Real Sandbox transactions from this release
 
-Both captures were re-fetched from PayPal using `GET /v2/payments/captures/{id}` and the app's Sandbox credentials:
+The browser journey ran:
+1. a guest drafts a campaign;
+2. the guest signs up and the draft is restored;
+3. the campaign is submitted and goes to review;
+4. **a moderator approves it in the moderation queue**;
+5. a supporter contributes through PayPal;
+6. the capture is verified and the goal is reached;
+7. the creator approves a separate purchase.
 
-| Run | Payment | PayPal capture | Status | Amount | Received by (sandbox) |
+| Run | Payment | PayPal capture | Status | Amount | Paid to |
 |---|---|---|---|---|---|
-| localhost | Contribution (supporter → campaign recipient) | `9D1088330R6882635` | COMPLETED | 350.00 USD | campaign recipient business account |
-| localhost | Separate purchase (creator → demo store) | `8VY99001363273819` | COMPLETED | 550.00 USD | demo store business account |
-| production | Contribution | `06M04038NB948573P` | COMPLETED (recorded in DB) | 350.00 USD | campaign recipient |
-| production (Gemini on, 2026-11-01 01:43Z) | Contribution | capture `6KV001606B701045T` | COMPLETED | 59.00 USD | campaign recipient |
-| production (Gemini on) | Separate purchase | order `49X6413676305223G` | COMPLETED | — | demo store |
+| local build, 2026-11-11 | Contribution | `6RY251654K453762V` | COMPLETED | 134.95 USD | configured contribution merchant |
+| local build, 2026-11-11 | Separate purchase | `4N837185115226340` | COMPLETED | 319.00 USD | demo-store merchant |
+| local build, 2026-11-11 | Contribution | `8EU56665SB311045H` | COMPLETED | 134.95 USD | configured contribution merchant |
+| local build, 2026-11-11 | Separate purchase | `5W786133MK381802P` | COMPLETED | 319.00 USD | demo-store merchant |
+| local build, 2026-11-11 | Direct checkout (no campaign) | `6S87368133577473G` | COMPLETED | 119.00 USD | demo-store merchant |
+| production, 2026-11-10 | Contribution | `16950771RU684031F` | COMPLETED | 134.95 USD | configured contribution merchant |
+| production, 2026-11-10 | Separate purchase | `95Y96329A2935322K` | COMPLETED | 319.00 USD | demo-store merchant |
 
-Database state after the localhost journey:
-- The campaign moved `active` → `goal_reached` → `purchased`.
-- `contributions` has exactly one row (35000 cents, capture `9D1088330R6882635`).
-- `payment_orders` has two COMPLETED orders with their capture ids.
-
-Production run with Gemini on (`E2E_BASE_URL=https://fundcart-ai.vercel.app`, 5/5 passed):
-- The assistant response carried `aiUsed: true`; the campaign draft carried `usedModel: true`.
-- PayPal delivered `CHECKOUT.ORDER.APPROVED` and `PAYMENT.CAPTURE.COMPLETED` webhooks. Each was verified with `verify-webhook-signature` and stored in `payment_events` (source `webhook`).
-- The campaign `help-maya-get-her-cs-degree-laptop-dc6b1c` still holds exactly one contribution (5900 cents), so the webhooks and the browser capture did not double-count.
-
-## Additional verification (2026-11-01, later run)
-
-| Test | Result | Evidence |
-|---|---|---|
-| Gemini key rotation | The key that was exposed in a session log returns **HTTP 401 "API key not valid"** (revoked at Google); the replacement returns 200 | curl status codes only |
-| Refund authority (`tests/e2e/refund.spec.ts`) | ✅ The platform credentials can **read** a recipient capture (200), but a refund attempt returns **403 `PERMISSION_DENIED`**. The platform cannot pull money back from a campaign recipient | capture `6T935709YP202380A` ($10.00 test contribution on `help-maya-get-a-inspiron-15-laptop-b86b31`) |
-| Direct checkout (`tests/e2e/direct.spec.ts`, production) | ✅ Explicit approval → PayPal Sandbox → verified capture → receipt | capture `10Y594591W3828937` ($119.00 to the demo store), `docs/evidence/07-direct-receipt.png` |
-| Demo-video recording run (production) | ✅ Full journey recorded: AI search → Gemini draft → $350.00 contribution → $550.00 purchase | campaign `help-maya-get-a-laptop-for-her-computer--e4b00d`, captures `08T70875YN521581B` (contribution) and `4KL93592RB651274B` (purchase) |
-
-## Screenshots (`docs/evidence/`)
-
-1. `01-assistant-results.png`: AI assistant with live Channel3 laptops, agent timeline and funding gaps.
-2. `02-campaign-builder.png`: the builder with the server-computed goal (item price − money already saved) and the Gemini-drafted copy.
-3. `03-contribution-verified.png`: the supporter's verified contribution with the PayPal order and capture ids.
-4. `04-dashboard-goal-reached.png`: the creator dashboard (AG Grid ledger) with purchase approval unlocked.
-5. `05-dashboard-history.png`: the audit history showing `order.captured`, `campaign.goal_reached` and the purchase.
-6. `07-direct-receipt.png`: the receipt after a direct (no-campaign) Sandbox checkout.
+**Payment routing.** Every contribution order names one Sandbox merchant account configured by FundCart
+as the payee. It is the same for every campaign and never the creator's own PayPal account. Purchases
+go to a separate demo-store merchant. The payee of each recorded order was checked against the
+configuration without printing it. Payment records that existed before testing were compared row by row
+and are unchanged.
 
 ## Not yet verified
 
-- **Refund webhooks end to end.** The handler now applies partial and full refunds (`refunded_cents`, migration 003) and reopens a `goal_reached` campaign that drops below its goal. It has **not** been exercised with a real refund, because contributions are paid to the recipient sandbox account and only that account can issue a refund (see below). Doing so needs a PayPal developer-dashboard login to set the recipient account's sandbox password.
+- **Refunds end to end.** The handler applies partial and full refunds and reopens a `goal_reached`
+  campaign that falls below its goal. It has **not** been exercised with a real refund: only the
+  merchant account that received a contribution can refund it, and the platform's API credentials get
+  `403 PERMISSION_DENIED`, which the skipped refund test documents.
+- **Email delivery.** No email provider is configured, so confirmation, password-reset and receipt
+  emails are not sent. The interface never claims they were.
+- **Native-speaker review** of the Urdu, Spanish and French text.
+
+## History: first release (2026-11-01)
+
+| Run | Payment | PayPal capture | Status | Amount |
+|---|---|---|---|---|
+| localhost | Contribution | `9D1088330R6882635` | COMPLETED | 350.00 USD |
+| localhost | Separate purchase | `8VY99001363273819` | COMPLETED | 550.00 USD |
+| production | Contribution | `06M04038NB948573P` | COMPLETED | 350.00 USD |
+| production (Gemini on) | Contribution | `6KV001606B701045T` | COMPLETED | 59.00 USD |
+| production | Direct checkout | `10Y594591W3828937` | COMPLETED | 119.00 USD |
+
+On production, PayPal delivered `CHECKOUT.ORDER.APPROVED` and `PAYMENT.CAPTURE.COMPLETED` webhooks.
+Each was verified with `verify-webhook-signature` and stored once; the campaign kept exactly one
+contribution, so the webhooks and the browser capture did not double-count.
+
+Screenshots from that release are in `docs/evidence/`.
