@@ -2,6 +2,12 @@
 // Urdu, Spanish and French are machine-assisted translations: please have native speakers review them.
 
 export const securityEn = {
+  'mod.pause': 'Pause', 'mod.clarify': 'Ask for clarification', 'mod.note': 'Reason or question (shared with the creator)',
+  'mod.noteRequired': 'Write a reason first.', 'mod.risk': 'Risk', 'mod.purpose': 'Stated purpose', 'mod.category': 'Need category',
+  'mod.product': 'Product', 'mod.ranking': 'Suitability check', 'mod.gap': 'Price − own funds + buffer = goal',
+  'mod.account': 'Creator account', 'mod.verified': 'email verified', 'mod.unverified': 'email not verified', 'mod.guest': 'guest (legacy)',
+  'mod.raised': 'Recorded contributions', 'mod.history': 'Previous decisions', 'mod.own': 'Your own campaign: another moderator must decide.',
+  'mod.outcome': 'Eligibility result', 'mod.signals': 'Signals',
   'elig.loginRequired': 'Sign in to publish. Guests can shop and prepare a draft, but asking people for money needs an account.',
   'elig.clarify': 'Before this can be published, please clarify why you need this item.',
   'elig.q.purpose': 'Describe in a sentence or two what you will use the item for.',
@@ -58,6 +64,12 @@ export const securityEn = {
 export type SecurityDict = Record<keyof typeof securityEn, string>;
 
 export const securityUr: SecurityDict = {
+  'mod.pause': 'روکیں', 'mod.clarify': 'وضاحت طلب کریں', 'mod.note': 'وجہ یا سوال (تخلیق کار کو دکھایا جائے گا)',
+  'mod.noteRequired': 'پہلے وجہ لکھیں۔', 'mod.risk': 'خطرہ', 'mod.purpose': 'بیان کردہ مقصد', 'mod.category': 'ضرورت کی قسم',
+  'mod.product': 'پروڈکٹ', 'mod.ranking': 'موزونیت کی جانچ', 'mod.gap': 'قیمت − اپنی رقم + گنجائش = ہدف',
+  'mod.account': 'تخلیق کار کا اکاؤنٹ', 'mod.verified': 'ای میل تصدیق شدہ', 'mod.unverified': 'ای میل غیر تصدیق شدہ', 'mod.guest': 'مہمان (پرانا)',
+  'mod.raised': 'ریکارڈ شدہ عطیات', 'mod.history': 'پچھلے فیصلے', 'mod.own': 'یہ آپ کی اپنی مہم ہے: کوئی دوسرا ماڈریٹر فیصلہ کرے گا۔',
+  'mod.outcome': 'اہلیت کا نتیجہ', 'mod.signals': 'اشارے',
   'elig.loginRequired': 'شائع کرنے کے لیے سائن اِن کریں۔ مہمان خریداری اور مسودہ تیار کر سکتے ہیں، لیکن لوگوں سے رقم مانگنے کے لیے اکاؤنٹ ضروری ہے۔',
   'elig.clarify': 'شائع ہونے سے پہلے براہِ کرم واضح کریں کہ آپ کو یہ چیز کیوں چاہیے۔',
   'elig.q.purpose': 'ایک دو جملوں میں بتائیں کہ آپ یہ چیز کس کام کے لیے استعمال کریں گے۔',
@@ -112,6 +124,12 @@ export const securityUr: SecurityDict = {
 };
 
 export const securityEs: SecurityDict = {
+  'mod.pause': 'Pausar', 'mod.clarify': 'Pedir aclaración', 'mod.note': 'Motivo o pregunta (se comparte con quien crea la campaña)',
+  'mod.noteRequired': 'Escribe primero un motivo.', 'mod.risk': 'Riesgo', 'mod.purpose': 'Propósito declarado', 'mod.category': 'Categoría de necesidad',
+  'mod.product': 'Producto', 'mod.ranking': 'Comprobación de idoneidad', 'mod.gap': 'Precio − fondos propios + margen = meta',
+  'mod.account': 'Cuenta creadora', 'mod.verified': 'correo verificado', 'mod.unverified': 'correo sin verificar', 'mod.guest': 'invitado (anterior)',
+  'mod.raised': 'Aportes registrados', 'mod.history': 'Decisiones anteriores', 'mod.own': 'Es tu propia campaña: debe decidir otra persona moderadora.',
+  'mod.outcome': 'Resultado de elegibilidad', 'mod.signals': 'Señales',
   'elig.loginRequired': 'Inicia sesión para publicar. Como invitado puedes comprar y preparar un borrador, pero pedir dinero a otras personas requiere una cuenta.',
   'elig.clarify': 'Antes de publicar, aclara por qué necesitas este artículo.',
   'elig.q.purpose': 'Describe en una o dos frases para qué usarás el artículo.',
@@ -166,6 +184,12 @@ export const securityEs: SecurityDict = {
 };
 
 export const securityFr: SecurityDict = {
+  'mod.pause': 'Suspendre', 'mod.clarify': 'Demander des précisions', 'mod.note': 'Motif ou question (communiqué au créateur)',
+  'mod.noteRequired': 'Indiquez d’abord un motif.', 'mod.risk': 'Risque', 'mod.purpose': 'Objectif déclaré', 'mod.category': 'Catégorie de besoin',
+  'mod.product': 'Produit', 'mod.ranking': 'Contrôle d’adéquation', 'mod.gap': 'Prix − fonds propres + marge = objectif',
+  'mod.account': 'Compte créateur', 'mod.verified': 'e-mail vérifié', 'mod.unverified': 'e-mail non vérifié', 'mod.guest': 'invité (ancien)',
+  'mod.raised': 'Contributions enregistrées', 'mod.history': 'Décisions précédentes', 'mod.own': 'C’est votre propre campagne : un autre modérateur doit décider.',
+  'mod.outcome': 'Résultat d’éligibilité', 'mod.signals': 'Signaux',
   'elig.loginRequired': 'Connectez-vous pour publier. En tant qu’invité, vous pouvez faire vos achats et préparer un brouillon, mais demander de l’argent à d’autres personnes nécessite un compte.',
   'elig.clarify': 'Avant la publication, précisez pourquoi vous avez besoin de cet article.',
   'elig.q.purpose': 'Décrivez en une ou deux phrases à quoi servira l’article.',

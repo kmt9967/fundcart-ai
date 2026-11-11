@@ -34,8 +34,11 @@ explicit approval inside PayPal's hosted flow, and FundCart never sees card deta
 
 ## Prototype payment model
 
-In this prototype, contributions are paid to the campaign creator's Sandbox PayPal account and the
-purchase is a separate Sandbox checkout. A production version would route contributions through a
-licensed partner and pay the retailer directly, so that donated money never reaches the beneficiary
-as cash. Refunds of contributions are limited by this single-recipient model (the platform cannot
-refund captures made to a recipient's account).
+In this prototype, every contribution order names **one Sandbox merchant account configured by
+FundCart** as the payee (`PAYPAL_CONTRIBUTION_PAYEE_EMAIL`). It is the same for every campaign and is
+never the creator's personal PayPal account. Each order is stored with its campaign id, and a campaign's
+total counts only verified COMPLETED captures for the exact amount. The purchase is a separate Sandbox
+checkout paid to a separate demo-store merchant (`PAYPAL_STORE_PAYEE_EMAIL`). A production version
+would route contributions through a licensed partner and pay the retailer directly, so that donated
+money never reaches the beneficiary as cash. Refunds of contributions can be issued only by the
+receiving merchant account, not by the platform's API credentials.

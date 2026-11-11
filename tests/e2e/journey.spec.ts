@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { payWithPayPalSandbox, tagLocalClient, approveAsModeratorFixture } from './helpers';
 
+const moderator = { email: process.env.DEMO_MODERATOR_EMAIL || '', password: process.env.DEMO_MODERATOR_PASSWORD || '' };
+
 // Full integrated journey with REAL PayPal Sandbox payments:
 // ask AI → real Channel3 products → compare → fund this → AI campaign draft (as a guest) → sign up with the
-// draft preserved → submit (unverified email → moderator review) → approval fixture →
+// draft preserved → submit (unverified email → moderator review) → moderator approves in the queue →
 // supporter contributes (PayPal Sandbox) → verified progress → goal reached → creator approves
 // a separate Sandbox purchase → receipt and audit history.
 
@@ -64,7 +66,27 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await page.waitForURL(/\/c\/[a-z0-9-]+/, { timeout: 60_000 });
   const campaignUrl = page.url().split('?')[0];
   await expect(page.getByTestId('owner-review-note')).toBeVisible();
-  await approveAsModeratorFixture(campaignUrl.split('/c/')[1]);
+  const slug = campaignUrl.split('/c/')[1];
+  if (moderator.email && moderator.password) {
+    // A real moderator (staff review account) signs in and approves in the moderation queue.
+    const modCtx = await browser.newContext();
+    await tagLocalClient(modCtx, '198.51.100.23');
+    const mp = await modCtx.newPage();
+    await mp.goto('/account');
+    await mp.getByLabel('Email').fill(moderator.email);
+    await mp.getByLabel('Password').fill(moderator.password);
+    await mp.locator('form').getByRole('button', { name: 'Sign in' }).click();
+    await mp.waitForLoadState('networkidle');
+    await mp.goto('/admin/moderation');
+    const item = mp.locator(`[data-testid="queue-item"][data-slug="${slug}"]`);
+    await expect(item).toBeVisible({ timeout: 30_000 });
+    await mp.screenshot({ path: `${evidence}/02b-moderation-queue.png`, fullPage: true });
+    await item.getByTestId('mod-approve').click();
+    await expect(item).toHaveCount(0, { timeout: 30_000 });
+    await modCtx.close();
+  } else {
+    await approveAsModeratorFixture(slug);
+  }
 
   // 7-9. A different person (new context) opens the public campaign and contributes the full goal.
   const sup = await browser.newContext();

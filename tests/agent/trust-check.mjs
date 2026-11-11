@@ -113,8 +113,29 @@ if (slug) {
   const dup = await post(creator, '/api/campaigns', { ...base, externalId: cheapestId, sessionId: turn.sessionId }, US);
   ok('a second active campaign for the same item is refused', dup.status === 409 && dup.json?.code === 'duplicate_item', `status ${dup.status}`);
 
-  // Moderator-approval fixture (stands in for a moderator decision; the API path is moderators-only).
-  await db.query(`update campaigns set moderation_status='approved', moderated_at=now(), updated_at=now() where slug=$1 and moderation_status='pending_review'`, [slug]);
+  // ---------- Real moderator workflow (staff review account; credentials only in .env.local) ----------
+  const campId = (await db.query('select id from campaigns where slug=$1', [slug])).rows[0]?.id;
+  ok('an ordinary creator gets no moderator access', (await req(creator, '/api/admin/moderation')).status === 403 && (await post(creator, '/api/admin/moderation', { campaignId: campId, decision: 'approve' })).status === 403);
+  const modJar = new Jar(`198.51.100.${octet + 6}`);
+  const login = env.DEMO_MODERATOR_EMAIL ? await post(modJar, '/api/auth', { action: 'login', email: env.DEMO_MODERATOR_EMAIL, password: env.DEMO_MODERATOR_PASSWORD }) : { status: 0 };
+  ok('the staff review account signs in', login.status === 200, `status ${login.status}`);
+  const queue = await req(modJar, '/api/admin/moderation');
+  const qi = queue.json?.items?.find(i => i.slug === slug);
+  ok('moderator queue lists the pending campaign with purpose, risk and goal breakdown', queue.status === 200 && !!qi && qi.creatorPurpose === purpose && !!qi.eligibility?.risk && qi.itemPriceCents > 0 && qi.ownFundsCents === 10000, `status ${queue.status}`);
+  const modPage = await req(modJar, '/admin/moderation');
+  ok('moderation page renders queue items with decision controls', modPage.status === 200 && modPage.text.includes('data-testid="queue-item"') && modPage.text.includes('data-testid="mod-approve"'));
+  const noNote = await post(modJar, '/api/admin/moderation', { campaignId: campId, decision: 'reject' });
+  ok('rejecting without a reason is refused', noNote.status === 400 && noNote.json?.code === 'note_required', `status ${noNote.status}`);
+  const clar = await post(modJar, '/api/admin/moderation', { campaignId: campId, decision: 'clarify', note: 'Which course is this laptop for?' });
+  const clarRow = (await db.query('select moderation_status, moderation_reasons from campaigns where id=$1', [campId])).rows[0];
+  ok('asking for clarification keeps the campaign in review and records the question', clar.status === 200 && clarRow.moderation_status === 'pending_review' && clarRow.moderation_reasons.includes('clarification_requested'));
+  const ownerView = await req(creator, `/c/${slug}`);
+  ok('the creator sees the moderator’s question', ownerView.text.includes('Which course is this laptop for?'));
+  const appr = await post(modJar, '/api/admin/moderation', { campaignId: campId, decision: 'approve' });
+  const apprRow = (await db.query('select moderation_status, moderated_by is not null by from campaigns where id=$1', [campId])).rows[0];
+  const audit = (await db.query(`select count(*)::int n from security_events where kind='campaign_moderated' and subject=$1`, [campId])).rows[0].n;
+  ok('moderator approval publishes the campaign and is audited', appr.status === 200 && apprRow.moderation_status === 'approved' && apprRow.by && audit >= 2, `status ${appr.status} audit ${audit}`);
+  globalThis.__modJar = modJar;
 }
 
 // ---------- Adversarial regression: the reported production case ----------
@@ -130,6 +151,15 @@ ok('self-described fraud intent + "for fun" + livelihood -> high-risk review, ne
 if (scamPub.json?.slug) {
   const o = await post(new Jar(`198.51.100.${octet + 3}`), '/api/paypal/orders', { kind: 'contribution', slug: scamPub.json.slug, amountCents: 1000 }, US);
   ok('the high-risk campaign cannot receive contributions', o.status === 409, `status ${o.status}`);
+  const modJar = globalThis.__modJar;
+  if (modJar) {
+    const q = await req(modJar, '/api/admin/moderation');
+    const item = q.json?.items?.find(i => i.slug === scamPub.json.slug);
+    ok('moderator sees the high-risk flag, fraud signal and the "for fun" purpose', item?.eligibility?.risk === 'high' && item.creatorPurpose === 'for fun' && (item.eligibility.reasons || []).includes('fraud_intent'));
+    const rej = await post(modJar, '/api/admin/moderation', { campaignId: item?.id, decision: 'reject', note: 'Stated intent to deceive; purpose does not match the category.' });
+    const o2 = await post(new Jar(`198.51.100.${octet + 3}`), '/api/paypal/orders', { kind: 'contribution', slug: scamPub.json.slug, amountCents: 1000 }, US);
+    ok('moderator rejection with a reason keeps contributions disabled', rej.status === 200 && rej.json?.status === 'rejected' && o2.status >= 400, `${rej.status}/${o2.status}`);
+  }
 }
 const reword = await post(scam, '/api/campaigns', { externalId: others[1] || scamId, ownFunds: '10', creatorName: 'QA Brendan', needCategory: 'education', purpose: 'I need a laptop for my university programming classes', title: `Laptop for university ${nonce}`, story: `I need a laptop for my university programming classes. Reference ${nonce}b.` }, US);
 ok('rewording the purpose in a new submission does not clear the fraud signal', reword.status !== 200 || reword.json?.risk === 'high', `status ${reword.status} ${reword.json?.risk ?? reword.json?.code ?? ''}`);
@@ -203,6 +233,14 @@ if (slug) {
   for (let i = 0; i < 3; i++) { const j = new Jar(); await req(j, '/'); await post(j, `/api/campaigns/${slug}/report`, { reason: 'scam' }); }
   const after = await req(new Jar(), `/c/${slug}`);
   ok('three new reporters from one network cannot pause a campaign (queue only)', after.status === 200 && !after.text.includes('data-testid="moderation-banner"'), `status ${after.status}`);
+
+  if (globalThis.__modJar) {
+    const cid = (await db.query('select id from campaigns where slug=$1', [slug])).rows[0]?.id;
+    const pz = await post(globalThis.__modJar, '/api/admin/moderation', { campaignId: cid, decision: 'pause', note: 'Checking reports.' });
+    const blockedOrder = await post(new Jar(`198.51.100.${octet + 7}`), '/api/paypal/orders', { kind: 'contribution', slug, amountCents: 1500 }, US);
+    ok('a moderator can pause an approved campaign; new contributions are refused while paused', pz.status === 200 && blockedOrder.status === 409, `${pz.status}/${blockedOrder.status}`);
+    await post(globalThis.__modJar, '/api/admin/moderation', { campaignId: cid, decision: 'approve' });
+  }
 
   // ---------- Editing after review is not a bypass ----------
   const redirectUpd = await post(creator, `/api/campaigns/${slug}`, { action: 'post_update', body: 'Please send money directly to my WhatsApp +1 555 010 9999 instead.' });

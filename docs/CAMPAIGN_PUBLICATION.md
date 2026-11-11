@@ -120,3 +120,27 @@ The integration suite re-creates the adversarial case that exposed the original 
 - a reworded follow-up from the same account stays high risk.
 
 Alongside it are false-positive cases: scam-awareness courses, denials and quoted speech.
+
+
+## Moderator review
+
+Moderators are signed-in accounts whose profile role is `moderator` or `admin`. The role can only be granted
+by an operator in SQL, never through the app, an API request or the AI. The queue at `/admin/moderation`
+lists every campaign waiting for review and every campaign with open reports. For each item it shows:
+
+- the stated purpose, the need category and whether they fit;
+- the product, merchant and suitability mode;
+- price − own funds + buffer = goal;
+- the eligibility result, risk level and flags;
+- reports and recorded contributions.
+
+| Decision | Result | Creator sees |
+|---|---|---|
+| Approve | `approved`: listed (if public) and accepts contributions | Approval note (not identity verification) |
+| Ask for clarification | stays `pending_review`, flag `clarification_requested` | The moderator's question on the campaign page |
+| Reject (reason required) | `rejected`: never listed, contributions refused | The reason |
+| Pause (approved campaigns) | back to `pending_review`, new contributions refused | Pause note; recorded contributions unchanged |
+| Hide | `hidden` | Removal note |
+
+A moderator cannot decide on their own campaign. Every decision is written to the campaign history and to
+the security log with the moderator's profile id.

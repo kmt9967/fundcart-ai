@@ -7,11 +7,13 @@ safe disabled state, or depend on external approvals, credentials or licensed pr
 
 - **PayPal Sandbox only.** No live payments. All payments are simulations.
 - **No licensed partner, escrow or payout arrangement.** Real-money fundraising is disabled in every
-  country. In the prototype, contributions go to the creator's Sandbox PayPal account; production
-  would need a licensed partner charity or platform and direct payment to the retailer.
-- **Refunds of contributions** are limited by the single-recipient payment model: the platform
-  cannot refund captures made to a recipient's account. Refund webhooks are handled, but an end-to-end
-  refund from the platform was not possible in this model.
+  country. In the prototype, every contribution is paid to **one Sandbox merchant account configured
+  by FundCart** (the same for every campaign, never the creator's own PayPal account), and each order
+  is recorded against its campaign. Production would need a licensed partner and direct payment to
+  the retailer.
+- **Refunds of contributions** can only be issued by the account that received the capture (the
+  configured contribution merchant), not by the platform's API credentials. Refund webhooks are
+  handled, but an end-to-end refund has not been exercised.
 - **Pakistan**: third-party sources report that PayPal does not support receiving payments in
   Pakistan; any real deployment there would need a different provider.
 - **Shipping and tax** are not provided by the catalog data; they are shown as $0 "not listed" in the
