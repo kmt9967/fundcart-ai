@@ -87,3 +87,10 @@ The browser test caught a reduced-motion stylesheet rule that changed the dimens
 [English desktop selection](evidence/assistant-ordinal-desktop.png) · [Urdu mobile selection](evidence/assistant-ordinal-urdu.png)
 
 The screenshots show the selected card from fixture data. They are interaction evidence for the existing design system. Full screen-reader acceptance and FundCart Stitch design approval remain open.
+
+## Security follow-up
+
+- Exact/catalog and comparison results exclude listings flagged for instruction-like text. Recommendation explanations use localized templates backed by evaluation results.
+- Sensitive-purchase turns skip persistent chat state, Gemini and the shared search cache. Channel3 still receives the search terms to retrieve results.
+- Affordability and campaign purchase flows hold checkout when the required product quote or recorded approval is unavailable. Live provider acceptance remains open.
+- See [the worst-case scenario matrix](WORST_CASE_SCENARIO_MATRIX.md).
