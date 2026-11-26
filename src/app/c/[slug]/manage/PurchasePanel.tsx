@@ -19,7 +19,14 @@ export function PurchasePanel(p: { slug: string; status: string; clientId: strin
       </div>
     );
   }
-  if (p.status === 'purchased' || done) {
+  if (done?.state === 'pending' && p.status !== 'purchased') {
+    return <div className="card p-5 text-sm" role="status">
+      <h2 className="font-bold">{t('pu.title')}</h2>
+      <p className="mt-2 text-mute">{t('contrib.confirmedPending')}</p>
+      <a className="btn btn-ghost mt-3 w-full" href={`/receipt/${done.orderId}`}>{t('pu.receipt')}</a>
+    </div>;
+  }
+  if (p.status === 'purchased' || done?.state === 'completed') {
     return (
       <div className="card border-ok/30 p-4 text-sm sm:p-5" role="status">
         <h2 className="font-bold text-ok">{t('pu.done')}</h2>
@@ -32,11 +39,11 @@ export function PurchasePanel(p: { slug: string; status: string; clientId: strin
 
   return (
     <div className="card border-brand/30 p-4 text-sm sm:p-5">
-      <span className="chip bg-ok-soft text-ok">{t('pu.goalReached')}</span>
+      <div className="flex flex-wrap justify-between gap-2"><span className="chip bg-ok-soft text-ok">{t('pu.goalReached')}</span><span className="chip bg-brand-soft text-brand">PayPal Sandbox</span></div>
       <h2 className="mt-2 text-lg font-bold">{t('pu.approveTitle')}</h2>
       <p className="mt-1 text-ink-2">{t('pu.approveLead')}</p>
-      <dl className="mt-4 space-y-2 rounded-xl bg-paper p-3">
-        <div className="flex justify-between gap-3"><dt className="text-mute">{t('pu.item')}</dt><dd className="min-w-0 text-end font-semibold [overflow-wrap:anywhere]" dir="auto">{p.itemTitle.slice(0, 60)}</dd></div>
+      <dl className="mt-4 space-y-2 rounded-xl border border-line p-3">
+        <div className="flex justify-between gap-3"><dt className="text-mute">{t('pu.item')}</dt><dd className="min-w-0 text-end font-semibold [overflow-wrap:anywhere]" dir="auto">{p.itemTitle}</dd></div>
         <div className="flex justify-between"><dt className="text-mute">{t('pu.total')}</dt><dd className="text-lg font-extrabold">{formatUSD(p.itemPriceCents)}</dd></div>
         <div className="flex justify-between gap-3 text-xs"><dt className="text-mute">{t('pu.raisedBy')}</dt><dd className="shrink-0">{formatUSD(p.raisedCents)}</dd></div>
         <div className="flex justify-between text-xs"><dt className="text-mute">{t('pu.own')}</dt><dd>{formatUSD(p.ownFundsCents)}</dd></div>

@@ -40,6 +40,7 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   // 5-6. Choose the cheapest card with a gap and create a campaign.
   await page.getByRole('link', { name: 'Fund this' }).first().click();
   await expect(page.getByRole('heading', { name: 'Fund the gap together' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByLabel('Your first name').fill('Maya');
   await page.getByLabel('Why do you need it?').fill('I am starting my computer science degree and my old laptop cannot run the course software.');
   await page.locator('#need').selectOption('education');
@@ -49,6 +50,8 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await expect(page.getByTestId('base-gap')).toBeVisible();
   await expect(page.getByTestId('buffer')).toBeVisible();
   await page.screenshot({ path: `${evidence}/02-campaign-builder.png`, fullPage: true });
+
+  await page.locator('#campaign-story').getByRole('button', { name: 'Continue' }).click();
 
   // Guests can draft but not publish: sign up, and the draft comes back.
   await expect(page.getByRole('button', { name: 'Publish campaign' })).toHaveCount(0);
@@ -60,11 +63,13 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
   await page.locator('form').getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: 'Fund the gap together' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('draft-restored')).toBeVisible();
-  await expect(page.getByLabel('Campaign title')).not.toHaveValue('');
+  await expect(page.locator('#campaign-review')).toBeVisible();
   await expect(page.getByTestId('review-note')).toBeVisible(); // email not verified -> moderator review
   await page.getByRole('button', { name: 'Submit for review' }).click();
   await page.waitForURL(/\/c\/[a-z0-9-]+/, { timeout: 60_000 });
-  const campaignUrl = page.url().split('?')[0];
+  await expect(page.getByRole('heading', { name: 'Campaign status' })).toBeVisible();
+  const campaignUrl = page.url().replace(/\/status$/, '');
+  await page.goto(campaignUrl);
   await expect(page.getByTestId('owner-review-note')).toBeVisible();
   const slug = campaignUrl.split('/c/')[1];
   if (moderator.email && moderator.password) {

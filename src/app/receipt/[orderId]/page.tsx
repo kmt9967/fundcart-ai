@@ -23,11 +23,14 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
   const verified = o.data.capture_status === 'COMPLETED';
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="card p-5 sm:p-8">
+      <div className="card overflow-hidden">
+        <header className="border-b border-line bg-brand-soft p-5 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-2"><p className="eyebrow">{t('rc.eyebrow')}</p><span className={`chip ${verified ? 'bg-ok-soft text-ok' : 'bg-sun-soft text-warn'}`}>{verified ? t('rc.verified') : o.data.status}</span></div>
         <h1 className="mt-3 text-3xl font-extrabold"><bdi>{formatUSD(Number(o.data.amount_cents))}</bdi></h1>
         <p className="text-sm text-mute">{o.data.kind === 'contribution' ? t('rc.contribution') : t('rc.purchase')}{camp.data ? <> · <Link className="inline-block py-1 text-brand hover:underline" href={`/c/${camp.data.slug}`}>{camp.data.title}</Link></> : ''}</p>
-        <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+        </header>
+        <div className="p-5 sm:p-8">
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-xs text-mute">{t('rc.orderId')}</dt><dd className="break-all font-mono" dir="ltr">{o.data.paypal_order_id}</dd></div>
           <div><dt className="text-xs text-mute">{t('rc.captureId')}</dt><dd className="break-all font-mono" dir="ltr">{o.data.capture_id || '—'}</dd></div>
           <div><dt className="text-xs text-mute">{t('rc.captureStatus')}</dt><dd>{o.data.capture_status || '—'}</dd></div>
@@ -39,7 +42,8 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
         <ol className="mt-3 space-y-2 text-sm">{(events.data || []).map(e => (
           <li key={e.id} className="grid gap-0.5 sm:grid-cols-[auto_1fr] sm:gap-3"><span className="font-mono text-xs text-mute">{time(e.created_at)}</span><span className="min-w-0 [overflow-wrap:anywhere]"><b>{e.event_type}</b> · {e.source}{e.status ? ` · ${e.status}` : ''}</span></li>
         ))}</ol>
-        <p className="mt-8 rounded-xl bg-paper p-3 text-xs text-mute">{t('rc.note')}</p>
+        <p className="mt-6 rounded-lg border border-line bg-brand-soft p-3 text-xs text-mute">{t('rc.note')}</p>
+        </div>
       </div>
     </div>
   );

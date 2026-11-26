@@ -66,7 +66,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             <p className="text-3xl font-extrabold" data-testid="raised"><bdi>{usd(totals.raisedCents)}</bdi></p>
             <p className="text-sm text-mute">{t('camp.raisedOf', { goal: usd(c.target_cents) })}</p>
             <div className="mt-4"><ProgressBar percent={totals.percent} size="lg" /></div>
-            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-sm">
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-center text-sm wrap-anywhere">
               <div><p className="font-extrabold">{totals.percent}%</p><p className="text-xs text-mute">{t('camp.funded')}</p></div>
               <div><p className="font-extrabold">{totals.supporterCount}</p><p className="text-xs text-mute">{t('camp.supporters')}</p></div>
               <div><p className="font-extrabold"><bdi>{usd(totals.remainingCents)}</bdi></p><p className="text-xs text-mute">{t('camp.toGo')}</p></div>

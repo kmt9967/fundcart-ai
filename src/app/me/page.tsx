@@ -25,7 +25,13 @@ export default async function Me() {
       <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link>
 
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.campaigns')}</h2>
-        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <CampaignCard key={c.slug} c={c} />)}</div>
+        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <div key={c.slug} className="grid min-w-0 gap-2">
+          <CampaignCard c={c} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link className="btn btn-ghost" href={`/c/${c.slug}/manage`}>{t('mg.title')}</Link>
+            {account && <Link className="btn btn-primary" href={`/c/${c.slug}/status`}>{t('contrib.status')}</Link>}
+          </div>
+        </div>)}</div>
           : <p className="mt-2 text-sm text-mute">{t('me.none')} <Link className="tap font-semibold text-brand" href="/assistant">{t('me.findCta')}</Link></p>}</section>
 
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.wishlist')}</h2><Wishlist /></section>

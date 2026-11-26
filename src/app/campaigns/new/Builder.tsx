@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { campaignGap, toCents } from '@/lib/money';
 import Link from 'next/link';
-import { useFormat, useT } from '@/i18n/client';
+import { useFormat, useLocale, useT } from '@/i18n/client';
 import type { Product } from '@/lib/channel3';
 import type { DictKey } from '@/i18n';
 
@@ -24,6 +24,9 @@ function loadDraft(externalId: string): Partial<Draft> | null {
 
 export function Builder({ product, initialOwn, sessionId = null, fundraisingAvailable = true, needCategories = [], disclosures = [], bufferPct = 5, signedIn = false, emailVerified = false }: Props) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const formatUSD = f.usd;
+  const locale = useLocale();
+  const nextLabel = { en: 'Continue', ur: 'جاری رکھیں', es: 'Continuar', fr: 'Continuer' }[locale];
+  const [step, setStep] = useState(0);
   const [needCategory, setNeedCategory] = useState('');
   const [premium, setPremium] = useState<{ message: string; cheapest: { externalId: string; title: string; priceCents: number } } | null>(null);
   const [website, setWebsite] = useState('');
@@ -41,7 +44,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
   const [questions, setQuestions] = useState<string[]>([]);
   const [needLogin, setNeedLogin] = useState(!signedIn);
   const [restored, setRestored] = useState(false);
-  const reviewRef = useRef<HTMLElement>(null);
+
 
   // Restore a draft saved before sign-in (same product only).
   useEffect(() => {
@@ -51,6 +54,8 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
       setCreatorName(d.creatorName || ''); if (d.own) setOwn(d.own); setNeedCategory(d.needCategory || ''); setPurpose(d.purpose || '');
       setTitle(d.title || ''); setStory(d.story || ''); setThankYou(d.thankYou || ''); setDeadline(d.deadline || ''); setAiUsed(d.aiUsed ?? null);
       setRestored(Boolean(d.title || d.purpose));
+      if (d.title && (d.story?.trim().length ?? 0) >= 20 && d.needCategory && d.creatorName) setStep(3);
+      else if (d.purpose || d.creatorName) setStep(1);
       /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [product.externalId]);
@@ -67,6 +72,15 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
   // Same formula as the server (the server recomputes it from live data; this is only a preview).
   const calc = product.priceCents != null && ownCents != null ? campaignGap({ priceCents: product.priceCents, bufferPct, ownFundsCents: ownCents }) : null;
   const gap = calc ? calc.totalCents : null;
+  const needReady = creatorName.trim().length >= 2 && needCategories.includes(needCategory)
+    && purpose.trim().length > 0 && gap != null && gap > 0;
+  const storyReady = title.trim().length > 0 && story.trim().length >= 20;
+  const maxStep = product.priceCents == null ? 0 : !needReady ? 1 : !storyReady ? 2 : 3;
+  const activeStep = Math.min(step, maxStep);
+  function advance(next: number) {
+    setStep(next);
+    requestAnimationFrame(() => document.getElementById('campaign-steps')?.focus());
+  }
   const baseGap = product.priceCents != null && ownCents != null ? Math.max(0, product.priceCents - ownCents) : null;
 
   const here = `/campaigns/new?product=${encodeURIComponent(product.externalId)}${own ? `&own=${encodeURIComponent(own)}` : ''}${sessionId ? `&s=${sessionId}` : ''}`;
@@ -80,7 +94,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
     setBusy(null);
     if (!r.ok) return setError(j.error || t('b.errDraft'));
     setTitle(j.draft.title); setStory(j.draft.story); setThankYou(j.draft.thankYou); setAiUsed(j.draft.usedModel); setRemovedClaims(j.draft.removedClaims || []);
-    requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ block: 'start' }));
+    advance(2);
   }
 
   async function publish(ownerPaysDifference = false) {
@@ -93,7 +107,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
     if (r.status === 409 && j.code === 'premium_over_adequate' && j.cheapest) { setBusy(null); return setPremium({ message: j.error, cheapest: j.cheapest }); }
     if (!r.ok) { setBusy(null); return setError(j.error || t('b.errPublish')); }
     try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-    router.push(`/c/${j.slug}?created=1`);
+    router.push(`/c/${j.slug}/status`);
   }
 
   if (!fundraisingAvailable) return <div className="card mt-6 p-5 text-sm" role="alert">{t('policy.noFundraising')}</div>;
@@ -104,13 +118,14 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
         {restored && <p className="rounded-xl border border-brand/30 bg-brand-soft p-3 text-sm" role="status" data-testid="draft-restored">{t('elig.draftRestored')}</p>}
         {!signedIn && <div className="card border-brand/30 p-4 text-sm" data-testid="guest-note"><p className="font-semibold">{t('elig.guestTitle')}</p><p className="mt-1 text-ink-2">{t('elig.guestBody')}</p></div>}
         {signedIn && !emailVerified && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" data-testid="review-note"><p className="font-semibold">{t('elig.unverifiedTitle')}</p><p className="mt-1 text-ink-2">{t('elig.unverifiedBody')}</p></div>}
-        <nav aria-label={t('nb.title')}>
+        <nav id="campaign-steps" tabIndex={-1} aria-label={t('nb.title')}>
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {([['campaign-product', 'b.livePrice'], ['campaign-need', 'need.label'], ['campaign-story', 'b.ctitle'], ['campaign-review', 'b.goal']] as const).map(([id, label], index) =>
-              <li key={id}><a href={`#${id}`} className="btn btn-ghost w-full"><bdi>{index + 1}</bdi> {t(label)}</a></li>)}
+              <li key={id}><button type="button" aria-current={activeStep === index ? 'step' : undefined} disabled={index > maxStep || busy !== null} onClick={() => advance(index)} className={`btn w-full ${activeStep === index ? 'btn-primary' : 'btn-ghost'}`}><bdi>{index + 1}</bdi> {t(label)}</button></li>)}
           </ol>
         </nav>
-        <section id="campaign-need" className="card p-4 sm:p-6">
+        {activeStep === 0 && <section className="card p-5"><h2 className="font-bold" dir="auto">{product.title}</h2><p className="mt-2 text-lg font-bold">{formatUSD(product.priceCents)}</p><button type="button" className="btn btn-primary mt-4" disabled={maxStep === 0} onClick={() => advance(1)}>{nextLabel}</button></section>}
+        <section hidden={activeStep !== 1} id="campaign-need" className="card p-4 sm:p-6">
           <h2 className="font-bold">{t('b.step1')}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div><label className="label" htmlFor="name">{t('b.name')}</label><input id="name" className="input" value={creatorName} onChange={e => setCreatorName(e.target.value)} maxLength={40} placeholder="Maya" dir="auto" autoComplete="given-name" enterKeyHint="next" /></div>
@@ -127,11 +142,13 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
           <div className="mt-4"><label className="label" htmlFor="purpose">{t('b.why')}</label>
             <textarea id="purpose" className="input min-h-24" value={purpose} onChange={e => setPurpose(e.target.value)} maxLength={400} placeholder={t('b.whyPh')} dir="auto" aria-describedby="purpose-hint" />
             <p id="purpose-hint" className="mt-1 text-xs text-mute">{t('elig.purposeHint')}</p></div>
-          <button className="btn btn-primary mt-4 w-full sm:w-auto" onClick={draft} disabled={!creatorName || ownCents == null || busy !== null || !gap}>{busy === 'draft' ? t('b.drafting') : t('b.draft')}</button>
+          <button className="btn btn-primary mt-4 w-full sm:w-auto" onClick={draft} disabled={!needReady || busy !== null}>{busy === 'draft' ? t('b.drafting') : t('b.draft')}</button>
+          <button type="button" className="btn btn-ghost mt-3" disabled={!needReady || busy !== null} onClick={() => advance(2)}>{nextLabel}</button>
+          {activeStep === 1 && error && <p role="alert" className="mt-2 text-sm text-bad">{error}</p>}
           {gap === 0 && <p className="mt-2 text-sm text-ok">{t('b.noNeed')}</p>}
         </section>
 
-        <section id="campaign-story" ref={reviewRef} className={`card scroll-mt-20 p-4 transition sm:p-6 ${title ? '' : 'opacity-60'}`}>
+        <section id="campaign-story" hidden={activeStep !== 2} className={`card scroll-mt-20 p-4 transition sm:p-6 ${title ? '' : 'opacity-60'}`}>
           <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">{t('b.step2')}</h2>{aiUsed != null && <span className="chip bg-brand-soft text-brand">{aiUsed ? t('b.aiDrafted') : t('b.template')}</span>}</div>
           <p className="mt-2 text-xs text-mute">{t('elig.factsOnly')}</p>
           {removedClaims.length > 0 && <p className="mt-2 rounded-lg bg-paper p-2 text-xs text-ink-2" data-testid="removed-claims">{t('elig.removedClaims')}</p>}
@@ -141,8 +158,9 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
             <div><label className="label" htmlFor="ty">{t('b.thanks')}</label><input id="ty" dir="auto" className="input" value={thankYou} onChange={e => setThankYou(e.target.value)} maxLength={300} /></div>
             <div className="sm:w-56"><label className="label" htmlFor="deadline">{t('b.deadline')}</label><input id="deadline" type="date" className="input" value={deadline} onChange={e => setDeadline(e.target.value)} /></div>
           </div>
+          <button type="button" className="btn btn-primary mt-4" disabled={!storyReady || busy !== null} onClick={() => advance(3)}>{nextLabel}</button>
         </section>
-        <section id="campaign-review" className="card p-4 sm:p-6">
+        <section hidden={activeStep !== 3} id="campaign-review" className="card p-4 sm:p-6">
           <h2 className="font-bold">{t('b.goal')} <bdi>{gap == null ? '—' : formatUSD(gap)}</bdi></h2>
           <div className="mt-4 rounded-xl bg-brand-soft p-4 text-xs leading-relaxed text-ink-2">
             {t('b.legal')}
@@ -163,7 +181,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
           )}
           {needLogin
             ? <Link href={loginHref} className="btn btn-sun mt-4 w-full px-5 sm:w-auto" data-testid="login-to-publish">{t('elig.loginToPublish')}</Link>
-            : <button className="btn btn-sun mt-4 w-full px-5 sm:w-auto" onClick={() => publish(false)} disabled={!title || story.length < 20 || !needCategory || busy !== null}>{busy === 'publish' ? t('b.publishing') : emailVerified ? t('b.publish') : t('elig.submitReview')}</button>}
+            : <button className="btn btn-sun mt-4 w-full px-5 sm:w-auto" onClick={() => publish(false)} disabled={!needReady || !storyReady || busy !== null}>{busy === 'publish' ? t('b.publishing') : emailVerified ? t('b.publish') : t('elig.submitReview')}</button>}
           {error && <p role="alert" className="mt-3 text-sm text-bad" data-testid="publish-error">{error}</p>}
           {questions.length > 0 && <ul className="mt-2 list-disc space-y-1 ps-5 text-sm" data-testid="clarify-questions">{questions.map(q => <li key={q}>{q}</li>)}</ul>}
         </section>

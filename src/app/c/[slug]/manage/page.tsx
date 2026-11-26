@@ -37,12 +37,13 @@ export default async function Manage({ params }: { params: Promise<{ slug: strin
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <Link href={`/c/${slug}`} className="tap -ml-1 rounded-lg px-1 text-sm font-semibold text-brand hover:underline">{t('mg.back')}</Link>
+      <Link href={`/c/${slug}/status`} className="btn btn-ghost ms-2">{t('contrib.status')}</Link>
       <p className="eyebrow mt-2">{t('mg.title')}</p>
       <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3"><h1 className="h-page [overflow-wrap:anywhere]" dir="auto">{c.title}</h1><StatusChip status={c.status} /></div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:grid-cols-4 sm:gap-4">
         {[[t('mg.raised'), formatUSD(totals.raisedCents)], [t('mg.goal'), formatUSD(c.target_cents)], [t('mg.supporters'), String(totals.supporterCount)], [t('mg.remaining'), formatUSD(totals.remainingCents)]].map(([k, v]) => (
-          <div key={k} className="card p-3 sm:p-4"><p className="text-xs font-semibold text-mute">{k}</p><p className="mt-1 text-xl font-extrabold sm:text-2xl">{v}</p></div>
+          <div key={k} className="card min-w-0 p-3 sm:p-4"><p className="wrap-anywhere text-xs font-semibold text-mute">{k}</p><p className="mt-1 wrap-anywhere text-lg font-extrabold sm:text-2xl"><bdi>{v}</bdi></p></div>
         ))}
       </div>
       <div className="mt-4"><ProgressBar percent={totals.percent} size="lg" /></div>
@@ -58,7 +59,7 @@ export default async function Manage({ params }: { params: Promise<{ slug: strin
             <h2 className="font-bold">{t('mg.audit')}</h2>
             <p className="text-xs text-mute">{t('mg.auditHint')}</p>
             {history.events.length === 0 ? <p className="mt-3 text-sm text-mute">{t('mg.noActivity')}</p> : (
-              <ol className="mt-4 space-y-2 text-sm">
+              <ol className="mt-4 space-y-3 border-s-2 border-brand-soft ps-3 text-sm">
                 {history.events.map(e => (
                   <li key={e.id} className="grid gap-1 border-t border-line pt-2 first:border-0 first:pt-0 sm:grid-cols-[150px_1fr] sm:gap-3">
                     <span className="font-mono text-xs text-mute">{dateTime(e.created_at)}</span>
