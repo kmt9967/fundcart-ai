@@ -25,8 +25,8 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
 
   if (done) {
     return (
-      <div className="card fade-up border-ok/30 p-4 sm:p-5" role="status">
-        <p className="text-lg font-extrabold text-ok">{t('contrib.thanks')}</p>
+      <div className={`card fade-up p-4 sm:p-5 ${done.state === "completed" ? "border-ok/30" : "border-warn/30"}`} role="status">
+        <p className="text-lg font-extrabold text-brand">{done.state === "completed" ? t('contrib.thanks') : t('contrib.status')}</p>
         <p className="mt-1 text-sm text-ink-2">{done.state === 'completed' ? t('contrib.confirmed', { amount: f.usd(done.amountCents) }) : t('contrib.confirmedPending')}</p>
         {done.state === 'completed' && email.trim() && !emailInvalid && <p className="mt-1 text-sm text-mute">{t('contrib.emailQueued')}</p>}
         <dl className="mt-3 space-y-1 rounded-xl bg-paper p-3 text-xs">
@@ -40,8 +40,9 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
   }
 
   return (
-    <div id="support" className="card scroll-mt-20 p-4 sm:p-5">
-      <h2 className="font-bold">{t('contrib.title')}</h2>
+    <div id="support" className="card scroll-mt-20 border-brand/20 p-4 sm:p-5">
+      <span className="chip mb-2 bg-sun-soft text-brand">PayPal Sandbox</span>
+      <h2 className="text-xl font-extrabold text-brand">{t('contrib.title')}</h2>
       <p className="mt-1 text-sm text-mute">{t('contrib.lead')}</p>
       <div className="mt-4 flex items-center gap-3 rounded-xl border border-line p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -53,7 +54,7 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
       </div>
       <p className="mt-1 text-xs text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
       <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
-        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-xl border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
+        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-lg border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
       </div>
       <div className="mt-3"><label className="label" htmlFor="amt">{t('contrib.amount')}</label>
         <div className="relative" dir="ltr"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-mute">$</span><input id="amt" className="input pl-7 text-lg font-bold sm:text-lg" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} aria-invalid={!!invalid} aria-describedby={invalid ? 'amt-err' : undefined} /></div>

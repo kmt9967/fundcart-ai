@@ -60,6 +60,20 @@ test('Phase 2 sends a confirmed brief edit with the previous session', async ({ 
   await desk.getByRole('button', { name: 'Find options' }).click();
   await desk.getByRole('combobox').selectOption(products[0].externalId);
   await expect(page.getByText('Known item total')).toContainText('$420.00');
+  const customName = page.getByLabel('Custom component', { exact: true });
+  await customName.fill('Cable organizer');
+  await page.getByRole('button', { name: 'Add component' }).click();
+  const customSlot = page.getByRole('listitem').filter({ hasText: 'Cable organizer' });
+  await customSlot.getByRole('button', { name: 'Find options' }).click();
+  await customSlot.getByRole('combobox').selectOption(products[0].externalId);
+  await expect(page.getByText('Known item total')).toContainText('$840.00');
+  await page.getByRole('button', { name: 'Save selections on this device' }).click();
+  await page.getByRole('button', { name: 'Remove Cable organizer' }).click();
+  await page.getByRole('button', { name: 'Load from this device' }).click();
+  await customSlot.getByRole('button', { name: 'Find options' }).click();
+  await expect(customSlot.getByRole('combobox')).toHaveValue(products[0].externalId);
+  await page.getByRole('button', { name: 'Remove Cable organizer' }).click();
+  await desk.getByRole('button', { name: 'Find options' }).click();
   for (const card of await page.locator('article').all()) await card.getByRole('checkbox', { name: 'Compare' }).check();
   await expect(page.locator('#compare').getByRole('link')).toHaveCount(4);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -104,6 +118,34 @@ test('Phase 2 product details connect to affordability, draft and Sandbox checko
 });
 
 
+async function captureWidths(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo, name: string, selector?: string) {
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    const options = { path: testInfo.outputPath(`${name}-${width}.png`), animations: 'disabled' as const };
+    if (selector) await page.locator(selector).screenshot(options);
+    else await page.screenshot({ ...options, fullPage: true });
+  }
+}
+
+test('Phase 2 campaign detail and checkout display recorded funding and validate the amount', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
+  expect((await page.goto('/c/unavailable-campaign'))?.status()).toBe(404);
+  await page.goto('/c/audio-fixture');
+  await expect(page.getByRole('heading', { name: 'Audio production equipment fixture' })).toBeVisible();
+  await expect(page.getByText('Fixture supporter', { exact: true })).toHaveCount(0);
+  await page.goto('/c/market-fixture');
+  await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
+  await expect(page.getByTestId('raised')).toContainText('$148.00');
+  await expect(page.getByText('Fixture supporter', { exact: true })).toBeVisible();
+  await captureWidths(page, testInfo, 'campaign-detail');
+  await captureWidths(page, testInfo, 'contribution-checkout', '#support');
+  await page.locator('#amt').fill('999');
+  await expect(page.locator('#amt')).toHaveAttribute('aria-invalid', 'true');
+  await page.locator('#support').getByRole('button', { name: '$25.00', exact: true }).click();
+  await expect(page.locator('#amt')).toHaveAttribute('aria-invalid', 'false');
+});
+
 test('Phase 2 owner status and staff review enforce separate roles', async ({ page, baseURL }, testInfo) => {
   test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
   async function signIn(lastDigit: number) {
@@ -111,34 +153,57 @@ test('Phase 2 owner status and staff review enforce separate roles', async ({ pa
     const account = '20000000-0000-4000-8000-000000000001';
     const payload = `${profile}.${account}.${Math.floor(Date.now() / 1000) + 600}`;
     const signature = createHmac('sha256', 'phase-two-local-fixture').update(`acct:${payload}`).digest('base64url');
-    await page.context().addCookies([{ name: 'fc_acct', value: `${payload}.${signature}`, url: baseURL }]);
+    const guest = createHmac('sha256', 'phase-two-local-fixture').update(profile).digest('base64url').slice(0, 32);
+    await page.context().addCookies([
+      { name: 'fc_acct', value: `${payload}.${signature}`, url: baseURL },
+      { name: 'fc_uid', value: `${profile}.${guest}`, url: baseURL },
+    ]);
   }
   await signIn(4);
   expect((await page.goto('/c/fixture-campaign/status'))?.status()).toBe(404);
   expect((await page.goto('/admin/moderation/fixture-campaign'))?.status()).toBe(404);
 
+  await page.goto('/c/market-fixture/manage');
+  await expect(page.getByTestId('ledger-rows')).toHaveCount(0);
+  await page.goto('/admin/moderation');
+  await expect(page.getByTestId('forbidden')).toBeVisible();
+
   await signIn(1);
+  await page.goto('/me');
+  await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
+  await captureWidths(page, testInfo, 'creator-dashboard');
+  await page.goto('/c/market-fixture/manage');
+  await expect(page.getByTestId('ledger-rows')).toBeVisible();
+  await expect(page.getByText('PAYMENT.CAPTURE.COMPLETED')).toBeVisible();
+  await captureWidths(page, testInfo, 'funding-ledger');
+  await page.goto('/c/workspace-fixture/manage');
+  await expect(page.getByRole('heading', { name: 'Approve your purchase' })).toBeVisible();
+  await captureWidths(page, testInfo, 'purchase-approval', '[data-testid="purchase-panel"]');
+
   await page.goto('/c/fixture-campaign/status');
   await expect(page.getByText('Under review', { exact: true })).toBeVisible();
   await expect(page.getByText(/No identity or need-verification provider/)).toBeVisible();
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    if (width === 390) await page.screenshot({ path: testInfo.outputPath('campaign-status-390.png'), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`campaign-status-${width}.png`), fullPage: true });
   }
 
   await signIn(3);
+  await page.goto('/admin/moderation');
+  await expect(page.getByTestId('queue-item')).toHaveCount(1);
+  await captureWidths(page, testInfo, 'moderator-queue');
   await page.goto('/admin/moderation/fixture-campaign');
   await expect(page.getByRole('heading', { name: 'Fixture study laptop' })).toBeVisible();
   await expect(page.getByText('A local fixture campaign for a study laptop.')).toBeVisible();
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`moderator-review-${width}.png`), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`moderator-review-${width}.png`), fullPage: true });
   }
 });
 
-test('Phase 2 authenticated wizard fixture validates, restores and submits its draft', async ({ page, baseURL }) => {
+test('Phase 2 authenticated wizard fixture validates, restores and submits its draft', async ({ page, baseURL }, testInfo) => {
   test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
   const payload = `10000000-0000-4000-8000-000000000001.20000000-0000-4000-8000-000000000001.${Math.floor(Date.now() / 1000) + 600}`;
   const signature = createHmac('sha256', 'phase-two-local-fixture').update(`acct:${payload}`).digest('base64url');
@@ -163,6 +228,7 @@ test('Phase 2 authenticated wizard fixture validates, restores and submits its d
   await story.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.reload();
   await expect(page.getByTestId('draft-restored')).toBeVisible();
+  await captureWidths(page, testInfo, 'campaign-wizard');
   await page.getByRole('button', { name: 'Submit for review' }).click();
   await expect(page.getByRole('heading', { name: 'Campaign status' })).toBeVisible();
   expect(submission).toMatchObject({ externalId: '9kpreIm', title: 'Fixture study laptop', needCategory: 'education' });
@@ -173,7 +239,7 @@ test('Phase 2 marketplace fixture filters real rendered campaign cards', async (
   await page.setViewportSize({ width: 390, height: 960 });
   await page.goto('/campaigns');
   await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
-  await expect(page.getByRole('complementary', { name: 'Campaigns shown' })).toContainText('$763.00');
+  await expect(page.getByRole('complementary', { name: 'Campaigns shown' })).toContainText('$943.00');
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
@@ -196,11 +262,14 @@ test('Phase 2 receipt fixture protects ownership and distinguishes pending captu
   await page.goto('/receipt/FIXTUREPEND123');
   await expect(page.getByText('PENDING', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/verified capture/i)).toHaveCount(0);
+  await page.goto('/receipt/FIXTUREFAIL123');
+  await expect(page.getByText('DECLINED', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/verified capture/i)).toHaveCount(0);
   await page.goto('/receipt/FIXTUREDONE123');
   await expect(page.getByText('FIXTURECAPTURE', { exact: true })).toBeVisible();
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`receipt-${width}.png`), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`receipt-${width}.png`), fullPage: true });
   }
 });

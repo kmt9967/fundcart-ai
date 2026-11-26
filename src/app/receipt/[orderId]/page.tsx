@@ -25,12 +25,15 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
       .eq('payment_order_id', o.data.id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
   const verified = o.data.capture_status === 'COMPLETED';
+  const failed = ['FAILED', 'DECLINED', 'DENIED', 'VOIDED'].includes(o.data.capture_status || o.data.status);
+  const adjusted = contribution.data && contribution.data.status !== 'COMPLETED';
+  const tone = adjusted || failed ? 'bg-sun-soft text-warn' : verified ? 'bg-ok-soft text-ok' : 'bg-brand-soft text-brand';
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="card overflow-hidden">
         <header className="border-b border-line p-5 text-center sm:p-8">
-        <span aria-hidden="true" className={`mx-auto mb-4 grid size-14 place-items-center rounded-full text-2xl ${verified ? 'bg-ok-soft text-ok' : 'bg-brand-soft text-brand'}`}>{verified ? '✓' : '…'}</span>
-        <div className="flex flex-wrap items-center justify-center gap-2"><p className="eyebrow">{t('rc.eyebrow')}</p><span className={`chip ${verified ? 'bg-ok-soft text-ok' : 'bg-sun-soft text-warn'}`}>{contribution.data && contribution.data.status !== 'COMPLETED' ? contribution.data.status : verified ? t('rc.verified') : o.data.capture_status || o.data.status}</span></div>
+        <span aria-hidden="true" className={`mx-auto mb-4 grid size-14 place-items-center rounded-full text-2xl ${tone}`}>{failed || adjusted ? '!' : verified ? '✓' : '…'}</span>
+        <div className="flex flex-wrap items-center justify-center gap-2"><p className="eyebrow">{t('rc.eyebrow')}</p><span className={`chip ${tone}`}>{contribution.data && contribution.data.status !== 'COMPLETED' ? contribution.data.status : verified ? t('rc.verified') : o.data.capture_status || o.data.status}</span></div>
         <h1 className="mt-3 text-3xl font-extrabold"><bdi>{formatUSD(Number(o.data.amount_cents))}</bdi></h1>
         <p className="text-sm text-mute">{o.data.kind === 'contribution' ? t('rc.contribution') : t('rc.purchase')}{camp.data ? <> · <Link className="inline-block py-1 text-brand hover:underline" href={`/c/${camp.data.slug}`}>{camp.data.title}</Link></> : ''}</p>
         </header>
@@ -44,7 +47,7 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
           <div><dt className="text-xs text-mute">{t('rc.updated')}</dt><dd>{dateTime(o.data.updated_at)}</dd></div>
         </dl>
         <h2 className="mt-8 text-sm font-bold">{t('rc.what')}</h2>
-        <ol className="mt-3 space-y-2 text-sm">{(events.data || []).map(e => (
+        <ol className="mt-3 space-y-3 border-s-2 border-brand-soft ps-4 text-sm">{(events.data || []).map(e => (
           <li key={e.id} className="grid gap-0.5 sm:grid-cols-[auto_1fr] sm:gap-3"><span className="font-mono text-xs text-mute">{time(e.created_at)}</span><span className="min-w-0 [overflow-wrap:anywhere]"><b>{e.event_type}</b> · {e.source}{e.status ? ` · ${e.status}` : ''}</span></li>
         ))}</ol>
         <p className="mt-6 rounded-lg border border-line bg-brand-soft p-3 text-xs text-mute">{t('rc.note')}</p>

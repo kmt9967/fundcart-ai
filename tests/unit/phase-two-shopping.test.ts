@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { applyShoppingBrief, ShoppingBriefPatch } from '@/lib/shopping/brief';
-import { bundleTotal, componentSocket } from '@/lib/shopping/bundle';
+import { bundleTotal, componentSocket, componentMemoryGeneration, componentMatch } from '@/lib/shopping/bundle';
 import { mergeState } from '@/lib/shopping/session';
 import { parseIntentFallback } from '@/lib/shopping/fallback-intent';
 
@@ -36,4 +36,12 @@ describe('Phase 2 shopping controls', () => {
     expect(bundleTotal([22999, null, undefined, 4625], 27000)).toEqual({ totalCents: 27624, unquoted: 2, overBudget: true });
     expect(bundleTotal([null], 40000)).toEqual({ totalCents: 0, unquoted: 1, overBudget: false });
   });
+});
+
+test('bundle memory generation only compares unambiguous structured evidence', () => {
+  const board = componentMemoryGeneration({ supported_memory_type: ['DDR5'] });
+  expect(componentMatch(board, componentMemoryGeneration({ ram_generation: ['ddr5'] }))).toBe('compatible');
+  expect(componentMatch(board, componentMemoryGeneration({ ram_type: ['DDR4'] }))).toBe('incompatible');
+  expect(componentMatch(board, componentMemoryGeneration({ memory_type: ['DDR4', 'DDR5'] }))).toBe('unknown');
+  expect(componentMemoryGeneration({ description: ['DDR5'], memory_type: ['DDR5 / DDR4'] })).toBeNull();
 });

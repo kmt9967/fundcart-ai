@@ -118,10 +118,10 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
         {restored && <p className="rounded-xl border border-brand/30 bg-brand-soft p-3 text-sm" role="status" data-testid="draft-restored">{t('elig.draftRestored')}</p>}
         {!signedIn && <div className="card border-brand/30 p-4 text-sm" data-testid="guest-note"><p className="font-semibold">{t('elig.guestTitle')}</p><p className="mt-1 text-ink-2">{t('elig.guestBody')}</p></div>}
         {signedIn && !emailVerified && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" data-testid="review-note"><p className="font-semibold">{t('elig.unverifiedTitle')}</p><p className="mt-1 text-ink-2">{t('elig.unverifiedBody')}</p></div>}
-        <nav id="campaign-steps" tabIndex={-1} aria-label={t('nb.title')}>
+        <nav id="campaign-steps" className="rounded-2xl border border-line bg-brand-soft/40 p-3" tabIndex={-1} aria-label={t('nb.title')}>
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {([['campaign-product', 'b.livePrice'], ['campaign-need', 'need.label'], ['campaign-story', 'b.ctitle'], ['campaign-review', 'b.goal']] as const).map(([id, label], index) =>
-              <li key={id}><button type="button" aria-current={activeStep === index ? 'step' : undefined} disabled={index > maxStep || busy !== null} onClick={() => advance(index)} className={`btn w-full ${activeStep === index ? 'btn-primary' : 'btn-ghost'}`}><bdi>{index + 1}</bdi> {t(label)}</button></li>)}
+              <li key={id}><button type="button" aria-current={activeStep === index ? 'step' : undefined} disabled={index > maxStep || busy !== null} onClick={() => advance(index)} className={`btn w-full ${activeStep === index ? 'btn-primary' : 'btn-ghost'}`}><bdi className="inline-grid size-6 shrink-0 place-items-center rounded-full bg-white/90 text-xs font-bold text-brand">{index + 1}</bdi> <span className="min-w-0 text-start">{t(label)}</span></button></li>)}
           </ol>
         </nav>
         {activeStep === 0 && <section className="card p-5"><h2 className="font-bold" dir="auto">{product.title}</h2><p className="mt-2 text-lg font-bold">{formatUSD(product.priceCents)}</p><button type="button" className="btn btn-primary mt-4" disabled={maxStep === 0} onClick={() => advance(1)}>{nextLabel}</button></section>}

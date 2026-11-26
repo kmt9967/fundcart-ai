@@ -19,7 +19,9 @@ export async function ReviewCard({ c, expanded = false }: { c: QueueItem; expand
         </span>
       </div>
       <p className="mt-1 text-xs text-mute">{c.creatorName} · {dateTime(c.createdAt)} · {t('mod.account')}: {c.ownerHasAccount ? (c.ownerVerified ? t('mod.verified') : t('mod.unverified')) : t('mod.guest')}</p>
-      {expanded && <div className="mt-4 rounded-2xl border border-line bg-brand-soft p-4">
+      <div className={expanded ? "mt-4 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)]" : "mt-3"}>
+      <div className="min-w-0">
+      {expanded && <div className="rounded-2xl border border-line bg-brand-soft p-4">
         <p className="text-xs font-semibold text-brand">{t('mg.goal')}</p>
         <p className="mt-1 text-3xl font-extrabold"><bdi>{usd(c.targetCents)}</bdi></p>
         <p className="mt-1 text-sm" dir="auto">{c.productTitle || t('assistant.notListed')}</p>
@@ -37,7 +39,11 @@ export async function ReviewCard({ c, expanded = false }: { c: QueueItem; expand
       {flags.length > 0 && <p className="mt-2 text-xs" data-testid="mod-reasons"><b>{t('admin.reasons')}:</b> {flags.join(', ')}</p>}
       {c.reports.length > 0 && <div className="mt-2 text-xs"><b>{t('admin.reports')} ({c.reports.length}):</b><ul className="ms-4 list-disc">{c.reports.slice(0, 5).map((r, i) => <li key={i}>{r.reason}{r.details ? `: ${r.details}` : ''}</li>)}</ul></div>}
       {c.history.length > 0 && <div className="mt-2 text-xs text-mute"><b>{t('mod.history')}:</b><ul className="ms-4 list-disc">{c.history.map((h, i) => <li key={i}>{dateTime(h.createdAt)} — {h.body}</li>)}</ul></div>}
+      </div>
+      <div className={expanded ? "h-fit min-w-0 rounded-2xl border border-line bg-brand-soft/30 p-4" : ""}>
       {c.ownedByViewer ? <p className="mt-3 text-xs text-bad" data-testid="mod-own">{t('mod.own')}</p> : <ModerationActions campaignId={c.id} approved={['approved', 'auto_approved'].includes(c.moderationStatus)} />}
+      </div>
+      </div>
     </article>
   );
 }

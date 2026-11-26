@@ -23,17 +23,17 @@ export default async function Me() {
   }), { raised: 0, backers: 0 });
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <p className="eyebrow">{t('me.eyebrow')}</p>
+      <header className="card border-brand/15 bg-brand-soft/40 p-5 sm:p-8"><p className="eyebrow">{t('me.eyebrow')}</p>
       <h1 className="h-page mt-2">{t('me.title')}</h1>
       <p className="mt-2 max-w-2xl text-sm text-ink-2">{account?.email ? t('me.accountLead', { email: account.email }) : t('me.guestLead')}</p>
-      <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link>
+      <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link></header>
 
       {!!mine.length && <dl className="mt-5 grid gap-3 sm:grid-cols-3">
         {[[t('me.campaigns'), mine.length], [t('mg.raised'), formatUSD(campaignTotals.raised)], [t('mg.supporters'), campaignTotals.backers]].map(([label, value]) =>
-          <div className="card min-w-0 p-4" key={label}><dt className="text-sm text-mute">{label}</dt><dd className="mt-1 wrap-anywhere text-2xl font-bold"><bdi>{value}</bdi></dd></div>)}
+          <div className="card min-w-0 border-brand/10 p-4" key={label}><dt className="text-sm text-mute">{label}</dt><dd className="mt-1 wrap-anywhere text-2xl font-bold"><bdi>{value}</bdi></dd></div>)}
       </dl>}
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.campaigns')}</h2>
-        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <div key={c.slug} className="grid min-w-0 gap-2">
+        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <div key={c.slug} className="card grid min-w-0 gap-3 p-3">
           <CampaignCard c={c} />
           <div className="grid gap-2 sm:grid-cols-2">
             <Link className="btn btn-ghost" href={`/c/${c.slug}/manage`}>{t('mg.title')}</Link>

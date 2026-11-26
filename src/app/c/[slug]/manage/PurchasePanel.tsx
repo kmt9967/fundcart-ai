@@ -38,17 +38,17 @@ export function PurchasePanel(p: { slug: string; status: string; clientId: strin
   if (p.status === 'cancelled') return <div className="card p-5 text-sm text-mute">{t('pu.cancelled')}</div>;
 
   return (
-    <div className="card border-brand/30 p-4 text-sm sm:p-5">
+    <div className="card overflow-hidden border-brand/30 p-4 text-sm sm:p-5">
       <div className="flex flex-wrap justify-between gap-2"><span className="chip bg-ok-soft text-ok">{t('pu.goalReached')}</span><span className="chip bg-brand-soft text-brand">PayPal Sandbox</span></div>
-      <h2 className="mt-2 text-lg font-bold">{t('pu.approveTitle')}</h2>
+      <h2 className="mt-3 text-xl font-extrabold text-brand">{t('pu.approveTitle')}</h2>
       <p className="mt-1 text-ink-2">{t('pu.approveLead')}</p>
-      <dl className="mt-4 space-y-2 rounded-xl border border-line p-3">
+      <dl className="mt-4 space-y-2 rounded-xl border border-line bg-brand-soft/40 p-3">
         <div className="flex justify-between gap-3"><dt className="text-mute">{t('pu.item')}</dt><dd className="min-w-0 text-end font-semibold [overflow-wrap:anywhere]" dir="auto">{p.itemTitle}</dd></div>
         <div className="flex justify-between"><dt className="text-mute">{t('pu.total')}</dt><dd className="text-lg font-extrabold">{formatUSD(p.itemPriceCents)}</dd></div>
         <div className="flex justify-between gap-3 text-xs"><dt className="text-mute">{t('pu.raisedBy')}</dt><dd className="shrink-0">{formatUSD(p.raisedCents)}</dd></div>
         <div className="flex justify-between text-xs"><dt className="text-mute">{t('pu.own')}</dt><dd>{formatUSD(p.ownFundsCents)}</dd></div>
       </dl>
-      <label className="check mt-3 text-sm"><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
+      <label className="check mt-4 rounded-lg border border-line p-3 text-sm"><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
         <span><Rich text={t('pu.agree', { amount: formatUSD(p.itemPriceCents) })} /></span></label>
       <div className="mt-4">
         <PayPalCheckout clientId={p.clientId} disabled={!agree} label="checkout"

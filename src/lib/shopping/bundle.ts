@@ -10,3 +10,16 @@ export function componentSocket(attributes: Record<string, string[]>): string | 
   const distinct = [...new Set(values)];
   return distinct.length === 1 ? distinct[0] : null;
 }
+
+export function componentMemoryGeneration(attributes: Record<string, string[]>): string | null {
+  const values = Object.entries(attributes)
+    .filter(([key]) => /^(supported[ _-])?(ram|memory)[ _-](type|generation)$/i.test(key))
+    .flatMap(([, entries]) => entries.map(value => value.trim().toUpperCase()));
+  const distinct = [...new Set(values)];
+  return distinct.length === 1 && /^DDR[345]$/.test(distinct[0]) ? distinct[0] : null;
+}
+
+export function componentMatch(left: string | null | undefined, right: string | null | undefined) {
+  if (!left || !right) return 'unknown';
+  return left === right ? 'compatible' : 'incompatible';
+}
