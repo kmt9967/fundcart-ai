@@ -48,7 +48,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
   async function run(text: string, refine = false) {
     if (text.trim().length < 2 || loading) return;
     (document.activeElement as HTMLElement | null)?.blur?.(); // closes the on-screen keyboard on phones
-    requestAnimationFrame(() => activityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => activityRef.current?.scrollIntoView({ block: 'start' }));
     const conversationId = refine ? result?.sessionId ?? null : null;
     setLoading(true); setError(null); setEvents([]);
     if (!refine) { setResult(null); setHistory([text]); setCompare([]); } else setHistory(h => [...h, text]);
@@ -282,7 +282,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
             <p className="min-w-0 flex-1 text-sm">{t('assistant.selected', { n: compare.length })} <span className="text-mute">{compare.length < 2 ? t('assistant.pickOneMore') : ''}</span></p>
             <button type="button" className="btn btn-ghost min-h-11 px-3 text-sm" onClick={() => setCompare([])}>{t('assistant.clear')}</button>
             <button type="button" className="btn btn-primary min-h-11 px-4 text-sm" disabled={compare.length < 2}
-              onClick={() => document.getElementById('compare')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{t('assistant.compare')}</button>
+              onClick={() => document.getElementById('compare')?.scrollIntoView({ block: 'start' })}>{t('assistant.compare')}</button>
           </div>
         </div>
       )}

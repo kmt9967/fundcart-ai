@@ -70,3 +70,20 @@ The matrix's remaining work and external dependencies still apply. No family adv
 - The assistant accepts an optional previous display mode and returns an optional selected product ID. Two display-order arrays and pending fit clarification use optional fields in the existing session JSON. No database migrations are required.
 - The assistant and campaign screens use existing shared styles. Approved FundCart Stitch screens remain needed for the homepage, shopping and comparison flows, campaign and creator flows, account, and moderation. The editable shopping brief, results history, full bundles, and broader design work remain open.
 - Sandbox-only payments still require human approval. Production fundraising depends on licensed payment and custody arrangements, local legal review, and operational approval. Identity and need verification require a provider. The merchant and media data dependencies are listed per family above.
+
+## Verification and release scope
+
+| Check | Result |
+| --- | --- |
+| Vitest | 298 passed and 2 opt-in tests skipped. Includes mocked catalog turns, shopping, policy, security, payment logic, and localization. |
+| TypeScript and production build | Passed on Next.js 16.4.6. |
+| ESLint | Passed with one existing unused-import warning in the campaign report route. |
+| Production dependency audit | Zero advisories reported after patching Next.js. |
+| Chromium | Three tests passed for mobile navigation, page overflow, and keyboard submission of an ordinal follow-up on English desktop and Urdu mobile. The assistant stream in the ordinal browser test is a fixture. |
+| Staging integration | Live Gemini and Channel3, authenticated Supabase, campaign publication and moderation, signed webhook delivery, and PayPal Sandbox checkout and refunds remain unverified in this branch. An isolated staging environment and Sandbox accounts are needed. |
+
+The browser test caught a reduced-motion stylesheet rule that changed the dimensions of results sections. The patch preserves the layout while suppressing motion and lets auto-scroll honor the same preference.
+
+[English desktop selection](evidence/assistant-ordinal-desktop.png) · [Urdu mobile selection](evidence/assistant-ordinal-urdu.png)
+
+The screenshots show the selected card from fixture data. They are interaction evidence for the existing design system. Full screen-reader acceptance and FundCart Stitch design approval remain open.

@@ -61,7 +61,7 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
   }
 });
 
-test('assistant shows an ordinal selection on desktop and in Urdu on mobile', async ({ page }, testInfo) => {
+test('assistant shows an ordinal selection on desktop and in Urdu on mobile', async ({ page, baseURL }, testInfo) => {
   const product = {
     externalId: 'fixture-second', title: 'Fixture laptop — second result', brand: null, priceCents: 50000,
     compareAtCents: null, merchantDomain: null, offerUrl: null, imageUrl: null, imageAlt: null,
@@ -90,7 +90,7 @@ test('assistant shows an ordinal selection on desktop and in Urdu on mobile', as
   });
 
   for (const mobile of [false, true]) {
-    await page.setExtraHTTPHeaders({ 'Accept-Language': mobile ? 'ur-PK,ur;q=0.9' : 'en-US,en;q=0.9' });
+    await page.context().addCookies([{ name: 'fc_lang', value: mobile ? 'ur' : 'en', url: baseURL }]);
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1366, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/assistant?q=Find+a+laptop');
