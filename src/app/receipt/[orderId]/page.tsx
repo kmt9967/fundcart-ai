@@ -51,6 +51,10 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
           <li key={e.id} className="grid gap-0.5 sm:grid-cols-[auto_1fr] sm:gap-3"><span className="font-mono text-xs text-mute">{time(e.created_at)}</span><span className="min-w-0 [overflow-wrap:anywhere]"><b>{e.event_type}</b> · {e.source}{e.status ? ` · ${e.status}` : ''}</span></li>
         ))}</ol>
         <p className="mt-6 rounded-lg border border-line bg-brand-soft p-3 text-xs text-mute">{t('rc.note')}</p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {camp.data && <Link href={`/c/${camp.data.slug}`} className="btn btn-primary">{t('mg.viewPublic')}</Link>}
+          <Link href="/campaigns" className="btn btn-ghost">{t('nav.campaigns')}</Link>
+        </div>
         </div>
       </div>
     </div>

@@ -8,19 +8,40 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Moderation — FundCart AI', robots: { index: false } };
 
 // Moderator-only queue. The role check runs on the server for the page and again in the API.
-export default async function ModerationPage() {
-  const { t } = await getT();
+export default async function ModerationPage({ searchParams }: { searchParams: Promise<{ queue?: string }> }) {
+  const { t, locale } = await getT();
   const mod = await currentModerator();
   if (!mod) return <div className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="h-page">{t('admin.title')}</h1><p className="mt-3 text-mute" data-testid="forbidden">{t('admin.forbidden')}</p><Link className="btn btn-primary mt-6" href="/account">{t('auth.signInCta')}</Link></div>;
-  const items = await moderationQueue(mod.profileId);
+  const [{ queue }, items] = await Promise.all([searchParams, moderationQueue(mod.profileId)]);
+  const active = queue === 'pending' || queue === 'reported' ? queue : 'all';
+  const labels = {
+    en: ['All', 'Pending review', 'Reported'],
+    ur: ['سب', 'زیر جائزہ', 'رپورٹ شدہ'],
+    es: ['Todas', 'Pendientes', 'Denunciadas'],
+    fr: ['Toutes', 'En attente', 'Signalées'],
+  }[locale];
+  const pending = items.filter(item => item.moderationStatus === 'pending_review');
+  const reported = items.filter(item => item.reports.length);
+  const filters = [
+    { id: 'all', list: items },
+    { id: 'pending', list: pending },
+    { id: 'reported', list: reported },
+  ];
+  const visible = active === 'pending' ? pending : active === 'reported' ? reported : items;
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="card border-brand/15 bg-brand-soft/40 p-5 sm:p-7">
         <h1 className="h-page">{t('admin.title')}</h1>
         <p className="mt-2 text-sm text-ink-2">{t('admin.lead')}</p>
       </header>
-      {items.length === 0 ? <p className="mt-6 text-mute" data-testid="queue-empty">{t('admin.empty')}</p> : (
-        <ul className="mt-6 grid gap-4 xl:grid-cols-2">{items.map(c => {
+      <nav aria-label={t('admin.title')} className="mt-4 flex flex-wrap gap-2 border-b border-line pb-3">
+        {filters.map(({ id, list }, index) => <Link key={id} aria-current={active === id ? 'page' : undefined}
+          className={`btn ${active === id ? 'btn-primary' : 'btn-ghost'}`} href={id === 'all' ? '/admin/moderation' : `/admin/moderation?queue=${id}`}>
+          {labels[index]} <bdi>{list.length}</bdi>
+        </Link>)}
+      </nav>
+      {visible.length === 0 ? <p className="mt-6 text-mute" data-testid="queue-empty">{t('admin.empty')}</p> : (
+        <ul className="mt-6 grid gap-4 xl:grid-cols-2">{visible.map(c => {
           return <li key={c.id}><ReviewCard c={c} /></li>;
         })}</ul>
       )}

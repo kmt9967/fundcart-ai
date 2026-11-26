@@ -61,7 +61,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </div>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+        <aside className="contents lg:block lg:space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
           <div className="card border-brand/15 p-4 sm:p-5">
             <p className="text-3xl font-extrabold" data-testid="raised"><bdi>{usd(totals.raisedCents)}</bdi></p>
             <p className="text-sm text-mute">{t('camp.raisedOf', { goal: usd(c.target_cents) })}</p>
@@ -81,7 +81,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           {!publicActive && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" role="status" data-testid="moderation-banner">{c.moderation_status === 'pending_review' ? t('trust.pending') : t('trust.unavailable')}{isOwner && c.moderation_status === 'pending_review' && <p className="mt-2" data-testid="owner-review-note">{t('elig.ownerPending')}</p>}</div>}
           {c.status === 'active' && publicActive && !contributionGate.allowed && <div className="card p-4 text-sm" role="status" data-testid="policy-gate">{t(contributionGate.messageKey as DictKey)}</div>}
           {c.status === 'active' && publicActive && contributionGate.allowed ? (
-            <Contribute campaignTitle={c.title} campaignImage={c.image_url} disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
+            <div className="max-lg:order-1"><Contribute campaignTitle={c.title} campaignImage={c.image_url} disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} /></div>
           ) : c.status === 'active' ? null : (
             <div className="card p-5 text-sm">
               {c.status === 'goal_reached' && <p><b className="text-ok">{t('camp.goalReachedT')}</b> {t('camp.goalReachedB')}</p>}
@@ -90,7 +90,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             </div>
           )}
 
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 max-lg:order-2">
             <h2 className="text-sm font-bold">{t('camp.supportersTitle')}</h2>
             {supporters.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.beFirst')}</p> : (
               <ul className="mt-3 space-y-3">{supporters.slice(0, 12).map((s, i) => (

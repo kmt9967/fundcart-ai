@@ -52,7 +52,6 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
           <p className="text-xs text-mute"><bdi>{f.usd(remainingCents)}</bdi> · {t('camp.toGo')}</p>
         </div>
       </div>
-      <p className="mt-1 text-xs text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
       <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
         {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-lg border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
       </div>
@@ -67,6 +66,7 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
         <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>}
       <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
       <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0 [clip:rect(0,0,0,0)]" />
+      <p className="mt-3 rounded-lg border border-line p-3 text-xs leading-relaxed text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
       {disclosures.length > 0 && <ul className="mt-3 list-disc space-y-0.5 rounded-xl bg-paper p-3 ps-6 text-xs text-ink-2" data-testid="disclosures">{disclosures.map(d => <li key={d}>{t(d as DictKey)}</li>)}</ul>}
       <div className="mt-4 rounded-lg border border-line bg-brand-soft p-3">
         <p className="text-xs font-semibold text-brand">PayPal Sandbox</p>

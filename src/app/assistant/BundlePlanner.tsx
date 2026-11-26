@@ -16,11 +16,19 @@ const copy = {
   fr: ['Composer un ensemble', 'Chercher des options', 'Choisir un article', 'Total connu', 'Articles sans prix', 'Budget dépassé', 'Compatibilité, livraison et taxes à confirmer. Chaque article peut être examiné séparément.', 'Aucun article trouvé'],
 } as const;
 
+const editor = {
+  en: { component: 'Custom component', label: 'Component name', add: 'Add component', remove: 'Remove', device: 'Load from this device', name: 'Bundle name', save: 'Save to account', load: 'Load saved bundles', empty: 'No saved bundles.', removeBundle: 'Delete', restore: 'Search each component to resolve its saved offer at the current price.', socket: 'CPU socket compatibility unknown.', ram: ['RAM and motherboard list the same memory generation.', 'RAM and motherboard list different memory generations.', 'RAM generation compatibility unknown.'] },
+  ur: { component: 'حسب ضرورت جزو', label: 'جزو کا نام', add: 'جزو شامل کریں', remove: 'ہٹائیں', device: 'اس آلے سے لوڈ کریں', name: 'بنڈل کا نام', save: 'اکاؤنٹ میں محفوظ کریں', load: 'محفوظ بنڈل لوڈ کریں', empty: 'کوئی بنڈل محفوظ نہیں۔', removeBundle: 'حذف کریں', restore: 'محفوظ آئٹم کی موجودہ قیمت کے لیے ہر جزو تلاش کریں۔', socket: 'سی پی یو ساکٹ کی مطابقت نامعلوم ہے۔', ram: ['ریم اور مدربورڈ کی میموری نسل ایک ہی ہے۔', 'ریم اور مدربورڈ کی میموری نسل مختلف ہے۔', 'ریم کی نسل کی مطابقت نامعلوم ہے۔'] },
+  es: { component: 'Componente personalizado', label: 'Nombre del componente', add: 'Añadir componente', remove: 'Quitar', device: 'Cargar desde este dispositivo', name: 'Nombre del paquete', save: 'Guardar en la cuenta', load: 'Cargar paquetes guardados', empty: 'No hay paquetes guardados.', removeBundle: 'Eliminar', restore: 'Busca cada componente para consultar el precio actual de su oferta guardada.', socket: 'Compatibilidad del zócalo de CPU desconocida.', ram: ['La RAM y la placa indican la misma generación de memoria.', 'La RAM y la placa indican generaciones de memoria distintas.', 'Compatibilidad de la generación de RAM desconocida.'] },
+  fr: { component: 'Composant personnalisé', label: 'Nom du composant', add: 'Ajouter un composant', remove: 'Retirer', device: 'Charger depuis cet appareil', name: 'Nom de l’ensemble', save: 'Enregistrer dans le compte', load: 'Charger les ensembles enregistrés', empty: 'Aucun ensemble enregistré.', removeBundle: 'Supprimer', restore: 'Recherchez chaque composant pour consulter le prix actuel de son offre enregistrée.', socket: 'Compatibilité du socket du processeur inconnue.', ram: ['La RAM et la carte mère indiquent la même génération de mémoire.', 'La RAM et la carte mère indiquent des générations différentes.', 'Compatibilité de la génération de RAM inconnue.'] },
+} as const;
+
 export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit: { id: string; title: string; items: string[] }; budgetCents: number | null; accountSaving?: boolean }) {
   const t = useT();
   const f = useFormat();
   const [title, search, select, total, missing, over, disclosure, empty] = copy[useLocale()];
   const locale = useLocale();
+  const words = editor[locale];
   const controls = {
     en: ['Required', 'Optional', 'Save selections on this device', 'Saved on this device', 'CPU sockets match; other compatibility is not confirmed.', 'CPU and motherboard sockets differ.', 'Required items still missing'],
     ur: ['لازمی', 'اختیاری', 'اس آلے پر محفوظ کریں', 'اس آلے پر محفوظ', 'ساکٹ ملتے ہیں؛ باقی مطابقت غیر تصدیق شدہ ہے۔', 'پروسیسر اور مدربورڈ کے ساکٹ مختلف ہیں۔', 'لازمی اشیا باقی ہیں'],
@@ -68,12 +76,8 @@ export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit
   const board = slots[1]?.selected?.socket;
   const socket = componentMatch(cpu, board);
   const memory = componentMatch(slots[1]?.selected?.memoryGeneration, slots[3]?.selected?.memoryGeneration);
-  const socketStatus = socket === 'unknown' ? 'CPU socket compatibility unknown' : socket === 'compatible' ? controls[4] : controls[5];
-  const memoryStatus = {
-    compatible: 'RAM and motherboard list the same memory generation.',
-    incompatible: 'RAM and motherboard list different memory generations.',
-    unknown: 'RAM generation compatibility unknown.',
-  }[memory];
+  const socketStatus = socket === 'unknown' ? words.socket : socket === 'compatible' ? controls[4] : controls[5];
+  const memoryStatus = words.ram[memory === 'compatible' ? 0 : memory === 'incompatible' ? 1 : 2];
   function save() {
     try {
       localStorage.setItem(key, JSON.stringify(selections()));
@@ -136,11 +140,11 @@ export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit
             <button type="button" className="btn btn-ghost min-h-9 px-3 py-1" onClick={() => void load(index)} disabled={slot?.busy || !item.trim()}>{slot?.busy ? '…' : search}</button>
           </div>
           {index >= kit.items.length && <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 text-xs">Component name
+            <label className="min-w-0 flex-1 text-xs">{words.label}
               <input className="input mt-1" value={item} maxLength={64} disabled={searching} onChange={event => customize(index, { label: event.target.value })} />
             </label>
             <label className="check min-h-11 text-sm"><input type="checkbox" checked={mandatory} onChange={event => customize(index, { required: event.target.checked })} />{controls[0]}</label>
-            <button className="btn btn-ghost" type="button" disabled={searching} onClick={() => removeCustom(index)}>Remove {item}</button>
+            <button className="btn btn-ghost" type="button" disabled={searching} onClick={() => removeCustom(index)}>{words.remove} {item}</button>
           </div>}
           {!!slot?.offers?.length && <label className="text-xs text-mute">
             {select}
@@ -159,12 +163,12 @@ export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit
       })}
     </ul>
     {components.length < 12 && <div className="mb-3 grid gap-2 border-t border-line pt-3">
-      <label className="text-sm">Custom component<input className="input mt-1" maxLength={64} value={customName} onChange={event => setCustomName(event.target.value)} /></label>
+      <label className="text-sm">{words.component}<input className="input mt-1" maxLength={64} value={customName} onChange={event => setCustomName(event.target.value)} /></label>
       <label className="check text-sm"><input type="checkbox" checked={required} onChange={event => setRequired(event.target.checked)} />{controls[0]}</label>
       <button type="button" className="btn btn-ghost justify-self-start" disabled={!customName.trim()} onClick={() => {
         setCustomSlots(previous => [...previous, { label: customName.trim(), required, offerId: null }]);
         setCustomName('');
-      }}>Add component</button>
+      }}>{words.add}</button>
     </div>}
     <div aria-live="polite"  className="border-t border-line pt-3 text-sm">
       <p className="font-bold">{total} <bdi>{f.usd(summary.totalCents)}</bdi></p>
@@ -179,24 +183,24 @@ export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit
         const items = JSON.parse(localStorage.getItem(key) ?? 'null') as Selection[] | null;
         if (Array.isArray(items) && items.length >= kit.items.length && items.length <= 12) reopen(items);
       } catch { /* Invalid device data is ignored. */ }
-    }}>Load from this device</button>{saved && <p role="status" className="mt-1 text-xs text-ok">{controls[3]}</p>}
+    }}>{words.device}</button>{saved && <p role="status" className="mt-1 text-xs text-ok">{controls[3]}</p>}
     {accountSaving && <div className="mt-4 space-y-2 border-t border-line pt-4">
-      <label className="block text-sm">Bundle name<input className="input mt-1" value={name} maxLength={80} onChange={event => setName(event.target.value)} /></label>
+      <label className="block text-sm">{words.name}<input className="input mt-1" value={name} maxLength={80} onChange={event => setName(event.target.value)} /></label>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-primary" disabled={accountBusy || searching || !name.trim() || customSlots.some(slot => !slot.label.trim())} onClick={() => void sync('PUT')}>Save to account</button>
-        <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => void sync('GET')}>Load saved bundles</button>
+        <button type="button" className="btn btn-primary" disabled={accountBusy || searching || !name.trim() || customSlots.some(slot => !slot.label.trim())} onClick={() => void sync('PUT')}>{words.save}</button>
+        <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => void sync('GET')}>{words.load}</button>
       </div>
       {accountError && <p role="alert" className="text-sm text-bad">{t('assistant.somethingWrong')}</p>}
-      {accountBundles?.length === 0 && <p className="text-sm text-mute">No saved bundles.</p>}
+      {accountBundles?.length === 0 && <p className="text-sm text-mute">{words.empty}</p>}
       {accountBundles?.map(bundle => <div className="flex flex-wrap items-center gap-2" key={bundle.id}>
         <button type="button" className="btn btn-ghost" disabled={accountBusy || searching} onClick={() => {
           reopen(bundle.selections); setName(bundle.name);
         }}>{bundle.name}</button>
         <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => {
-          if (window.confirm(`Delete ${bundle.name}?`)) void sync('DELETE', bundle.id);
-        }}>Delete</button>
+          if (window.confirm(`${words.removeBundle} ${bundle.name}?`)) void sync('DELETE', bundle.id);
+        }}>{words.removeBundle}</button>
       </div>)}
-      {restoreIds && <p className="text-xs text-mute">Search each component to resolve its saved offer at the current price.</p>}
+      {restoreIds && <p className="text-xs text-mute">{words.restore}</p>}
     </div>}
   </section>;
 }

@@ -19,7 +19,7 @@ test('Phase 2 public layouts fit the requested widths', async ({ page }, testInf
   }
 });
 
-test('Phase 2 sends a confirmed brief edit with the previous session', async ({ page }, testInfo) => {
+test('Phase 2 sends a confirmed brief edit with the previous session', async ({ page, baseURL }, testInfo) => {
   const sessionId = '2f7ebf34-8b38-4d00-9a77-9b77aa20bcfb';
   const requests: Array<Record<string, unknown>> = [];
   const products = ['A', 'B', 'C', 'D'].map((name, index) => ({
@@ -83,6 +83,14 @@ test('Phase 2 sends a confirmed brief edit with the previous session', async ({ 
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`workspace-${width}.png`), fullPage: true, animations: 'disabled' });
     await page.locator('#compare').screenshot({ path: testInfo.outputPath(`comparison-${width}.png`), animations: 'disabled' });
+  }
+  for (const [lang, label] of [['ur', 'حسب ضرورت جزو'], ['es', 'Componente personalizado'], ['fr', 'Composant personnalisé']]) {
+    await page.context().addCookies([{ name: 'fc_lang', value: lang, url: baseURL }]);
+    await page.setViewportSize({ width: 390, height: 960 });
+    await page.goto('/assistant?q=Home+office');
+    await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('dir', lang === 'ur' ? 'rtl' : 'ltr');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   }
 });
 
@@ -192,6 +200,10 @@ test('Phase 2 owner status and staff review enforce separate roles', async ({ pa
   await signIn(3);
   await page.goto('/admin/moderation');
   await expect(page.getByTestId('queue-item')).toHaveCount(1);
+  await page.getByRole('link', { name: 'Reported 0' }).click();
+  await expect(page.getByTestId('queue-empty')).toBeVisible();
+  await page.getByRole('link', { name: 'Pending review 1' }).click();
+  await expect(page.getByTestId('queue-item')).toHaveCount(1);
   await captureWidths(page, testInfo, 'moderator-queue');
   await page.goto('/admin/moderation/fixture-campaign');
   await expect(page.getByRole('heading', { name: 'Fixture study laptop' })).toBeVisible();
@@ -271,5 +283,66 @@ test('Phase 2 receipt fixture protects ownership and distinguishes pending captu
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: testInfo.outputPath(`receipt-${width}.png`), fullPage: true });
+  }
+});
+
+
+test('Phase 2 account shopping persists across independent contexts and is private', async ({ browser, baseURL }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
+  const source = await browser.newContext({ baseURL });
+  const reopened = await browser.newContext({ baseURL });
+  const unrelated = await browser.newContext({ baseURL });
+  try {
+    for (const [context, owner] of [[source, '1'], [reopened, '1'], [unrelated, '4']] as const) {
+      const payload = `10000000-0000-4000-8000-00000000000${owner}.20000000-0000-4000-8000-000000000001.${Math.floor(Date.now() / 1000) + 600}`;
+      const signature = createHmac('sha256', 'phase-two-local-fixture').update(`acct:${payload}`).digest('base64url');
+      await context.addCookies([{ name: 'fc_acct', value: `${payload}.${signature}`, url: baseURL }]);
+    }
+    const path = '/api/assistant/bundle/saved';
+    const bundle = {
+      kitId: 'home_office', name: 'Independent context fixture',
+      selections: [null, null, null, null, null, { label: 'Cable organizer', required: false, offerId: 'fixture-A' }],
+    };
+    expect((await source.request.put(path, { data: bundle })).status()).toBe(204);
+    const get = (context: typeof reopened) => context.request.get(`${path}?kit=home_office`);
+    const saved = await get(reopened);
+    expect(saved.ok()).toBe(true);
+    expect(await saved.json()).toEqual([expect.objectContaining({ name: bundle.name, selections: bundle.selections })]);
+    const denied = await get(unrelated);
+    expect(denied.ok()).toBe(true);
+    expect(await denied.json()).toEqual([]);
+
+    const history = '/api/assistant/history/10000000-0000-4000-8000-000000000009';
+    const savedSet = { name: 'Independent context result', compare: ['fixture-A', 'fixture-B'] };
+    expect((await unrelated.request.patch(history, { data: savedSet })).status()).toBe(404);
+    expect((await source.request.patch(history, { data: savedSet })).status()).toBe(204);
+    const secondPage = await reopened.newPage();
+    await secondPage.goto('/assistant');
+    await secondPage.getByText('Recent shopping sessions', { exact: true }).click();
+    await expect(secondPage.getByRole('link', { name: /Independent context result/ })).toBeVisible();
+    await secondPage.route('**/api/assistant', async route => {
+      const products = ['A', 'B'].map((letter, index) => ({
+        externalId: `fixture-${letter}`, title: `Refreshed laptop ${letter}`, priceCents: 49000 + index * 500,
+        specs: { kind: 'laptop', condition: null }, keyFeatures: [],
+        evaluation: { status: 'suitable', tier: 'minimum', checks: [], unknownReasons: [], failReasons: [], withinBudget: true },
+      }));
+      await route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'result', result: {
+        kind: 'results', sessionId: null, state: null, profile: null, requirements: [], products, bestFit: products.map(product => product.externalId),
+        cheapestAdequate: [], needsVerification: [], unsuitable: [], mode: 'best_fit', picks: [], summary: '', compareIds: [],
+        safety: { flags: [], piiRedacted: false }, budget: { usable: false, rejections: [], note: '' },
+        dataSource: { provider: 'Fixture', fetchedAt: '2026-11-26T00:00:00Z' }, funding: { available: false },
+      } }) + '\n' });
+    });
+    await secondPage.getByRole('link', { name: /Independent context result/ }).click();
+    const historical = secondPage.getByRole('region', { name: 'Historical offers' });
+    await expect(historical.getByRole('listitem').filter({ hasText: 'Fixture laptop A' })).toContainText(/Saved \$420\.00.*Current \$490\.00/);
+    await expect(historical.getByText(/Not in refreshed results/)).toBeVisible();
+    await expect(secondPage.locator('#compare').getByRole('link')).toHaveCount(2);
+    expect((await unrelated.request.delete(`${history}?scope=thread`)).status()).toBe(404);
+    expect((await source.request.delete(`${history}?scope=thread`)).status()).toBe(204);
+    await secondPage.reload();
+    await expect(secondPage.getByRole('link', { name: /Independent context result/, includeHidden: true })).toHaveCount(0);
+  } finally {
+    await Promise.all([source.close(), reopened.close(), unrelated.close()]);
   }
 });

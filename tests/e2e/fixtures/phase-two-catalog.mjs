@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 const { products } = JSON.parse(readFileSync(new URL('../../fixtures/channel3-laptops.json', import.meta.url), 'utf8'));
@@ -23,9 +24,57 @@ const publicCampaigns = [
   { ...campaign, id: '30000000-0000-4000-8000-000000000003', title: 'Accessible workspace fixture', category: 'Accessibility', slug: 'workspace-fixture', status: 'goal_reached', image_url: '/stitch/featured-workspace.webp', target_cents: 60000 },
 ].map(row => ({ ...row, visibility: 'public', moderation_status: 'approved', is_demo_seed: true }));
 
-createServer((request, response) => {
+const savedBundles = new Map();
+const savedSession = {
+  id: '10000000-0000-4000-8000-000000000009', user_id: profile, created_at: campaign.created_at,
+  prompt: 'Fixture laptop search', safety: { notices: [] },
+  intent: { version: 2, searchQuery: 'fixture laptops', category: 'laptop' },
+  result: { kind: 'results', bestFit: ['fixture-A', 'fixture-B'], shownAt: campaign.created_at,
+    offers: [{ id: 'fixture-A', title: 'Fixture laptop A', priceCents: 42000, currency: 'USD', features: [], fetchedAt: campaign.created_at }, { id: 'fixture-C', title: 'Unavailable fixture', priceCents: 30000, currency: 'USD', features: [], fetchedAt: campaign.created_at }] },
+};
+
+createServer(async (request, response) => {
   const url = new URL(request.url, 'http://127.0.0.1');
   let body = [];
+  if (url.pathname === '/rest/v1/saved_shopping_bundles') {
+    const owner = url.searchParams.get('owner_id')?.slice(3);
+    if (request.method === 'POST') {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const row = JSON.parse(Buffer.concat(chunks).toString());
+      const key = JSON.stringify([row.owner_id, row.kit_id, row.name]);
+      savedBundles.set(key, { ...row, id: savedBundles.get(key)?.id ?? randomUUID() });
+      response.writeHead(201);
+      response.end();
+      return;
+    }
+    if (request.method === 'GET') {
+      const kit = url.searchParams.get('kit_id')?.slice(3);
+      body = [...savedBundles.values()].filter(row => row.owner_id === owner && row.kit_id === kit)
+        .map(({ id, name, selections }) => ({ id, name, selections }));
+    }
+  }
+  if (request.method === 'POST' && url.pathname === '/rest/v1/rpc/remove_shopping_thread') {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const args = JSON.parse(Buffer.concat(chunks).toString());
+    const owned = args.p_owner === savedSession.user_id && args.p_turn === savedSession.id && savedSession.result.kind === 'results';
+    if (owned) { savedSession.result = { kind: 'removed' }; savedSession.prompt = '[removed from shopping history]'; savedSession.intent = null; }
+    body = owned ? 1 : 0;
+  }
+  if (url.pathname === '/rest/v1/ai_sessions' && url.searchParams.get('user_id') === `eq.${savedSession.user_id}`
+    && [null, `eq.${savedSession.id}`].includes(url.searchParams.get('id'))) {
+    const results = savedSession.result.kind === 'results';
+    const pinned = url.searchParams.get('result->>saved') === 'eq.true';
+    if (request.method === 'GET' && results && (!pinned || savedSession.result.saved)) body = [savedSession];
+    if (request.method === 'PATCH' && results && url.searchParams.has('id')) {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const patch = JSON.parse(Buffer.concat(chunks).toString());
+      Object.assign(savedSession, patch);
+      body = [{ id: savedSession.id }];
+    }
+  }
   if (request.method === 'GET' && url.pathname === '/rest/v1/search_cache') {
     body = [{ response: { products: [product] }, created_at: '2026-11-26T00:00:00Z' }];
   }

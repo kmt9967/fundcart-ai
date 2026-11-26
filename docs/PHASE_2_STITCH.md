@@ -22,10 +22,40 @@ Phase 2 remains incomplete. This continuation addresses Groups 2 and 3 on draft 
 | Admin Moderation Queue | Partially implemented | Partially implemented | Signed moderator sees a pending campaign. Ordinary account sees a forbidden view. | [390](evidence/phase-two/group-three/moderator-queue-390.jpg) · [768](evidence/phase-two/group-three/moderator-queue-768.jpg) · [1024](evidence/phase-two/group-three/moderator-queue-1024.jpg) · [1440](evidence/phase-two/group-three/moderator-queue-1440.jpg) · [Mobile comparison](evidence/phase-two/group-three/moderator-queue-mobile-review.jpg) · [Desktop comparison](evidence/phase-two/group-three/moderator-queue-desktop-review.jpg) | Queue card and heading treatment updated. The reference status filters and expanded dashboard metrics remain open. |
 | Detailed Admin Campaign Review | Partially implemented | Partially implemented | Signed moderator sees the real campaign, funding and review actions. | [390](evidence/phase-two/group-three/moderator-review-390.jpg) · [768](evidence/phase-two/group-three/moderator-review-768.jpg) · [1024](evidence/phase-two/group-three/moderator-review-1024.jpg) · [1440](evidence/phase-two/group-three/moderator-review-1440.jpg) · [Mobile comparison](evidence/phase-two/group-three/moderator-review-mobile-review.jpg) · [Desktop comparison](evidence/phase-two/group-three/moderator-review-desktop-review.jpg) | Desktop has two columns. Identity documents and numerical risk scores have no trusted source. Mobile actions remain in document flow. |
 
-- **Unit and fixture-backed verification.** Vitest passed 321 tests with two skipped. TypeScript and production build passed. ESLint retains the existing unused AUTO_HIDE_REPORTS warning. Chromium completed 12 seeded-fixture tests with two provider-dependent skips. The npm audit reported zero findings.
+- **Unit and fixture-backed verification.** Vitest passed 321 tests with two skipped. TypeScript and production build passed. ESLint retains the existing unused AUTO_HIDE_REPORTS warning. Chromium completed 13 seeded-fixture tests with two provider-dependent skips. Targeted reruns verified expanded history acceptance and localized bundle controls. The npm audit reported zero findings.
 - **Isolated database verification.** Vitest exercised migrations 001–007 against embedded PostgreSQL, including snapshot immutability, ownership and conversation cleanup. Hosted Supabase acceptance remains pending.
 - **External provider acceptance.** Externally blocked. This checkout had no isolated Supabase, PayPal Sandbox, or test supporter configuration. See the isolated acceptance commands below for the full checklist.
-- **Shopping persistence and bundles.** The earlier database and fixture evidence remains applicable. Custom component slots can be added, renamed, classified, removed, and stored using the existing migration 007 JSON array. Existing saved base-kit arrays remain readable. CPU socket and RAM generation use structured values. Conflicting or absent evidence remains unknown. Storage interface, PSU capacity, and display connectors remain unsupported. The browser exercises custom add, selection, removal and device restore. Account save and reopen use the existing endpoint. Hosted cross-device acceptance remains open. New bundle editor copy is English.
+- **Shopping persistence and bundles.** The earlier database and fixture evidence remains applicable. Custom component slots can be added, renamed, classified, removed, and stored using the existing migration 007 JSON array. Existing saved base-kit arrays remain readable. CPU socket and RAM generation use structured values. Conflicting or absent evidence remains unknown. Storage interface, PSU capacity, and display connectors remain unsupported. The browser exercises custom add, selection, removal and device restore. The bundle editor renders in all four locales and stayed within 390px in the Urdu RTL, Spanish and French checks. Account save and reopen use the existing endpoint. Hosted cross-device acceptance remains open. Bundle editor controls are translated in all four supported locales.
+
+### Stabilization release gates
+
+| Gate | Verdict | Evidence and remaining work |
+| --- | --- | --- |
+| Frontend visual acceptance | Incomplete | Four-width captures for 15 families. Six changed families have refreshed fixtures and reference comparisons. The specific open differences are below. Comparison Studio and Product Details desktop layouts are derived from mobile. |
+| Functional and security acceptance | Incomplete | Local fixture and embedded PostgreSQL checks cover role boundaries, checkout validation, receipt states, bundle persistence and migration 007. Independent signed browser contexts exercised account bundle save and readback, unrelated-account isolation, named history, saved versus refreshed fixture prices, unavailable offers, restoration of two comparison items, and whole-thread deletion. The REST database stand-in and mocked catalog do not exercise hosted Supabase. |
+| External provider acceptance | Blocked | No isolated hosted Supabase, authorized Sandbox configuration, or email sink. Use the isolated acceptance checklist below. Phase 1 production readiness remains separately gated. |
+
+### Visual punch list
+
+| Screen and route | Corrected in stabilization | Open visual differences and approved deviations |
+| --- | --- | --- |
+| Homepage `/` | Existing compact collection grid and funding rows retained. | Major: shared header and footer differ from the Stitch discovery bar. Unverifiable: intended hero and collection images did not render in the source export. |
+| Shopping Workspace `/assistant` | Bundle editor controls are localized in English, Urdu, Spanish and French. | Major: expanded brief and request composer precede results on mobile. Desktop rails still differ. |
+| Marketplace `/campaigns` | Existing recorded campaign totals retained. | Major: title and summary push the grid below the first mobile viewport. Approved deviation: no mock cohort or verified-backer data. |
+| Comparison Studio `/assistant#compare` | Existing swipeable candidates retained. | Major: reference purchase dock and selected candidate tabs differ. Unverifiable: no approved desktop export. |
+| Product Details `/products/[externalId]` | Compact real feature chips, shared progress styling and secondary buy action. Full features retained below. | Major: gallery lacks multiple catalog photos. Unverifiable: no approved desktop export. |
+| Campaign Detail `/c/[slug]` | Mobile story, product and updates now precede checkout. | Major: public ledger preview and creator strip differ. Approved deviation: no unsupported quote and verification badges. |
+| Contribution Checkout `/c/[slug]#support` | Presets now follow the campaign summary. Routing notice remains visible before the payment action. | Major: form remains embedded and includes optional supporter fields. Approved deviation: retain existing authorization and explicit Sandbox disclosures. |
+| Receipt `/receipt/[orderId]` | Added marketplace and permitted campaign navigation. | Major: record details and audit events replace the design's escrow milestones. Approved deviation: only observed states appear. |
+| Campaign Status `/c/[slug]/status` | Existing timeline and owner restriction retained. | Major: reference product card and revision layout differ. Unverifiable: independent evidence and review ETA. |
+| Campaign Wizard `/campaigns/new` | Existing four-step controls and validation retained. | Major: funding and review are denser than Stitch and the mobile CTA scrolls with the form. |
+| Creator Dashboard `/me` | Existing account scopes and recorded summaries retained. | Major: metrics precede campaign cards. No mock countdown or statistics. |
+| Ledger `/c/[slug]/manage` | Existing responsive ledger and personal contribution metric retained. | Major: dashboard and audit timeline remain separate blocks. No synthetic seed-capital events. |
+| Purchase Approval `/c/[slug]/manage` | Existing recorded status and confirmation control retained. | Major: approval remains in the management panel. Approved deviation: retain quote authorization and explicit confirmation. |
+| Moderation Queue `/admin/moderation` | Added filter navigation and genuine counts for all, pending, and reported items. | Major: card details and inline decision controls exceed Stitch's compact rows. |
+| Admin Review `/admin/moderation/[slug]` | Existing two-column desktop workspace retained. | Major: mobile actions remain in document flow. Approved deviation: no OCR, uploaded ID or numeric risk values without a trusted source. |
+
+GitHub reported the draft branch mergeable with state `clean`. Local `git merge-tree --write-tree` also completed against the Phase 1 head. No merge, rebase or deployment took place.
 
 Based on open draft PR #1 at ede9328. The supplied archive contains 44 HTML exports and 26 PNGs, including four image-only references. Names below are folders containing code.html. Where a numbered alternative has uncertain approval, this branch uses the Plum Brand Edition desktop and Editorial White mobile conventions rather than combining earlier alternatives.
 
@@ -85,7 +115,7 @@ Based on open draft PR #1 at ede9328. The supplied archive contains 44 HTML expo
 
 ## Git and safety
 
-The dedicated branch is stacked on `feature/fundcart-production-upgrade` while PR #1 remains unmerged. Phase 2 does not add a migration. The inherited Phase 1 contribution-adjustment migration remains a staging prerequisite. No hosted environment or payment provider was used for testing.
+Historical verification snapshot. The dedicated branch was stacked on `feature/fundcart-production-upgrade` while PR #1 remains unmerged. At that point the inherited Phase 1 contribution-adjustment migration was the latest staging prerequisite. Phase 2 now adds migration 007. No hosted environment or payment provider was used for testing.
 
 ## Verification evidence
 
