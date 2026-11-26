@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormat, useLocale, useT } from '@/i18n/client';
+import { HistoryAction } from './HistoryAction';
 import { BundlePlanner } from './BundlePlanner';
 import { ShoppingBrief } from './ShoppingBrief';
 import type { BriefPatch } from '@/lib/shopping/brief';
@@ -33,7 +34,7 @@ type Result = {
   families?: { primary: string | null; detected: string[] };
 };
 
-export function Assistant({ initialQuery, resumeId, initialComparison = [] }: { initialQuery: string; resumeId?: string; initialComparison?: string[] }) {
+export function Assistant({ initialQuery, resumeId, initialComparison = [], canSaveHistory = false }: { initialQuery: string; resumeId?: string; initialComparison?: string[]; canSaveHistory?: boolean }) {
   const t = useT(); const locale = useLocale(); const f = useFormat();
   const [prompt, setPrompt] = useState(initialQuery);
   const [refineText, setRefineText] = useState('');
@@ -302,6 +303,7 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [] }: { 
           </section>
         )}
 
+        {canSaveHistory && result?.kind === 'results' && result.sessionId && <HistoryAction key={result.sessionId} id={result.sessionId} compare={compare} />}
         {compared.length >= 2 && <CompareTable products={compared} onRemove={id => setCompare(ids => ids.filter(value => value !== id))} sessionId={result?.sessionId} ownCents={ownCents} picks={picks} t={t} f={f} />}
       </div>
 

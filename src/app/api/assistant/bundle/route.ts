@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { componentSocket } from '@/lib/shopping/bundle';
 import { bundleById } from '@/lib/shopping/families';
 import { searchProducts } from '@/lib/channel3';
 import { listingInjection } from '@/lib/shopping/safety';
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     return Response.json({
       products: products
         .filter(p => p.currency === 'USD' && !listingInjection([p.title, p.description, ...p.keyFeatures].join(' ')))
-        .map(({ externalId, title, priceCents, merchantDomain }) => ({ externalId, title, priceCents, merchantDomain })),
+        .map(({ externalId, title, priceCents, merchantDomain, attributes }) => ({ externalId, title, priceCents, merchantDomain, socket: componentSocket(attributes) })),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'Catalog access is temporarily unavailable.' }, { status: 503 });

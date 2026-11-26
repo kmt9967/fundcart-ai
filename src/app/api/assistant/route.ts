@@ -101,7 +101,7 @@ export async function POST(req: Request) {
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
           intent: result.state,
-          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, picks: result.picks.map(p => p.externalId), parent: prev ? parsed.data.conversationId : null },
+          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, comparable: result.products.map(p => p.externalId), picks: result.picks.map(p => p.externalId), parent: prev ? parsed.data.conversationId : null },
           model: result.aiUsed ? 'gemini' : 'rules',
         }).eq('id', sessionId);
         send({ type: 'result', result: { ...result, sessionId } });

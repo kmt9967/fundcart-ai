@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { HistoryAction } from './HistoryAction';
 import { Assistant } from './Assistant';
 import { getT } from '@/i18n/server';
 import { currentAccount } from '@/lib/auth';
@@ -18,31 +19,36 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t('nav.assistant')} — FundCart AI` };
 }
 
-async function recentSessions() {
+async function recentSessions(account: Awaited<ReturnType<typeof currentAccount>>) {
   try {
-    const account = await currentAccount();
     if (!account) return [];
-    const result = await db().from('ai_sessions').select('id,intent,created_at,prompt,safety')
-      .eq('user_id', account.profileId).eq('result->>kind', 'results')
-      .order('created_at', { ascending: false }).limit(30);
+    const load = () => db().from('ai_sessions').select('id,intent,created_at,prompt,safety,result')
+      .eq('user_id', account.profileId).eq('result->>kind', 'results');
+    const [pinned, recent] = await Promise.all([
+      load().eq('result->>saved', 'true').order('created_at', { ascending: false }).limit(12),
+      load().order('created_at', { ascending: false }).limit(30),
+    ]);
     const seen = new Set<string>();
-    return (result.data ?? []).flatMap(row => {
+    const ids = new Set<string>();
+    return [...(pinned.data ?? []), ...(recent.data ?? [])].flatMap(row => {
       const state = row.intent as SessionState | undefined;
       if (state?.version !== INTENT_VERSION || row.prompt === '[sensitive purchase: not stored]'
-        || row.safety?.notices?.includes('sensitive_purchase') || seen.has(state.searchQuery)) return [];
+        || row.safety?.notices?.includes('sensitive_purchase') || ids.has(row.id) || (!row.result?.saved && seen.has(state.searchQuery))) return [];
+      ids.add(row.id);
       seen.add(state.searchQuery);
-      return [{ id: String(row.id), title: state.category === 'unknown' ? null : state.category, at: String(row.created_at) }];
-    }).slice(0, 6);
+      return [{ id: String(row.id), title: state.category === 'unknown' ? null : state.category, at: String(row.created_at), comparison: Array.isArray(row.result?.comparison) ? row.result.comparison : [] }];
+    }).slice(0, 18);
   } catch {
     return [];
   }
 }
 
 export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ q?: string; s?: string; compare?: string }> }) {
-  const [{ q, s, compare }, { t, locale, date }, sessions] = await Promise.all([searchParams, getT(), recentSessions()]);
+  const [{ q, s, compare }, { t, locale, date }, account] = await Promise.all([searchParams, getT(), currentAccount().catch(() => null)]);
+  const sessions = await recentSessions(account);
   const resumeId = typeof s === 'string' && /^[a-f0-9-]{36}$/i.test(s) ? s : undefined;
   const initialComparison = typeof compare === 'string' && compare.length <= 164
-    ? [...new Set(compare.split(',').filter(id => /^[A-Za-z0-9_-]{3,40}$/.test(id)))].slice(0, 4) : [];
+    ? [...new Set(compare.split(',').filter(id => /^[A-Za-z0-9_-]{3,40}$/.test(id)))].slice(0, 4) : sessions.find(session => session.id === resumeId)?.comparison ?? [];
   const query = typeof q === 'string' ? q.slice(0, 600) : '';
   const [recent, fresh] = historyLabels[locale];
   return (
@@ -57,10 +63,10 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
       {!!sessions.length && <details className="card mt-4 p-4">
         <summary className="cursor-pointer text-sm font-semibold">{recent}</summary>
         <ul className="mt-2 flex flex-wrap gap-2">
-          {sessions.map(session => <li key={session.id}><Link href={`/assistant?s=${session.id}`} className="btn btn-ghost capitalize">{session.title ?? t('nav.assistant')} <span className="text-xs font-normal text-mute">{date(session.at)}</span></Link></li>)}
+          {sessions.map(session => <li key={session.id}><Link href={`/assistant?s=${session.id}`} className="btn btn-ghost capitalize">{session.title ?? t('nav.assistant')} <span className="text-xs font-normal text-mute">{date(session.at)}</span></Link><HistoryAction id={session.id} /></li>)}
         </ul>
       </details>}
-      <Assistant key={resumeId ?? query} initialQuery={query} resumeId={resumeId} initialComparison={initialComparison} />
+      <Assistant key={resumeId ?? query} initialQuery={query} resumeId={resumeId} canSaveHistory={!!account} initialComparison={initialComparison} />
     </div>
   );
 }

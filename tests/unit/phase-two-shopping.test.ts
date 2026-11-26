@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyShoppingBrief, ShoppingBriefPatch } from '@/lib/shopping/brief';
-import { bundleTotal } from '@/lib/shopping/bundle';
+import { bundleTotal, componentSocket } from '@/lib/shopping/bundle';
 import { mergeState } from '@/lib/shopping/session';
 import { parseIntentFallback } from '@/lib/shopping/fallback-intent';
 
@@ -24,6 +24,12 @@ describe('Phase 2 shopping controls', () => {
     expect(changed.budget).toMatchObject({ currency: 'EUR', maxCents: 15000, usable: false });
     expect(applyShoppingBrief(changed, { budget: null }).budget).toBeNull();
     expect(ShoppingBriefPatch.safeParse({ ramGb: -1, approved: true }).success).toBe(false);
+  });
+
+  it('only reports a CPU socket from a consistent structured attribute', () => {
+    expect(componentSocket({ cpu_socket: ['AM5'], socket: ['am5'] })).toBe('AM5');
+    expect(componentSocket({ cpu_socket: ['AM5'], socket: ['AM4'] })).toBeNull();
+    expect(componentSocket({ description: ['Supports AM5'] })).toBeNull();
   });
 
   it('totals known prices in cents and counts unpriced or unselected components', () => {
