@@ -18,13 +18,27 @@ const device = (() => {
 
 // Automated browser tests must not spend the production Gemini quota. Locally the app refuses the
 // production key on its own; a remote target needs an explicit, deliberate opt-in.
-const target = process.env.E2E_BASE_URL || 'http://localhost:3100';
+const phaseTwoFixture = process.env.E2E_PHASE2_FIXTURE === '1';
+const target = phaseTwoFixture ? 'http://127.0.0.1:3104' : process.env.E2E_BASE_URL || 'http://localhost:3100';
 if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(target) && process.env.ALLOW_PRODUCTION_AI !== '1') {
   throw new Error(`E2E target ${target} is remote: it would use the production Gemini quota. Run against a local server, or set ALLOW_PRODUCTION_AI=1 deliberately.`);
 }
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  webServer: phaseTwoFixture ? [
+    { command: 'node tests/e2e/fixtures/phase-two-catalog.mjs', url: 'http://127.0.0.1:3198', reuseExistingServer: true },
+    {
+      command: 'npm run start -- --hostname 127.0.0.1 --port 3104',
+      url: target,
+      env: {
+        SUPABASE_URL: 'http://127.0.0.1:3198',
+        SUPABASE_SECRET_KEY: 'phase-two-local-fixture',
+        SESSION_SECRET: 'phase-two-local-fixture',
+        NEXT_PUBLIC_PAYPAL_CLIENT_ID: '',
+      },
+    },
+  ] : undefined,
   timeout: 240_000,
   expect: { timeout: 20_000 },
   retries: 0,

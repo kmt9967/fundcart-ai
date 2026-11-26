@@ -30,7 +30,7 @@ test('server rejects tampered payment requests', async ({ request }) => {
   expect(r3.status()).toBe(400);
   const r3b = await request.post('/api/paypal/orders/ABCDEFGHIJ123/capture');
   expect(r3b.status()).toBe(404); // unknown order ids are never captured
-  const r4 = await request.post('/api/paypal/webhook', { data: { event_type: 'PAYMENT.CAPTURE.COMPLETED' } });
+  const r4 = await request.post('/api/paypal/webhook', { data: { id: 'UNSIGNED-FIXTURE', event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAPTURE-FIXTURE' } } });
   expect(r4.status()).toBe(401); // unverified webhooks are rejected
 });
 

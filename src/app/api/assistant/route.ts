@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { runTurn, blockedTurn, type AgentEvent } from '@/lib/shopping/pipeline';
 import { screenMessage } from '@/lib/shopping/safety';
+import { ShoppingBriefPatch } from '@/lib/shopping/brief';
 import { INTENT_VERSION, type SessionState } from '@/lib/shopping/types';
 import { db } from '@/lib/db';
 import { ensureUser } from '@/lib/identity';
@@ -15,6 +16,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const Body = z.object({
+  brief: ShoppingBriefPatch.optional(),
   prompt: z.string().trim().min(2).max(600),
   ownFunds: z.union([z.number(), z.string()]).optional().nullable(),
   /** Previous turn's session id: continues the conversation (server-side memory, owner-checked). */
@@ -58,13 +60,15 @@ export async function POST(req: Request) {
   // Conversation memory: only the same (signed) guest identity can continue its own session.
   let prev: SessionState | null = null;
   if (!privateTurn && parsed.data.conversationId) {
-    const row = await db().from('ai_sessions').select('intent, user_id').eq('id', parsed.data.conversationId).maybeSingle();
+    const row = await db().from('ai_sessions').select('intent, user_id, prompt, safety').eq('id', parsed.data.conversationId).maybeSingle();
     const st = row.data?.intent as SessionState | undefined;
-    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) {
+    if (row.data && row.data.user_id === userId && row.data.prompt !== '[sensitive purchase: not stored]' && !row.data.safety?.notices?.includes('sensitive_purchase') && st && st.version === INTENT_VERSION) {
       const lastOrder = parsed.data.previousMode && st.lastOrders?.[parsed.data.previousMode];
       prev = lastOrder ? { ...st, lastProductIds: lastOrder } : st;
     }
   }
+
+  if (parsed.data.brief && (!prev || prev.pendingFitRequest)) return Response.json({ error: 'An active shopping session is required.' }, { status: 409 });
 
   // Sensitive turns are ephemeral, including derived shopping state and diagnostic steps.
   const session = privateTurn ? null : await db().from('ai_sessions').insert({
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
           return;
         }
         if (safety.piiRedacted) emit({ agent: 'Safety', step: 'Removed a card number from the message before processing' });
-        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: !privateTurn && budget.ok && budget.shared === true, funding: fundingOffer(policy) });
+        const result = await runTurn({ raw: safety.redacted, prev, brief: parsed.data.brief, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: !privateTurn && budget.ok && budget.shared === true, funding: fundingOffer(policy) });
         if (result.listingFlags.length) void recordSecurityEvent('injection_flag', 'info', 'listing', { count: result.listingFlags.length });
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({

@@ -5,12 +5,13 @@ import { formatUSD, fundingGap } from '../money';
 import { t, type Locale } from '@/i18n';
 import { IntentV2Schema, INTENT_VERSION, FAMILIES, FIELDS, OPS, LANGS, ACTIONS, type IntentV2, type SessionState, type Requirement } from './types';
 import { parseIntentFallback, parseStatedConstraints, parseBrandExclusions, parseReferences, parseColors, normalizeCategory } from './fallback-intent';
+import { applyShoppingBrief, type BriefPatch } from './brief';
 import { mergeState, buildRequirements, categoryInfo, mergeConstraints } from './session';
 import { evaluateProduct, rankEvaluated, rejectionSummary, fmtRequired, type EvalContext, type EvaluatedProduct } from './evaluate';
 import { DEVICE_CATEGORIES } from './knowledge';
 import { parseBudget } from './money-parse';
 import { listingInjection, type SafetyResult } from './safety';
-import { analyzeFamilies, matchType, type Directive } from './families';
+import { analyzeFamilies, bundleById, matchType, type Directive } from './families';
 
 // The FundCart shopping pipeline (one conversation turn):
 //   safety gate (route) → intent (model, validated; rules as fallback and cross-check) → session merge (code)
@@ -235,7 +236,7 @@ export function blockedTurn(safety: SafetyResult, locale: Locale): TurnResult {
 
 const HIGH_TICKET = new Set(['laptop', 'desktop', 'phone', 'tv', 'tablet', 'camera', 'monitor']);
 
-export async function runTurn(opts: { raw: string; prev: SessionState | null; ownOverrideCents: number | null; locale: Locale; modeOverride: 'best_fit' | 'cheapest_adequate' | null; safety: SafetyResult; emit: Emit; allowModel?: boolean; funding?: TurnResult['funding'] }): Promise<TurnResult> {
+export async function runTurn(opts: { raw: string; prev: SessionState | null; brief?: BriefPatch; ownOverrideCents: number | null; locale: Locale; modeOverride: 'best_fit' | 'cheapest_adequate' | null; safety: SafetyResult; emit: Emit; allowModel?: boolean; funding?: TurnResult['funding'] }): Promise<TurnResult> {
   const { prev, locale, emit, safety } = opts;
   const modelReply = prev?.pendingFitRequest && /^[\p{L}\p{N} .-]{2,45}$/u.test(opts.raw) && /\d/.test(opts.raw) && !/\b(?:under|below|budget|find|show|buy)\b/i.test(opts.raw);
   const raw = modelReply ? `${prev?.pendingFitRequest} ${opts.raw}` : opts.raw;
@@ -260,18 +261,23 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     return { ...emptyResult('clarify', t(locale, `ask.${pre.askFirst}` as never), pending, safety), funding, families: { primary: pre.askFirst === 'vehicle' ? 'replacement' : 'compatibility', detected: pre.families }, notices: noticeTexts(pre, safety, locale) };
   }
 
-  const { intent, usedModel } = await intentStep(raw, prev, locale, emit, allowModel);
+  const brief = prev && opts.brief;
+  const { intent, usedModel } = brief
+    ? { intent: parseIntentFallback(raw, true), usedModel: false }
+    : await intentStep(raw, prev, locale, emit, allowModel);
   if (intent.injectionSuspected) emit({ agent: 'Safety', step: 'Instruction-like text was ignored; only the shopping request was used' });
-  const state = mergeState(modelReply ? null : prev, intent, raw, opts.ownOverrideCents, locale);
+  const state = prev && brief ? applyShoppingBrief(prev, brief) : mergeState(modelReply ? null : prev, intent, raw, opts.ownOverrideCents, locale);
   if (opts.modeOverride) state.rankingMode = opts.modeOverride;
   // Spending pressure: no upsell, show the cheapest option that works.
   if (!opts.modeOverride && safety.notices?.includes('spending_pressure')) state.rankingMode = 'cheapest_adequate';
   const d = analyzeFamilies(raw, { budgetCents: state.budget?.usable ? state.budget.maxCents : null });
+  const kit = d.kit ?? (prev?.kitId && (brief || intent.isRefinement) ? bundleById(prev.kitId) : undefined);
+  state.kitId = kit?.id;
   const { requirements, profile } = buildRequirements(state);
   const cat = categoryInfo(state.category);
 
   // A short follow-up ("dollars", "cheaper") refines the remembered search; it is not a new vague request.
-  const followUpTurn = !!prev && intent.isRefinement && state.searchQuery.trim().length > 1;
+  const followUpTurn = !!prev && (intent.isRefinement || !!brief) && state.searchQuery.trim().length > 1;
   if (!followUpTurn && state.category === 'unknown' && !profile && (intent.requestedAction === 'ask_clarifying' || intent.primaryFamily === 'vague_exploratory' || !state.searchQuery.trim())) {
     emit({ agent: 'Orchestrator', step: 'Asked one question instead of guessing' });
     return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel, funding, families: { primary: intent.primaryFamily, detected: [...new Set([...d.families, ...intent.secondaryFamilies])] }, notices: noticeTexts(d, safety, locale) };
@@ -293,9 +299,9 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     : profile ? profile.queries
     : d.comparison && !prev ? d.comparison
     : d.problem && !prev ? d.problem.solutions.slice(0, 2)
-    : d.kit && !prev ? [d.kit.items[0]]
+    : kit ? [kit.items[0]]
     : [`${state.searchQuery} ${statedTerms}`.trim()];
-  if (!profile && !prev && (d.problem || d.kit)) state.searchQuery = baseQueries[0];
+  if (!profile && !prev && (d.problem || kit)) state.searchQuery = baseQueries[0];
   const osPref = state.stated.find(c => c.field === 'os' && c.op === '==')?.value;
   const queries = baseQueries
     .filter(q => !(osPref === 'windows' && /macbook/i.test(q)) && !(osPref === 'macos' && !/mac/i.test(q)))
@@ -422,7 +428,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     safety: { flags: safety.flags, piiRedacted: safety.piiRedacted },
     families: { primary: intent.primaryFamily, detected: [...new Set([...d.families, ...intent.secondaryFamilies])] },
     notices: noticeTexts(d, safety, locale),
-    kit: d.kit && !prev ? { id: d.kit.id, title: t(locale, `kit.${d.kit.id}` as never), items: d.kit.items } : null,
+    kit: kit ? { id: kit.id, title: t(locale, `kit.${kit.id}` as never), items: kit.items } : null,
     problem: d.problem && !prev ? d.problem : null,
     matchTypes, listingFlags: [...listingFlags], funding,
   };
