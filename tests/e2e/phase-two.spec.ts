@@ -7,7 +7,14 @@ test('Phase 2 public layouts fit the requested widths', async ({ page }, testInf
     for (const path of ['/', '/assistant', '/campaigns']) {
       expect((await page.goto(path))?.status()).toBe(200);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${path} at ${width}px`).toBeLessThanOrEqual(1);
-      if (path === '/') await page.screenshot({ path: testInfo.outputPath(`homepage-${width}.png`), fullPage: true, animations: 'disabled' });
+      if (path === '/') {
+        if (process.env.E2E_PHASE2_FIXTURE === '1') {
+          const campaign = page.getByRole('listitem').filter({ hasText: 'Study laptop fixture' });
+          await expect(campaign.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '37');
+          await expect(campaign.getByRole('link')).toHaveAttribute('href', /^\/c\//);
+        }
+        await page.screenshot({ path: testInfo.outputPath(`homepage-${width}.png`), fullPage: true, animations: 'disabled' });
+      }
     }
   }
 });
@@ -166,6 +173,7 @@ test('Phase 2 marketplace fixture filters real rendered campaign cards', async (
   await page.setViewportSize({ width: 390, height: 960 });
   await page.goto('/campaigns');
   await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Campaigns shown' })).toContainText('$763.00');
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);

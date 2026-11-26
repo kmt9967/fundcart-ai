@@ -17,6 +17,12 @@ const campaign = {
   item_price_cents: 50000, own_funds_cents: 10000, target_cents: 40000, owner_id: profile,
 };
 
+const publicCampaigns = [
+  { ...campaign, title: 'Study laptop fixture', category: 'Study', slug: 'market-fixture', image_url: '/stitch/hardware-studio.webp' },
+  { ...campaign, id: '30000000-0000-4000-8000-000000000002', title: 'Audio production equipment fixture', category: 'Audio', slug: 'audio-fixture', image_url: '/stitch/featured-audio.webp', target_cents: 30000 },
+  { ...campaign, id: '30000000-0000-4000-8000-000000000003', title: 'Accessible workspace fixture', category: 'Accessibility', slug: 'workspace-fixture', image_url: '/stitch/featured-workspace.webp', target_cents: 60000 },
+].map(row => ({ ...row, visibility: 'public', moderation_status: 'approved', is_demo_seed: true }));
+
 createServer((request, response) => {
   const url = new URL(request.url, 'http://127.0.0.1');
   let body = [];
@@ -42,11 +48,15 @@ createServer((request, response) => {
     body = !owner || owner === `eq.${profile}` ? [campaign] : [];
   }
   if (request.method === 'GET' && url.pathname === '/rest/v1/campaigns' && url.searchParams.get('visibility') === 'eq.public') {
-    body = [{ ...campaign, title: 'Study laptop fixture', category: 'Study', slug: 'market-fixture',
-      image_url: '/stitch/hardware-studio.webp', visibility: 'public', moderation_status: 'approved' }];
+    const slug = url.searchParams.get('slug')?.slice(3);
+    body = slug ? publicCampaigns.filter(row => row.slug === slug) : publicCampaigns;
   }
   if (request.method === 'GET' && url.pathname === '/rest/v1/campaign_totals') {
-    body = [{ campaign_id: campaignId, raised_cents: 0, supporter_count: 0 }];
+    const raised = [14800, 19500, 42000];
+    const supporters = [4, 5, 8];
+    body = publicCampaigns.map((row, index) => ({ campaign_id: row.id, raised_cents: raised[index], supporter_count: supporters[index] }));
+    const id = url.searchParams.get('campaign_id');
+    if (id?.startsWith('eq.')) body = body.filter(row => row.campaign_id === id.slice(3));
   }
   const paymentId = url.searchParams.get('paypal_order_id')?.slice(3);
   if (request.method === 'GET' && url.pathname === '/rest/v1/payment_orders' && ['FIXTUREDONE123', 'FIXTUREPEND123'].includes(paymentId)) {
