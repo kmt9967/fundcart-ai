@@ -14,7 +14,7 @@ const copy = {
   fr: ['Composer un ensemble', 'Chercher des options', 'Choisir un article', 'Total connu', 'Articles sans prix', 'Budget dépassé', 'Compatibilité, livraison et taxes à confirmer. Chaque article peut être examiné séparément.', 'Aucun article trouvé'],
 } as const;
 
-export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: string; items: string[] }; budgetCents: number | null }) {
+export function BundlePlanner({ kit, budgetCents, accountSaving = false }: { kit: { id: string; title: string; items: string[] }; budgetCents: number | null; accountSaving?: boolean }) {
   const t = useT();
   const f = useFormat();
   const [title, search, select, total, missing, over, disclosure, empty] = copy[useLocale()];
@@ -28,6 +28,11 @@ export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: 
   const optionalItems = new Set(['desk lamp', 'hand mixer', 'cooler box', 'gym bag', 'storage boxes', 'bluetooth speaker']);
   const key = `fundcart:bundle:${kit.id}`;
   const [saved, setSaved] = useState(false);
+  const [name, setName] = useState('');
+  const [accountBundles, setAccountBundles] = useState<{ id: string; name: string; selections: (string | null)[] }[] | null>(null);
+  const [restoreIds, setRestoreIds] = useState<(string | null)[] | null>(null);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState(false);
   const [slots, setSlots] = useState<Record<number, Slot>>({});
   const summary = bundleTotal(kit.items.flatMap((item, index) =>
     optionalItems.has(item) && !slots[index]?.selected ? [] : [slots[index]?.selected?.priceCents]), budgetCents);
@@ -40,6 +45,28 @@ export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: 
       localStorage.setItem(key, JSON.stringify(kit.items.map((_, index) => slots[index]?.selected?.externalId ?? null)));
       setSaved(true);
     } catch { setSaved(false); }
+  }
+  async function sync(method: 'GET' | 'PUT' | 'DELETE', id?: string) {
+    setAccountBusy(true);
+    setAccountError(false);
+    const base = '/api/assistant/bundle/saved';
+    const listUrl = `${base}?kit=${encodeURIComponent(kit.id)}`;
+    try {
+      if (method !== 'GET') {
+        const response = await fetch(method === 'DELETE' ? `${base}?id=${encodeURIComponent(id ?? '')}` : base, {
+          method, headers: { 'Content-Type': 'application/json' },
+          ...(method === 'PUT' ? { body: JSON.stringify({ kitId: kit.id, name, selections: kit.items.map((_, index) => slots[index]?.selected?.externalId ?? restoreIds?.[index] ?? null) }) } : {}),
+        });
+        if (!response.ok) throw new Error('Bundle could not be saved');
+      }
+      const result = await fetch(listUrl, { cache: 'no-store' });
+      if (!result.ok) throw new Error('Bundles unavailable');
+      setAccountBundles(await result.json());
+    } catch {
+      setAccountError(true);
+    } finally {
+      setAccountBusy(false);
+    }
   }
   function update(index: number, patch: Slot) {
     setSlots(previous => ({ ...previous, [index]: { ...previous[index], ...patch } }));
@@ -58,7 +85,8 @@ export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: 
         const ids: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
         if (Array.isArray(ids)) restored = products.find(offer => offer.externalId === ids[index]);
       } catch { /* The current catalog options remain available. */ }
-      update(index, { offers: products, busy: false, selected: slots[index]?.selected ?? restored });
+      const accountOffer = products.find(offer => offer.externalId === restoreIds?.[index]);
+      update(index, { offers: products, busy: false, selected: slots[index]?.selected ?? (restoreIds ? accountOffer : restored) });
     } catch {
       update(index, { busy: false, error: true });
     }
@@ -75,7 +103,10 @@ export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: 
           </div>
           {!!slot?.offers?.length && <label className="text-xs text-mute">
             {select}
-            <select className="input mt-1" value={slot.selected?.externalId ?? ''} onChange={event => update(index, { selected: slot.offers?.find(offer => offer.externalId === event.target.value) })}>
+            <select className="input mt-1" value={slot.selected?.externalId ?? ''} onChange={event => {
+              update(index, { selected: slot.offers?.find(offer => offer.externalId === event.target.value) });
+              setRestoreIds(ids => ids?.map((id, i) => i === index ? null : id) ?? null);
+            }}>
               <option value="">—</option>
               {slot.offers.map(offer => <option key={offer.externalId} value={offer.externalId}>{offer.title} · {f.usd(offer.priceCents)}{offer.merchantDomain ? ` · ${offer.merchantDomain}` : ''}</option>)}
             </select>
@@ -94,5 +125,23 @@ export function BundlePlanner({ kit, budgetCents }: { kit: { id: string; title: 
       {summary.overBudget && <p className="font-semibold text-bad">{over}</p>}
     </div>
     <p className="mt-2 text-xs text-mute">{disclosure}</p><button type="button" className="btn btn-ghost mt-3" onClick={save}>{controls[2]}</button>{saved && <p role="status" className="mt-1 text-xs text-ok">{controls[3]}</p>}
+    {accountSaving && <div className="mt-4 space-y-2 border-t border-line pt-4">
+      <label className="block text-sm">Bundle name<input className="input mt-1" value={name} maxLength={80} onChange={event => setName(event.target.value)} /></label>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primary" disabled={accountBusy || !name.trim()} onClick={() => void sync('PUT')}>Save to account</button>
+        <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => void sync('GET')}>Load saved bundles</button>
+      </div>
+      {accountError && <p role="alert" className="text-sm text-bad">{t('assistant.somethingWrong')}</p>}
+      {accountBundles?.length === 0 && <p className="text-sm text-mute">No saved bundles.</p>}
+      {accountBundles?.map(bundle => <div className="flex flex-wrap items-center gap-2" key={bundle.id}>
+        <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => {
+          setRestoreIds(bundle.selections); setName(bundle.name); setSlots({});
+        }}>{bundle.name}</button>
+        <button type="button" className="btn btn-ghost" disabled={accountBusy} onClick={() => {
+          if (window.confirm(`Delete ${bundle.name}?`)) void sync('DELETE', bundle.id);
+        }}>Delete</button>
+      </div>)}
+      {restoreIds && <p className="text-xs text-mute">Search each component to resolve its saved offer at the current price.</p>}
+    </div>}
   </section>;
 }

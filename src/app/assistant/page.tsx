@@ -36,7 +36,7 @@ async function recentSessions(account: Awaited<ReturnType<typeof currentAccount>
         || row.safety?.notices?.includes('sensitive_purchase') || ids.has(row.id) || (!row.result?.saved && seen.has(state.searchQuery))) return [];
       ids.add(row.id);
       seen.add(state.searchQuery);
-      return [{ id: String(row.id), title: state.category === 'unknown' ? null : state.category, at: String(row.created_at), comparison: Array.isArray(row.result?.comparison) ? row.result.comparison : [] }];
+      return [{ id: String(row.id), title: typeof row.result?.name === 'string' ? row.result.name : state.category === 'unknown' ? null : state.category, at: String(row.created_at), saved: row.result?.saved === true, snapshot: row.result?.saved && Array.isArray(row.result?.offers) ? { shownAt: row.result.shownAt, offers: row.result.offers } : undefined, comparison: Array.isArray(row.result?.comparison) ? row.result.comparison : [] }];
     }).slice(0, 18);
   } catch {
     return [];
@@ -63,10 +63,10 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
       {!!sessions.length && <details className="card mt-4 p-4">
         <summary className="cursor-pointer text-sm font-semibold">{recent}</summary>
         <ul className="mt-2 flex flex-wrap gap-2">
-          {sessions.map(session => <li key={session.id}><Link href={`/assistant?s=${session.id}`} className="btn btn-ghost capitalize">{session.title ?? t('nav.assistant')} <span className="text-xs font-normal text-mute">{date(session.at)}</span></Link><HistoryAction id={session.id} /></li>)}
+          {sessions.map(session => <li key={session.id}><Link href={`/assistant?s=${session.id}`} className="btn btn-ghost capitalize">{session.title ?? t('nav.assistant')} <span className="text-xs font-normal text-mute">{date(session.at)}</span></Link><HistoryAction id={session.id} />{session.saved && <HistoryAction id={session.id} compare={session.comparison} initialName={session.title ?? ''} />}</li>)}
         </ul>
       </details>}
-      <Assistant key={resumeId ?? query} initialQuery={query} resumeId={resumeId} canSaveHistory={!!account} initialComparison={initialComparison} />
+      <Assistant key={resumeId ?? query} initialQuery={query} resumeId={resumeId} canSaveHistory={!!account} initialComparison={initialComparison} historical={sessions.find(session => session.id === resumeId)?.snapshot} />
     </div>
   );
 }

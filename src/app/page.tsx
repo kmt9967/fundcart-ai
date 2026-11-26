@@ -52,6 +52,18 @@ export default async function Home() {
         </div>
       </section>
       <section className="mt-12 border-t border-line pt-10 sm:mt-16 sm:pt-14">
+        <h2 className="h-section">{locale === 'en' ? 'Curated Collections' : t('nav.assistant')}</h2>
+        {locale === 'en' && <p className="mt-1 text-sm text-mute">Editorial spaces and tools.</p>}
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          {([['featured-workspace', 2, 'Creative Workspaces'], ['featured-audio', 1, 'Acoustic Reference']] as const).map(([asset, index, title]) =>
+            <Link key={asset} href={`/assistant?q=${encodeURIComponent(searches[locale][index])}`} className="card group relative isolate flex aspect-[16/10] items-end overflow-hidden p-6 text-white">
+              <Image src={`/stitch/${asset}.webp`} alt="" fill sizes="(max-width: 767px) 90vw, 45vw" className="-z-10 object-cover transition-transform motion-safe:group-hover:scale-105" />
+              <span className="absolute inset-0 -z-10 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
+              <h3 className="text-xl font-bold">{locale === 'en' ? title : searches[locale][index]}</h3>
+            </Link>)}
+        </div>
+      </section>
+      <section className="mt-12 border-t border-line pt-10 sm:mt-16 sm:pt-14">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="h-section">{t('nav.campaigns')}</h2>
           <Link href="/campaigns" className="tap text-sm font-semibold text-brand hover:underline">{t('home.seeAll')}</Link>

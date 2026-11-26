@@ -48,6 +48,13 @@ createServer((request, response) => {
   if (request.method === 'GET' && url.pathname === '/rest/v1/campaign_totals') {
     body = [{ campaign_id: campaignId, raised_cents: 0, supporter_count: 0 }];
   }
+  const paymentId = url.searchParams.get('paypal_order_id')?.slice(3);
+  if (request.method === 'GET' && url.pathname === '/rest/v1/payment_orders' && ['FIXTUREDONE123', 'FIXTUREPEND123'].includes(paymentId)) {
+    const complete = paymentId === 'FIXTUREDONE123';
+    body = [{ id: '50000000-0000-4000-8000-000000000001', user_id: profile, kind: 'contribution', campaign_id: null,
+      paypal_order_id: paymentId, amount_cents: 4150, currency: 'USD', status: complete ? 'COMPLETED' : 'APPROVED',
+      capture_status: complete ? 'COMPLETED' : 'PENDING', capture_id: 'FIXTURECAPTURE', created_at: campaign.created_at, updated_at: campaign.created_at }];
+  }
   response.writeHead(200, { 'Content-Type': 'application/json' });
   response.end(JSON.stringify(body));
 }).listen(3198, '127.0.0.1', () => process.stdout.write('Local Phase 2 catalog fixture ready\n'));

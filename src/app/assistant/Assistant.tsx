@@ -34,7 +34,9 @@ type Result = {
   families?: { primary: string | null; detected: string[] };
 };
 
-export function Assistant({ initialQuery, resumeId, initialComparison = [], canSaveHistory = false }: { initialQuery: string; resumeId?: string; initialComparison?: string[]; canSaveHistory?: boolean }) {
+type Historical = { shownAt: string; offers: { id: string; title: string; merchant: string | null; priceCents: number | null; currency: string; fetchedAt: string; features: string[]; status: string }[] };
+
+export function Assistant({ initialQuery, resumeId, initialComparison = [], canSaveHistory = false, historical }: { initialQuery: string; resumeId?: string; initialComparison?: string[]; canSaveHistory?: boolean; historical?: Historical }) {
   const t = useT(); const locale = useLocale(); const f = useFormat();
   const [prompt, setPrompt] = useState(initialQuery);
   const [refineText, setRefineText] = useState('');
@@ -241,7 +243,7 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
               {refinementForm}
             </div>
 
-            {result.kit && <BundlePlanner key={result.kit.id} kit={result.kit} budgetCents={result.budget.budgetCents} />}
+            {result.kit && <BundlePlanner key={result.kit.id} kit={result.kit} accountSaving={canSaveHistory} budgetCents={result.budget.budgetCents} />}
             {result.requirements.length > 0 && <Requirements result={result} t={t} />}
 
             {suitable.length > 0 && (
@@ -303,6 +305,18 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
           </section>
         )}
 
+        {historical && <section className="card p-5" aria-label="Historical offers">
+          <h2 className="font-bold">Historical offers</h2>
+          <p className="mt-2 text-sm text-mute">{f.date(historical.shownAt)} · Channel3 · Displayed prices are historical, not checkout quotes.</p>
+          <ul className="mt-3 divide-y divide-line">{historical.offers.map(offer => {
+            const refreshed = byId.get(offer.id);
+            return <li key={offer.id} className="py-3 text-sm">
+              <p className="font-semibold" dir="auto">{offer.title}{offer.merchant ? ` · ${offer.merchant}` : ''}</p>
+              <p className="text-mute">Saved <bdi>{f.usd(offer.priceCents)}</bdi> · Current {loading ? '…' : refreshed ? <bdi>{f.usd(refreshed.priceCents)}</bdi> : 'Not in refreshed results'}</p>
+              {!!offer.features.length && <details className="mt-1"><summary>{t('assistant.row.features')}</summary><ul className="mt-1 list-disc ps-5">{offer.features.map((feature, index) => <li key={index} dir="auto">{feature}</li>)}</ul></details>}
+            </li>;
+          })}</ul>
+        </section>}
         {canSaveHistory && result?.kind === 'results' && result.sessionId && <HistoryAction key={result.sessionId} id={result.sessionId} compare={compare} />}
         {compared.length >= 2 && <CompareTable products={compared} onRemove={id => setCompare(ids => ids.filter(value => value !== id))} sessionId={result?.sessionId} ownCents={ownCents} picks={picks} t={t} f={f} />}
       </div>

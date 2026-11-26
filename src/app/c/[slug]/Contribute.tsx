@@ -9,7 +9,7 @@ import type { DictKey } from '@/i18n';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
 
-export function Contribute({ slug, clientId, remainingCents, suggested, receiptsEnabled = false, disclosures = [] }: { slug: string; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean; disclosures?: string[] }) {
+export function Contribute({ slug, campaignTitle, campaignImage, clientId, remainingCents, suggested, receiptsEnabled = false, disclosures = [] }: { slug: string; campaignTitle: string; campaignImage: string | null; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean; disclosures?: string[] }) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const locale = useLocale();
   const [amount, setAmount] = useState(suggested[0] ? String(suggested[0] / 100) : '10');
   const [name, setName] = useState('');
@@ -43,6 +43,14 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
     <div id="support" className="card scroll-mt-20 p-4 sm:p-5">
       <h2 className="font-bold">{t('contrib.title')}</h2>
       <p className="mt-1 text-sm text-mute">{t('contrib.lead')}</p>
+      <div className="mt-4 flex items-center gap-3 rounded-xl border border-line p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {campaignImage && <img src={campaignImage} alt="" className="size-14 shrink-0 rounded-lg object-cover" />}
+        <div className="min-w-0">
+          <p className="wrap-anywhere text-sm font-semibold" dir="auto">{campaignTitle}</p>
+          <p className="text-xs text-mute"><bdi>{f.usd(remainingCents)}</bdi> · {t('camp.toGo')}</p>
+        </div>
+      </div>
       <p className="mt-1 text-xs text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
       <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
         {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-xl border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}

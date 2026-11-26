@@ -167,3 +167,22 @@ test('Phase 2 marketplace fixture filters real rendered campaign cards', async (
   await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toHaveCount(0);
   await expect(page.getByText('No campaigns yet.')).toBeVisible();
 });
+
+test('Phase 2 receipt fixture protects ownership and distinguishes pending captures', async ({ page, baseURL }, testInfo) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
+  await page.goto('/receipt/FIXTUREDONE123');
+  await expect(page.getByText('FIXTURECAPTURE', { exact: true })).toHaveCount(0);
+  const profileId = '10000000-0000-4000-8000-000000000001';
+  const sig = createHmac('sha256', 'phase-two-local-fixture').update(profileId).digest('base64url').slice(0, 32);
+  await page.context().addCookies([{ name: 'fc_uid', value: `${profileId}.${sig}`, url: baseURL }]);
+  await page.goto('/receipt/FIXTUREPEND123');
+  await expect(page.getByText('PENDING', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/verified capture/i)).toHaveCount(0);
+  await page.goto('/receipt/FIXTUREDONE123');
+  await expect(page.getByText('FIXTURECAPTURE', { exact: true })).toBeVisible();
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`receipt-${width}.png`), fullPage: true });
+  }
+});

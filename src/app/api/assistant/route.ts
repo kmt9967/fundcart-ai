@@ -70,9 +70,11 @@ export async function POST(req: Request) {
 
   if (parsed.data.brief && (!prev || prev.pendingFitRequest)) return Response.json({ error: 'An active shopping session is required.' }, { status: 409 });
 
+  const parent = prev ? parsed.data.conversationId : null;
+
   // Sensitive turns are ephemeral, including derived shopping state and diagnostic steps.
   const session = privateTurn ? null : await db().from('ai_sessions').insert({
-    user_id: userId, prompt: safety.redacted, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted },
+    user_id: userId, prompt: safety.redacted, result: { kind: 'pending', parent }, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted },
     policy_version: POLICY_VERSION,
   }).select('id').single();
   if (safety.block) void recordSecurityEvent(safety.flags.some(f => ['injection', 'fake_authority', 'fake_verification'].includes(f)) ? 'injection_flag' : 'safety_block', 'info', bucketId('user', userId), { flags: safety.flags });
@@ -91,7 +93,7 @@ export async function POST(req: Request) {
         if (safety.block) {
           emit({ agent: 'Safety', step: `Request stopped by the safety check (${safety.flags.join(', ')}); no products searched` });
           const result = blockedTurn(safety, locale);
-          if (sessionId) await db().from('ai_sessions').update({ intent: prev, result: { kind: 'blocked', flags: safety.flags }, model: 'rules' }).eq('id', sessionId);
+          if (sessionId) await db().from('ai_sessions').update({ intent: prev, result: { kind: 'blocked', flags: safety.flags, parent }, model: 'rules' }).eq('id', sessionId).eq('result->>kind', 'pending');
           send({ type: 'result', result: { ...result, state: prev, sessionId: prev ? sessionId : null } });
           return;
         }
@@ -101,9 +103,15 @@ export async function POST(req: Request) {
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
           intent: result.state,
-          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, comparable: result.products.map(p => p.externalId), picks: result.picks.map(p => p.externalId), parent: prev ? parsed.data.conversationId : null },
+          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, comparable: result.products.map(p => p.externalId), picks: result.picks.map(p => p.externalId), parent,
+            shownAt: new Date().toISOString(),
+            offers: result.products.map(product => ({
+              id: product.externalId, title: product.title, merchant: product.merchantDomain,
+              priceCents: product.priceCents, currency: product.currency, fetchedAt: product.fetchedAt,
+              features: product.keyFeatures, status: product.evaluation.status,
+            })) },
           model: result.aiUsed ? 'gemini' : 'rules',
-        }).eq('id', sessionId);
+        }).eq('id', sessionId).eq('result->>kind', 'pending');
         send({ type: 'result', result: { ...result, sessionId } });
       } catch {
         send({ type: 'error', error: t(locale, 'assistant.somethingWrong') });

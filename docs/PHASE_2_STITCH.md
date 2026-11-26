@@ -92,3 +92,33 @@ Full parity for all 15 families remains open. In particular, the campaign detail
 The checkout has no isolated hosted Supabase or PayPal Sandbox configuration. To run the remaining acceptance suite, supply an isolated Supabase project with the existing migrations applied, Sandbox app and buyer/merchant accounts, an isolated moderator account, webhook configuration, and a receipt-mail test sink if testing delivery. The loopback tests exercise signed authorization and wizard UI with fixture data. They cannot establish real PayPal capture, receipt delivery, moderation decisions, or human purchase approval.
 
 Continuation verification passed **318 Vitest tests** with two opt-in tests skipped, **10 Chromium fixture and public smoke tests**, TypeScript, the production build, and a full dependency audit with zero vulnerabilities. ESLint reported the existing unused-import warning. Browser checks covered 390, 768, 1024 and 1440 CSS pixels on the public shopping routes and the two dedicated authenticated fixture routes. The marketplace test caught a duplicate accessible name shared by search and filter navigation; the filter landmark now has a distinct label.
+
+## Completion-brief continuation on PR #2
+
+The latest available ZIP remains `C:\Users\BINARY\Downloads\stitch_fundcart_ai_redesign (1).zip` with 44 HTML and 26 PNG exports. This pass added the Stitch collection-panel composition, redesigned the receipt confirmation header, and added real campaign/remaining-goal context to the contribution form and contribution summaries to the creator dashboard. Collection panels reuse the already imported Stitch imagery because the intended collection photography was missing in the supplied render. Dashboard summaries cover only the campaigns loaded by the dashboard.
+
+- [Mobile homepage comparison](evidence/phase-two/homepage-completion-side-by-side.png) and [desktop capture](evidence/phase-two/homepage-completion-1440.png). Collection layout is present. Header, campaigns and content still differ from the supplied export.
+- [Mobile receipt comparison](evidence/phase-two/receipt-completion-side-by-side.png) and [desktop capture](evidence/phase-two/receipt-completion-1440.png). The signed receipt fixture distinguishes pending and completed provider-record states and withholds capture details from an unrelated viewer. Receipt merchant, campaign and event content varies with actual records. No PayPal or mail provider call was made.
+- The earlier 15-screen matrix remains the release acceptance inventory. All rows remain **Partially implemented** for exact visual parity. This pass did not complete per-screen reference comparisons for the other thirteen families.
+
+### Persistence and migration
+
+| Feature | Status | Verification and limitations |
+| --- | --- | --- |
+| Whole-thread removal | Implemented and verified | Migration 007 traverses the owner’s linked turns, clears private shopping contents and removes linked shopping diagnostics. Campaign, payment and security audit records are preserved. Rejects late child/diagnostic writes. Embedded PostgreSQL covers sibling turns, unrelated records and another owner. Links already discarded by older history removal cannot be reconstructed. |
+| Historical saved offers | Implemented, verification pending | New results record server-observed offer identity, displayed price, merchant, currency, structured evaluation state, listed features, and timestamp. Embedded PostgreSQL rejects snapshot mutation; reopening separates the saved price from the refreshed result. Old result sets have no historical snapshot. Authenticated browser and current-price refresh integration remain open. |
+| Named history and comparisons | Partially implemented | Owners can name or rename saved result sets. Comparisons retain offers available in the refreshed result. Whole-thread names independent of result sets are not implemented. |
+| Account bundle persistence | Implemented, verification pending | Authenticated list, named save/update, reopen and delete use an owner-scoped table. Embedded PostgreSQL verifies per-owner uniqueness and denies direct authenticated-role reads. Account UI restores saved IDs against a fresh component search. Cross-device authenticated E2E is pending. |
+| Bundle compatibility and editing | Partially implemented | Existing CPU socket comparison is retained. Unsupported pairs and power requirements remain unknown. Custom component slots and additional verified compatibility axes remain open. |
+
+Apply `007_shopping_persistence.sql` after 006 in an isolated project before running these features against hosted Supabase. Do not apply it to production during this work. No hosted migration was run.
+
+### Isolated acceptance commands
+
+1. Configure a disposable Supabase project with migrations 001–007, a test moderator, an allowed Sandbox-only campaign jurisdiction, and catalog access. Configure `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, the publishable Supabase key, `SESSION_SECRET`, and `CHANNEL3_API_KEY` through local secrets.
+2. Configure `PAYPAL_ENV=sandbox`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_CONTRIBUTION_PAYEE_EMAIL`, and `PAYPAL_STORE_PAYEE_EMAIL` against authorized isolated Sandbox accounts. Route events only to that environment. If testing email, configure a test sink via `RESEND_API_KEY` and `RECEIPT_FROM`.
+3. Build and start the isolated app. Set `E2E_BASE_URL` to that target, with `E2E_PHASE2_FIXTURE` unset. Supply `DEMO_MODERATOR_EMAIL/PASSWORD`, `SANDBOX_SUPPORTER_EMAIL/PASSWORD` and `SANDBOX_CREATOR_BUYER_EMAIL/PASSWORD` separately. Run `npm run test:e2e -- tests/e2e/journey.spec.ts tests/e2e/direct.spec.ts` after confirming authorization to capture Sandbox funds. Keep refund checks opt-in and limited to a capture owned by the test merchant.
+4. Record database status, moderation decision, PayPal order/capture status, webhook reconciliation and receipt evidence separately. Do not count navigation or a mocked response as provider acceptance.
+
+No isolated provider credentials were configured in this checkout. Provider-backed submission, moderation, contribution, receipt delivery and purchase approval remain **Blocked**. Phase 2 and production readiness remain separate. No Phase 3 work was started.
+Local verification for this continuation recorded 320 passing tests and 2 skips, 11 passing Chromium tests, a successful production build, and zero npm audit findings. Lint completed with the existing unused AUTO_HIDE_REPORTS warning. Chromium used isolated fixtures.
