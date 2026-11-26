@@ -5,6 +5,7 @@
 - `npm test` passed 311 tests. Two external or opt-in tests were skipped.
 - `npm run typecheck` and `npm run build` passed. ESLint reported one existing unused import warning.
 - `npm audit --omit=dev` reported zero vulnerabilities.
+- Three Chromium checks passed against the final local build: mobile menu and keyboard focus, page overflow, and English desktop / Urdu mobile ordinal selection using a mocked assistant stream.
 - No production target, hosted database migration or live transaction was used. The new PostgreSQL suite applies migrations 001–006 in a local PGlite instance.
 
 | Group | Scenario and fixture | Expected and observed outcome | Evidence boundary |
@@ -26,6 +27,6 @@
 | O. Merchant failure | WC-072–082 | App blocks certain stale and unavailable campaign purchases | Code reviewed. True stock, fulfillment and merchant quote acceptance pending |
 | P. Outages | WC-143, unavailable shared quota response | Fallback reports degraded status; payment checks can fail closed | `tests/security/rate-limit-outage.test.ts`; provider and distributed recovery not run |
 | Q. Languages | WC-041, WC-043 and WC-045 | Existing language, redaction and money fixtures passed | Unit suite; review locale-specific fraud and sensitive-shopping false negatives |
-| R. Accessible UX | WC-034 and WC-048 | Prior PR browser evidence covers desktop and Urdu mobile assistant UI | Prior baseline evidence only. No new full payment or moderation accessibility run |
+| R. Accessible UX | WC-034 and WC-048 | Desktop and Urdu mobile smoke checks passed on the hardening build | Assistant fixture only. Full payment, moderation and screen-reader journeys remain open |
 
 An initial run failed because the quota fixture omitted the shared-rate-limit result. The assistant now supplies an explicit fail-closed Boolean, and the test fixture matches the rate limiter's contract. The first database test also distinguishes migration execution from live deployment. No test credentials or provider traffic are required.
