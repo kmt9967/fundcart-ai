@@ -32,6 +32,7 @@ export type Product = {
 };
 
 export type SearchParams = {
+  skipCache?: boolean;
   query: string;
   maxPriceCents?: number | null;
   minPriceCents?: number | null;
@@ -123,8 +124,8 @@ export async function searchProducts(params: SearchParams): Promise<{ products: 
   const body = { query, limit, filters, config: { mode: 'default', country: 'US', currency: 'USD' } };
   const cacheKey = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
 
-  const cached = await db().from('search_cache').select('response, created_at').eq('cache_key', cacheKey).maybeSingle();
-  if (cached.data && Date.now() - new Date(cached.data.created_at).getTime() < CACHE_TTL_MS) {
+  const cached = params.skipCache ? null : await db().from('search_cache').select('response, created_at').eq('cache_key', cacheKey).maybeSingle();
+  if (cached?.data && Date.now() - new Date(cached.data.created_at).getTime() < CACHE_TTL_MS) {
     const fetchedAt = cached.data.created_at as string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const products = ((cached.data.response as any).products || []).map((p: any) => normalize(p, fetchedAt)).filter(Boolean) as Product[];
@@ -147,7 +148,7 @@ export async function searchProducts(params: SearchParams): Promise<{ products: 
   if (!res.ok) throw new Error(`Product search failed (${res.status}).`);
   const json = await res.json();
   const fetchedAt = new Date().toISOString();
-  await db().from('search_cache').upsert({ cache_key: cacheKey, response: { products: json.products ?? [] }, created_at: fetchedAt });
+  if (!params.skipCache) await db().from('search_cache').upsert({ cache_key: cacheKey, response: { products: json.products ?? [] }, created_at: fetchedAt });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = (json.products || []).map((p: any) => normalize(p, fetchedAt)).filter(Boolean) as Product[];
   return { products, cached: false, fetchedAt };

@@ -303,7 +303,8 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   if (osPref === 'macos' && !queries.length) queries.push(`${brand}MacBook ${statedTerms}`.trim());
   if (!queries.length) queries.push(`${brand}${state.searchQuery}${color}`.trim());
   const categories = !state.requiresFitVerification && cat?.slugs.length ? cat.slugs : undefined;
-  const plan = queries.slice(0, 2).map(q => ({ query: q, maxPriceCents: cap, categories, includeUsed: state.usedOk === true, limit: 30 }));
+  const skipCache = safety.notices.includes('sensitive_purchase');
+  const plan = queries.slice(0, 2).map(q => ({ query: q, maxPriceCents: cap, categories, includeUsed: state.usedOk === true, limit: 30, skipCache }));
   emit({ agent: 'Research Agent', step: `Searching the live catalog (Channel3) with ${plan.length} targeted ${plan.length === 1 ? 'query' : 'queries'}`, detail: { queries: plan.map(p => p.query), categories: categories || 'any', maxPrice: cap ? formatUSD(cap) : null } });
   const results = await Promise.allSettled(plan.map(p => searchProducts(p)));
   let products: Product[] = []; let fetchedAt = new Date().toISOString(); let cached = true; let calls = plan.length;
@@ -316,16 +317,24 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     brandsExclude: state.brandsExclude, brandsInclude: state.brandsInclude, colors: state.colors, budgetCents, priceCapCents: state.priceCapCents,
     wantsPremium: intent.priceDirection === 'premium', usedOk: state.usedOk,
   };
-  let ranked = rankEvaluated(products.map(p => evaluateProduct(p, ctx)), ctx);
+  const listingFlags = new Set<string>();
+  const evaluateListings = (listings: Product[]) => listings.flatMap(product => {
+    if (listingInjection([product.title, product.description, ...product.keyFeatures].join(' '))) {
+      listingFlags.add(product.externalId);
+      return [];
+    }
+    return [evaluateProduct(product, ctx)];
+  });
+  let ranked = rankEvaluated(evaluateListings(products), ctx);
 
   // Few or no suitable options within the price cap: look above it (and refurbished if acceptable) to find the cheapest adequate.
   const suitableWithin = ranked.suitable.filter(p => cap == null || (p.priceCents ?? Infinity) <= cap);
   if (cap != null && suitableWithin.length < 2 && calls < 3) {
     emit({ agent: 'Research Agent', step: 'Few suitable options in budget, so also checking above it to find the cheapest option that meets your needs' + (state.usedOk !== false ? ' (including used/refurbished listings)' : '') });
     try {
-      const wider = await searchProducts({ query: queries[0], categories, includeUsed: state.usedOk !== false, limit: 30 });
+      const wider = await searchProducts({ query: queries[0], categories, includeUsed: state.usedOk !== false, limit: 30, skipCache });
       calls++; products = [...products, ...wider.products];
-      ranked = rankEvaluated(products.map(p => evaluateProduct(p, ctx)), ctx);
+      ranked = rankEvaluated(evaluateListings(products), ctx);
     } catch { /* keep what we have */ }
   }
   emit({ agent: 'Verification Agent', step: `Checked ${ranked.all.length} listings against ${requirements.filter(r => r.level === 'minimum').length} minimum requirements: ${ranked.suitable.length} suitable, ${ranked.needsVerification.length} need verification, ${ranked.unsuitable.length} rejected`,
@@ -351,8 +360,6 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const cheaper = ranked.cheapestAdequate.filter(id => state.priceCapCents == null
     || (ranked.suitable.find(p => p.externalId === id)?.priceCents ?? Infinity) <= state.priceCapCents);
   const order = mode === 'cheapest_adequate' ? cheaper : bestFit;
-  const listingFlags = ranked.all.filter(p => listingInjection(`${p.title} ${p.description ?? ''}`)).map(p => p.externalId);
-  if (listingFlags.length) emit({ agent: 'Safety', step: `${listingFlags.length} listing(s) contained instruction-like text; it was treated as data and did not affect ranking` });
   const rejections = rejectionSummary(ranked, cheapest?.priceCents ?? null);
   let note = '';
   if (state.ownFundsAmbiguous) note = t(locale, 'budget.ownUnknownCurrency', { raw: state.ownFundsAmbiguous }) + ' ';
@@ -367,11 +374,8 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   note = note.trim();
   emit({ agent: 'Budget Agent', step: 'Calculated budget fit and the funding gap with exact cent arithmetic', detail: { cheapestAdequate: cheapest ? formatUSD(cheapest.priceCents) : 'none', ownFunds: own != null ? formatUSD(own) : 'unknown' } });
 
-  // ---- Explanations (model, grounded in evaluated data, interface language) ----
   const topIds = order.slice(0, 3);
-  const explain = await explainPicks(topIds.map(id => ranked.suitable.find(p => p.externalId === id)!).filter(Boolean), state, profile?.label ?? null, cheapest?.externalId ?? null, locale, allowModel);
-  if (explain.usedModel) emit({ agent: 'Comparison Agent', step: 'Wrote explanations grounded only in the verified listing data' });
-  else if (topIds.length) emit({ agent: 'Comparison Agent', step: 'Explained the picks with rule-based templates' });
+  const explain = explainPicks(topIds.map(id => ranked.suitable.find(p => p.externalId === id)!).filter(Boolean), cheapest?.externalId ?? null, locale);
 
   // Follow-up question (act-or-clarify): high-ticket item without a budget, or OS unknown for a dev profile.
   // The Android testing method changes the hardware more than anything else, so it is asked first.
@@ -392,7 +396,8 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const requestedIds = [...new Set(intent.references.map(n => prev?.lastProductIds[n - 1]).filter((id): id is string => id !== undefined))];
   const missing = requestedIds.filter(id => !ranked.all.some(p => p.externalId === id));
   const referenced = (await Promise.all(missing.map(fetchLiveProduct))).flatMap(offer =>
-    offer.state === 'ok' ? [evaluateProduct(offer.product, ctx)] : []);
+    offer.state === 'ok' ? evaluateListings([offer.product]) : []);
+  if (listingFlags.size) emit({ agent: 'Safety', step: 'Excluded listings containing instruction-like text', detail: { count: listingFlags.size } });
   const visibleProducts = [...ranked.all, ...referenced];
   const availableIds = requestedIds.filter(id => visibleProducts.some(p => p.externalId === id));
   const compareIds = intent.references.length >= 2 && availableIds.length >= 2 ? availableIds : [];
@@ -412,14 +417,14 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     budget: { budgetCents, currency: state.budget?.currency ?? null, raw: state.budget?.raw ?? null, usable: !!state.budget?.usable, ownFundsCents: own, priceCapCents: state.priceCapCents,
       cheapestAdequate: cheapest ? { externalId: cheapest.externalId, priceCents: cheapest.priceCents!, gapCents: own != null ? fundingGap(cheapest.priceCents!, own) : null } : null,
       noneWithinBudget, rejections, note },
-    compareIds, selectedId, aiUsed: usedModel || explain.usedModel,
+    compareIds, selectedId, aiUsed: usedModel,
     dataSource: { provider: 'Channel3', fetchedAt, cached, queries: calls },
     safety: { flags: safety.flags, piiRedacted: safety.piiRedacted },
     families: { primary: intent.primaryFamily, detected: [...new Set([...d.families, ...intent.secondaryFamilies])] },
     notices: noticeTexts(d, safety, locale),
     kit: d.kit && !prev ? { id: d.kit.id, title: t(locale, `kit.${d.kit.id}` as never), items: d.kit.items } : null,
     problem: d.problem && !prev ? d.problem : null,
-    matchTypes, listingFlags, funding,
+    matchTypes, listingFlags: [...listingFlags], funding,
   };
 }
 
@@ -429,33 +434,12 @@ function dedupeReqs(reqs: Requirement[]): Requirement[] {
 }
 
 
-export async function explainPicks(picks: EvaluatedProduct[], state: SessionState, need: string | null, cheapestId: string | null, locale: Locale, allowModel = true): Promise<{ picks: TurnResult['picks']; summary: string; usedModel: boolean }> {
-  if (!picks.length) return { picks: [], summary: t(locale, 'summary.none'), usedModel: false };
-  const data = picks.map(p => ({
-    id: p.externalId, title: p.title, brand: p.brand, price: formatUSD(p.priceCents), tier: p.evaluation.tier, cheapestSuitable: p.externalId === cheapestId,
-    withinBudget: p.evaluation.withinBudget, verifiedSpecs: p.evaluation.checks.filter(c => c.status === 'met').map(c => `${c.field}: ${c.actual}`).slice(0, 6),
-    optionalUpgrade: p.evaluation.overkill?.note ?? null, rating: p.rating,
-  }));
-  const r = !allowModel ? { ok: false as const, error: 'ai_budget' } : await generateJson<{ summary: string; picks: Array<{ id: string; label: string; reason: string; tradeoff: string }> }>({
-    system: SYSTEM_GUARD,
-    prompt: `Need: ${need || state.goal}. Skill level: ${state.skillLevel}. Budget: ${state.budget?.usable ? formatUSD(state.budget.maxCents) : 'not stated'}. Ranking mode: ${state.rankingMode}.
-These products were ALREADY verified by code to meet the minimum requirements. Explain each in 1-2 sentences using ONLY the given fields. Labels like "Best value", "Cheapest suitable", "Best overall". Mention optional upgrades honestly. Write everything in ${LANG_NAME[locale]}, but keep product names, model numbers and units unchanged.
-<product_data>${JSON.stringify(data)}</product_data>`,
-    purpose: 'explain',
-    schema: { type: 'object', properties: { summary: { type: 'string', description: '2 short sentences' }, picks: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, label: { type: 'string' }, reason: { type: 'string' }, tradeoff: { type: 'string' } }, required: ['id', 'label', 'reason', 'tradeoff'] } } }, required: ['summary', 'picks'] },
-    temperature: 0.3,
-    timeoutMs: 14000,
-  });
-  const valid = new Set(picks.map(p => p.externalId));
-  if (r.ok && Array.isArray(r.data.picks)) {
-    const out = r.data.picks.filter(x => x && valid.has(x.id)).slice(0, 3).map(x => ({ externalId: x.id, label: String(x.label).slice(0, 40), reason: String(x.reason).slice(0, 400), tradeoff: String(x.tradeoff || '').slice(0, 300) }));
-    if (out.length) return { picks: out, summary: String(r.data.summary || '').slice(0, 500), usedModel: true };
-  }
-  // Template fallback (localized).
+export function explainPicks(picks: EvaluatedProduct[], cheapestId: string | null, locale: Locale): Pick<TurnResult, 'picks' | 'summary'> {
+  if (!picks.length) return { picks: [], summary: t(locale, 'summary.none') };
   const out = picks.map((p, i) => {
     const specs = p.evaluation.checks.filter(c => c.status === 'met' && c.level === 'minimum').slice(0, 3).map(c => `${c.actual}`).join(', ');
     const label = p.externalId === cheapestId ? t(locale, 'pick.cheapest') : i === 0 ? t(locale, 'pick.best') : p.evaluation.tier === 'recommended' ? t(locale, 'pick.recommended') : t(locale, 'pick.alternative');
     return { externalId: p.externalId, label, reason: t(locale, 'pick.reason', { specs }), tradeoff: p.evaluation.overkill ? t(locale, 'pick.overkill', { extra: formatUSD(p.evaluation.overkill.extraCents) }) : p.evaluation.tier === 'minimum' ? t(locale, 'pick.minimumTier') : t(locale, 'pick.recommendedTier') };
   });
-  return { picks: out, summary: t(locale, 'summary.templated', { n: String(picks.length) }), usedModel: false };
+  return { picks: out, summary: t(locale, 'summary.templated', { n: String(picks.length) }) };
 }
