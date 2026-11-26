@@ -118,6 +118,9 @@ export type SessionState = {
   ownFundsAmbiguous?: string | null;
   language: IntentV2['language'];
   primaryFamily: Family;
+  pendingFitRequest?: string;
+  requiresFitVerification?: boolean;
   lastProductIds: string[];
+  lastOrders?: Record<SessionState['rankingMode'], string[]>;
   lastPrices: Record<string, number>;
 };

@@ -22,6 +22,7 @@ type Result = {
   requirements: Req[]; products: Product[]; bestFit: string[]; cheapestAdequate: string[]; needsVerification: string[]; unsuitable: string[];
   mode: 'best_fit' | 'cheapest_adequate'; picks: Pick[]; summary: string; followUp: string | null;
   budget: { budgetCents: number | null; usable: boolean; raw: string | null; ownFundsCents: number | null; priceCapCents: number | null; cheapestAdequate: { externalId: string; priceCents: number; gapCents: number | null } | null; noneWithinBudget: boolean; rejections: Array<{ label: string; count: number }>; note: string };
+  selectedId?: string;
   compareIds: string[]; aiUsed: boolean; dataSource: { provider: string; fetchedAt: string; cached: boolean; queries: number }; safety: { flags: string[]; piiRedacted: boolean };
   notices?: string[]; kit?: { id: string; title: string; items: string[] } | null; problem?: { id: string; solutions: string[] } | null;
   matchTypes?: Record<string, 'exact' | 'alternative' | 'fit_unconfirmed'>; listingFlags?: string[]; funding?: { available: boolean; mode: string };
@@ -52,7 +53,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
     setLoading(true); setError(null); setEvents([]);
     if (!refine) { setResult(null); setHistory([text]); setCompare([]); } else setHistory(h => [...h, text]);
     try {
-      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, ownFunds: own || null, conversationId, locale, mode: refine ? mode : null }) });
+      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, ownFunds: own || null, conversationId, locale, previousMode: refine ? mode : undefined, mode: refine && mode !== result?.mode ? mode : null }) });
       if (!res.ok || !res.body) { const j = await res.json().catch(() => ({})); throw new Error(j.error || t('assistant.searchFailed')); }
       const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
       for (;;) {
@@ -92,10 +93,21 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
   const rejected = (result?.unsuitable || []).map(id => byId.get(id)).filter((p): p is Product => !!p);
   const ownCents = result?.budget.ownFundsCents ?? null;
   const cheapest = result?.budget.cheapestAdequate ?? null;
+  const selected = result?.selectedId ? byId.get(result.selectedId) : null;
   const compared = compare.map(id => byId.get(id)).filter((p): p is Product => !!p);
   const examples: DictKey[] = ['assistant.ex1', 'assistant.ex2', 'assistant.ex3', 'assistant.ex4'];
 
   const cardProps = { t, f, picks, ownCents, cheapest, compare, setCompare, saved, save, sessionId: result?.sessionId ?? null, fundingAvailable: result?.funding?.available !== false, matchTypes: result?.matchTypes ?? {}, listingFlags: result?.listingFlags ?? [] };
+
+  const refinementForm = (
+    <form className="mt-4 border-t border-line pt-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
+      <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
+      <div className="flex gap-2">
+        <input id="refine" dir="auto" className="input min-w-0 flex-1" value={refineText} onChange={e => setRefineText(e.target.value)} placeholder={t('assistant.refinePlaceholder')} maxLength={300} enterKeyHint="send" />
+        <button className="btn btn-primary min-h-11 shrink-0 px-4" disabled={loading || refineText.trim().length < 2}>{loading ? '…' : t('assistant.refine')}</button>
+      </div>
+    </form>
+  );
 
   return (
     <div className={`mt-6 grid gap-6 sm:mt-8 lg:grid-cols-[1fr_320px] ${compare.length && result ? 'pb-20 lg:pb-0' : ''}`}>
@@ -144,6 +156,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
           <div role="status" className={`card fade-up p-4 text-sm leading-relaxed sm:p-5 ${result.kind === 'blocked' ? 'border-warn/40 bg-sun-soft' : ''}`}>
             <p dir="auto">{result.message}</p>
             {!!result.notices?.length && result.kind !== 'results' && <ul className="mt-2 list-disc space-y-0.5 ps-5 text-xs text-ink-2" data-testid="notices">{result.notices.map(n => <li key={n} dir="auto">{n}</li>)}</ul>}
+            {result.kind === 'clarify' && result.sessionId && refinementForm}
             {result.links.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{result.links.map(l => <Link key={l.href} className="btn btn-ghost min-h-11 px-4 text-sm" href={l.href}>{l.label}</Link>)}</div>}
           </div>
         )}
@@ -196,13 +209,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
                 </div>
               )}
               {result.safety.piiRedacted && <p className="mt-2 text-sm text-warn">{t('assistant.piiRemoved')}</p>}
-              <form className="mt-4 border-t border-line pt-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
-                <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
-                <div className="flex gap-2">
-                  <input id="refine" dir="auto" className="input min-w-0 flex-1" value={refineText} onChange={e => setRefineText(e.target.value)} placeholder={t('assistant.refinePlaceholder')} maxLength={300} enterKeyHint="send" />
-                  <button className="btn btn-primary min-h-11 shrink-0 px-4" disabled={loading || refineText.trim().length < 2}>{loading ? '…' : t('assistant.refine')}</button>
-                </div>
-              </form>
+              {refinementForm}
             </div>
 
             {result.requirements.length > 0 && <Requirements result={result} t={t} />}
@@ -217,6 +224,12 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
                   ))}
                 </div>
               </div>
+            )}
+
+            {selected && (
+              <section aria-label={selected.title} className="max-w-xl">
+                <ProductCard p={selected} i={0} {...cardProps} fundingAvailable={false} />
+              </section>
             )}
 
             <div>

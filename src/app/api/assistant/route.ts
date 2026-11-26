@@ -20,6 +20,7 @@ const Body = z.object({
   /** Previous turn's session id: continues the conversation (server-side memory, owner-checked). */
   conversationId: z.string().uuid().optional().nullable(),
   locale: z.string().optional().nullable(),
+  previousMode: z.enum(['best_fit', 'cheapest_adequate']).optional(),
   mode: z.enum(['best_fit', 'cheapest_adequate']).optional().nullable(),
 });
 
@@ -58,7 +59,10 @@ export async function POST(req: Request) {
   if (parsed.data.conversationId) {
     const row = await db().from('ai_sessions').select('intent, user_id').eq('id', parsed.data.conversationId).maybeSingle();
     const st = row.data?.intent as SessionState | undefined;
-    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) prev = st;
+    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) {
+      const lastOrder = parsed.data.previousMode && st.lastOrders?.[parsed.data.previousMode];
+      prev = lastOrder ? { ...st, lastProductIds: lastOrder } : st;
+    }
   }
 
   // Sensitive purchases are never stored in readable history; flags and policy version are kept for audit.

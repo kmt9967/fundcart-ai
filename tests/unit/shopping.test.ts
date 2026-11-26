@@ -5,7 +5,14 @@ import path from 'node:path';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/db', () => ({ db: () => { throw new Error('db not available in unit tests'); } }));
 
-import { normalize, type Product } from '@/lib/channel3';
+vi.mock('@/lib/channel3', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/channel3')>(),
+  searchProducts: vi.fn(),
+  fetchLiveProduct: vi.fn(),
+}));
+
+import { fetchLiveProduct, normalize, searchProducts, type Product } from '@/lib/channel3';
+import { runTurn } from '@/lib/shopping/pipeline';
 import { extractSpecs, parseCpu } from '@/lib/shopping/specs';
 import { evaluateProduct, rankEvaluated, rejectionSummary, type EvalContext } from '@/lib/shopping/evaluate';
 import { parseIntentFallback, detectLanguage, detectCategory } from '@/lib/shopping/fallback-intent';
@@ -415,5 +422,72 @@ describe('generalises beyond laptops', () => {
     const s = mergeState(null, parseIntentFallback(msg, false), msg, null);
     expect(s.budget?.maxCents).toBe(50000);
     expect(buildRequirements(s).requirements.some(r => r.field === 'gpu_dedicated')).toBe(true);
+  });
+});
+
+describe('shopping turn ranking and compatibility', () => {
+  const turn = (raw: string, prev: SessionState | null = null) => runTurn({
+    raw, prev, ownOverrideCents: null, locale: 'en', modeOverride: null,
+    safety: screenMessage(raw), emit: () => {}, allowModel: false,
+  });
+  const listing = (externalId: string, title: string, priceCents: number, ratingCount = 0): Product => ({
+    ...laptops[0], externalId, title, priceCents, ratingCount, compareAtCents: null,
+  });
+
+  it('keeps budget and specification intent alongside a software use case', () => {
+    const intent = parseIntentFallback('Find a 16GB laptop for Android Studio under $800, not HP', false);
+    expect(intent.primaryFamily).toBe('use_case');
+    expect(intent.secondaryFamilies).toEqual(expect.arrayContaining(['budget_led', 'spec_constrained']));
+    expect(intent.brandsExclude).toContain('hp');
+  });
+
+  it('returns and remembers the same rating-count order', async () => {
+    const products = [listing('popular', 'Popular listing', 50_000, 900), listing('other', 'Other listing', 40_000, 4)];
+    vi.mocked(searchProducts).mockResolvedValue({ products, cached: false, fetchedAt: products[0].fetchedAt });
+    const result = await turn('Show me trending laptops');
+    expect(result.bestFit).toEqual(['popular', 'other']);
+    expect(result.state?.lastProductIds).toEqual(result.bestFit);
+  });
+
+  it('keeps the former top pick out of cheaper results even after a wider search', async () => {
+    const products = [listing('previous', 'Original listing', 50_000), listing('cheaper', 'Alternative listing', 40_000)];
+    vi.mocked(searchProducts).mockResolvedValue({ products, cached: false, fetchedAt: products[0].fetchedAt });
+    const prev = firstState('Find useful items');
+    prev.lastProductIds = ['previous'];
+    prev.lastPrices = { previous: 50_000 };
+    const result = await turn('Cheaper', prev);
+    expect(result.mode).toBe('cheapest_adequate');
+    expect(result.cheapestAdequate).toEqual(['cheaper']);
+  });
+
+  it('resolves a previously displayed listing even when the next search omits it', async () => {
+    const products = [listing('first', 'First listing', 50_000)];
+    vi.mocked(searchProducts).mockResolvedValue({ products, cached: false, fetchedAt: products[0].fetchedAt });
+    vi.mocked(fetchLiveProduct).mockResolvedValue({ state: 'ok', product: listing('second', 'Second listing', 45_000) });
+    const prev = firstState('Find useful items');
+    prev.lastProductIds = ['first', 'second'];
+    const selected = await turn('Show me the second one', prev);
+    expect(selected.selectedId).toBe('second');
+    expect(selected.products.map(p => p.externalId)).toContain('second');
+    const compared = await turn('Compare the first and second', prev);
+    expect(compared.compareIds).toEqual(['first', 'second']);
+    expect(compared.bestFit).toEqual(['first']);
+  });
+
+  it('asks for the model even with an earlier session and keeps title-only fit unverified', async () => {
+    const search = vi.mocked(searchProducts);
+    search.mockClear();
+    const clarify = await turn('Find a charger for my Dell laptop', firstState());
+    expect(clarify.kind).toBe('clarify');
+    expect(search).not.toHaveBeenCalled();
+
+    const products = [listing('charger', 'Charger for Dell XPS 13', 2_500)];
+    search.mockResolvedValue({ products, cached: false, fetchedAt: products[0].fetchedAt });
+    const result = await turn('XPS 13', clarify.state);
+    expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: expect.stringMatching(/charger.*XPS 13/i), categories: undefined }));
+    expect(result.bestFit).toEqual([]);
+    expect(result.needsVerification).toContain('charger');
+    expect(result.matchTypes?.charger).toBe('fit_unconfirmed');
+    expect(result.budget.cheapestAdequate).toBeNull();
   });
 });

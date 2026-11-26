@@ -10,6 +10,7 @@
 // Memory never stores or grants identity, verification or payment authority.
 
 import { INTENT_VERSION, type Constraint, type IntentV2, type Requirement, type SessionState } from './types';
+import { analyzeFamilies } from './families';
 import { detectCurrency, parseBudget, parseOwnFunds, type ParsedMoney } from './money-parse';
 
 /**
@@ -45,6 +46,7 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
   const refining = !!prev && (intent.isRefinement || intent.category === 'unknown' || (intent.category === prev.category && intent.primaryFamily === 'refinement')
     || (intent.noEmulator != null && !!prev.profileId?.startsWith('android_studio')));
   const base: SessionState | null = refining ? prev : null;
+  const requiresFitVerification = !!base?.requiresFitVerification || analyzeFamilies(raw).requiresFitVerification;
 
   // Money: parsed by code from the raw text (and the model's budgetRaw), never taken from model numbers.
   // The model's budgetRaw is only a fallback, and never when it just repeats the money the user already has
@@ -88,7 +90,7 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
     const firstPrice = prev.lastPrices[prev.lastProductIds[0]];
     if (firstPrice) priceCapCents = Math.min(priceCapCents ?? Infinity, firstPrice - 1);
   }
-  if (intent.clearBudget) priceCapCents = null;
+  if (intent.clearBudget || b) priceCapCents = null;
 
   const category = intent.category !== 'unknown' ? intent.category : base?.category || 'unknown';
   const haystack = [intent.goal, intent.searchQuery, ...intent.useCases, ...intent.software, raw].join(' ');
@@ -126,6 +128,7 @@ export function mergeState(prev: SessionState | null, intent: IntentV2, raw: str
     ownFundsAmbiguous,
     language: intent.language,
     primaryFamily: intent.primaryFamily,
+    requiresFitVerification,
     lastProductIds: prev?.lastProductIds || [],
     lastPrices: prev?.lastPrices || {},
   };

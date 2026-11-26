@@ -117,6 +117,7 @@ function applies(r: Requirement, s: Specs): boolean {
 
 export type EvalContext = {
   requirements: Requirement[];
+  fitVerificationReason?: string;
   allowedKinds: string[] | null; // e.g. ["laptop"]; null = category unknown
   categoryNoun: string | null;
   brandsExclude: string[];
@@ -157,6 +158,7 @@ export function evaluateProduct(p: Product, ctx: EvalContext): EvaluatedProduct 
     ...(ctx.usedOk === false && /used|refurbished/.test(specs.condition?.value || '') ? ['Used/refurbished, but you asked for new.'] : []),
   ];
   const unknownReasons = [
+    ...(ctx.fitVerificationReason ? [ctx.fitVerificationReason] : []),
     ...(kindOk === null && ctx.allowedKinds?.length ? [kindNote || 'Product type not confirmed.'] : []),
     ...minChecks.filter(c => c.status === 'unknown').map(c => `${c.label}: ${c.actual === 'Not listed' ? 'not listed' : c.actual} (needs ${c.required}).`),
   ];

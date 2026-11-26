@@ -1,6 +1,6 @@
 import 'server-only';
 import { generateJson, llmAvailable } from '../ai/llm';
-import { searchProducts, type Product } from '../channel3';
+import { fetchLiveProduct, searchProducts, type Product } from '../channel3';
 import { formatUSD, fundingGap } from '../money';
 import { t, type Locale } from '@/i18n';
 import { IntentV2Schema, INTENT_VERSION, FAMILIES, FIELDS, OPS, LANGS, ACTIONS, type IntentV2, type SessionState, type Requirement } from './types';
@@ -198,6 +198,7 @@ export type TurnResult = {
     noneWithinBudget: boolean; rejections: Array<{ label: string; count: number }>; note: string;
   };
   compareIds: string[];
+  selectedId?: string;
   aiUsed: boolean;
   dataSource: { provider: string; fetchedAt: string; cached: boolean; queries: number };
   safety: { flags: string[]; piiRedacted: boolean };
@@ -235,7 +236,9 @@ export function blockedTurn(safety: SafetyResult, locale: Locale): TurnResult {
 const HIGH_TICKET = new Set(['laptop', 'desktop', 'phone', 'tv', 'tablet', 'camera', 'monitor']);
 
 export async function runTurn(opts: { raw: string; prev: SessionState | null; ownOverrideCents: number | null; locale: Locale; modeOverride: 'best_fit' | 'cheapest_adequate' | null; safety: SafetyResult; emit: Emit; allowModel?: boolean; funding?: TurnResult['funding'] }): Promise<TurnResult> {
-  const { raw, prev, locale, emit, safety } = opts;
+  const { prev, locale, emit, safety } = opts;
+  const modelReply = prev?.pendingFitRequest && /^[\p{L}\p{N} .-]{2,45}$/u.test(opts.raw) && /\d/.test(opts.raw) && !/\b(?:under|below|budget|find|show|buy)\b/i.test(opts.raw);
+  const raw = modelReply ? `${prev?.pendingFitRequest} ${opts.raw}` : opts.raw;
   const allowModel = opts.allowModel !== false;
   const funding = opts.funding ?? { available: true, mode: 'sandbox_demo', realMoney: false as const };
   emit({ agent: 'Orchestrator', step: 'Plan: safety check → understand the need → work out requirements → search → verify specs → rank → budget' });
@@ -251,14 +254,15 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
 
   // Deterministic family behaviour (identical with or without the model).
   const pre = analyzeFamilies(raw);
-  if (pre.askFirst && !prev) {
+  if (pre.askFirst) {
     emit({ agent: 'Orchestrator', step: pre.askFirst === 'vehicle' ? 'Safety-critical part: asked for the exact make, model and year before recommending anything' : 'Compatibility item without a model number: asked for the exact model instead of guessing the fit' });
-    return { ...emptyResult('clarify', t(locale, `ask.${pre.askFirst}` as never), null, safety), funding, families: { primary: pre.askFirst === 'vehicle' ? 'replacement' : 'compatibility', detected: pre.families }, notices: noticeTexts(pre, safety, locale) };
+    const pending = { ...mergeState(null, parseIntentFallback(raw, false), raw, opts.ownOverrideCents, locale), pendingFitRequest: raw };
+    return { ...emptyResult('clarify', t(locale, `ask.${pre.askFirst}` as never), pending, safety), funding, families: { primary: pre.askFirst === 'vehicle' ? 'replacement' : 'compatibility', detected: pre.families }, notices: noticeTexts(pre, safety, locale) };
   }
 
   const { intent, usedModel } = await intentStep(raw, prev, locale, emit, allowModel);
   if (intent.injectionSuspected) emit({ agent: 'Safety', step: 'Instruction-like text was ignored; only the shopping request was used' });
-  const state = mergeState(prev, intent, raw, opts.ownOverrideCents, locale);
+  const state = mergeState(modelReply ? null : prev, intent, raw, opts.ownOverrideCents, locale);
   if (opts.modeOverride) state.rankingMode = opts.modeOverride;
   // Spending pressure: no upsell, show the cheapest option that works.
   if (!opts.modeOverride && safety.notices?.includes('spending_pressure')) state.rankingMode = 'cheapest_adequate';
@@ -270,7 +274,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const followUpTurn = !!prev && intent.isRefinement && state.searchQuery.trim().length > 1;
   if (!followUpTurn && state.category === 'unknown' && !profile && (intent.requestedAction === 'ask_clarifying' || intent.primaryFamily === 'vague_exploratory' || !state.searchQuery.trim())) {
     emit({ agent: 'Orchestrator', step: 'Asked one question instead of guessing' });
-    return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel, funding, families: { primary: intent.primaryFamily, detected: d.families }, notices: noticeTexts(d, safety, locale) };
+    return { ...emptyResult('clarify', intent.followUpQuestion || t(locale, 'clarify.category'), state, safety), aiUsed: usedModel, funding, families: { primary: intent.primaryFamily, detected: [...new Set([...d.families, ...intent.secondaryFamilies])] }, notices: noticeTexts(d, safety, locale) };
   }
 
   emit({ agent: 'Requirements Agent', step: profile ? `Applied requirements for “${profile.label}”` : requirements.length ? 'Applied the requirements you stated' : 'No special requirements: ranking by fit, price and ratings',
@@ -284,7 +288,9 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const statedTerms = state.stated.filter(c => c.field === 'ram_gb' || c.field === 'storage_type').map(c => (c.field === 'ram_gb' ? `${c.value}GB RAM` : 'SSD')).join(' ');
   // Kits search the main item first; problems search solution types (never keyword-matching the symptom);
   // comparisons search both named products.
-  const baseQueries = profile ? profile.queries
+  if (d.compatibilityQuery) state.searchQuery = d.compatibilityQuery;
+  const baseQueries = state.requiresFitVerification ? [state.searchQuery]
+    : profile ? profile.queries
     : d.comparison && !prev ? d.comparison
     : d.problem && !prev ? d.problem.solutions.slice(0, 2)
     : d.kit && !prev ? [d.kit.items[0]]
@@ -296,7 +302,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
     .map(q => `${brand}${q}${color}`.replace(/\s+/g, ' ').trim());
   if (osPref === 'macos' && !queries.length) queries.push(`${brand}MacBook ${statedTerms}`.trim());
   if (!queries.length) queries.push(`${brand}${state.searchQuery}${color}`.trim());
-  const categories = cat?.slugs.length ? cat.slugs : undefined;
+  const categories = !state.requiresFitVerification && cat?.slugs.length ? cat.slugs : undefined;
   const plan = queries.slice(0, 2).map(q => ({ query: q, maxPriceCents: cap, categories, includeUsed: state.usedOk === true, limit: 30 }));
   emit({ agent: 'Research Agent', step: `Searching the live catalog (Channel3) with ${plan.length} targeted ${plan.length === 1 ? 'query' : 'queries'}`, detail: { queries: plan.map(p => p.query), categories: categories || 'any', maxPrice: cap ? formatUSD(cap) : null } });
   const results = await Promise.allSettled(plan.map(p => searchProducts(p)));
@@ -305,6 +311,7 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   if (!products.length && results.every(r => r.status === 'rejected')) throw new Error((results[0] as PromiseRejectedResult).reason?.message || 'Product search failed.');
 
   const ctx: EvalContext = {
+    fitVerificationReason: state.requiresFitVerification ? t(locale, 'match.fit_unconfirmed') : undefined,
     requirements, allowedKinds: cat?.kinds ?? (DEVICE_CATEGORIES.has(state.category) ? [state.category] : null), categoryNoun: cat?.noun ?? (state.category !== 'unknown' ? state.category : null),
     brandsExclude: state.brandsExclude, brandsInclude: state.brandsInclude, colors: state.colors, budgetCents, priceCapCents: state.priceCapCents,
     wantsPremium: intent.priceDirection === 'premium', usedOk: state.usedOk,
@@ -331,15 +338,19 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   let mode = state.rankingMode;
   if (!opts.modeOverride && own != null && cheapest && cheapest.priceCents! > own) mode = 'cheapest_adequate'; // affordability problem → minimum fundable need
   state.rankingMode = mode;
-  let order = mode === 'cheapest_adequate' ? ranked.cheapestAdequate : ranked.bestFit;
+  let bestFit = ranked.bestFit;
   // ESCI labels: exact model / alternative / compatibility fit not confirmed (from listing titles only).
   const matchTypes: TurnResult['matchTypes'] = {};
-  for (const p of ranked.all) { const m = matchType(p.title, d); if (m) matchTypes[p.externalId] = m; }
-  if (d.compatTarget && order.some(id => matchTypes[id] === 'exact')) order = [...order.filter(id => matchTypes[id] === 'exact'), ...order.filter(id => matchTypes[id] !== 'exact')];
-  if (d.rankBy && mode === 'best_fit') {
+  for (const p of ranked.all) { const m = state.requiresFitVerification ? 'fit_unconfirmed' : matchType(p.title, d); if (m) matchTypes[p.externalId] = m; }
+  if (d.rankBy) {
     const by = (id: string) => { const p = ranked.all.find(x => x.externalId === id)!; return d.rankBy === 'rating_count' ? (p.ratingCount ?? 0) : p.compareAtCents && p.priceCents && p.compareAtCents > p.priceCents ? (p.compareAtCents - p.priceCents) / p.compareAtCents : 0; };
-    order = [...order].sort((a, b) => by(b) - by(a));
+    bestFit = [...bestFit].sort((a, b) => by(b) - by(a));
+  } else if (d.modelTokens.length && d.families.includes('exact_item')) {
+    bestFit = [...bestFit].sort((a, b) => Number(matchTypes[b] === 'exact') - Number(matchTypes[a] === 'exact'));
   }
+  const cheaper = ranked.cheapestAdequate.filter(id => state.priceCapCents == null
+    || (ranked.suitable.find(p => p.externalId === id)?.priceCents ?? Infinity) <= state.priceCapCents);
+  const order = mode === 'cheapest_adequate' ? cheaper : bestFit;
   const listingFlags = ranked.all.filter(p => listingInjection(`${p.title} ${p.description ?? ''}`)).map(p => p.externalId);
   if (listingFlags.length) emit({ agent: 'Safety', step: `${listingFlags.length} listing(s) contained instruction-like text; it was treated as data and did not affect ranking` });
   const rejections = rejectionSummary(ranked, cheapest?.priceCents ?? null);
@@ -372,29 +383,39 @@ export async function runTurn(opts: { raw: string; prev: SessionState | null; ow
   const profileKey = profile ? (androidUnknown ? 'android_studio_unconfirmed' : profile.id) : null;
 
   // Record the order shown, so "cheaper" / "the second one" resolve against it next turn.
-  const shown = order.slice(0, 9);
-  state.lastProductIds = shown;
-  state.lastPrices = Object.fromEntries(shown.map(id => [id, ranked.all.find(p => p.externalId === id)?.priceCents ?? 0]));
-  const compareIds = intent.references.length >= 2 && prev ? intent.references.map(n => prev.lastProductIds[n - 1]).filter(Boolean) : [];
+  state.lastOrders = { best_fit: bestFit.slice(0, 9), cheapest_adequate: cheaper.slice(0, 9) };
+  state.lastProductIds = state.lastOrders[mode];
+  const shown = new Set(Object.values(state.lastOrders).flat());
+  state.lastPrices = Object.fromEntries(ranked.all.filter(p => shown.has(p.externalId)).map(p => [p.externalId, p.priceCents ?? 0]));
 
-  const keep = new Set([...ranked.bestFit.slice(0, 9), ...ranked.cheapestAdequate.slice(0, 9), ...ranked.needsVerification.slice(0, 6).map(p => p.externalId), ...ranked.unsuitable.slice(0, 10).map(p => p.externalId), ...compareIds]);
-  const client: ClientProduct[] = ranked.all.filter(p => keep.has(p.externalId)).map(p => { const { description: _d, ...rest } = p; void _d; return { ...rest, rank: order.indexOf(p.externalId) }; });
+  // Resolve references against the prior display and keep those offers available even if the new search drops them.
+  const requestedIds = [...new Set(intent.references.map(n => prev?.lastProductIds[n - 1]).filter((id): id is string => id !== undefined))];
+  const missing = requestedIds.filter(id => !ranked.all.some(p => p.externalId === id));
+  const referenced = (await Promise.all(missing.map(fetchLiveProduct))).flatMap(offer =>
+    offer.state === 'ok' ? [evaluateProduct(offer.product, ctx)] : []);
+  const visibleProducts = [...ranked.all, ...referenced];
+  const availableIds = requestedIds.filter(id => visibleProducts.some(p => p.externalId === id));
+  const compareIds = intent.references.length >= 2 && availableIds.length >= 2 ? availableIds : [];
+  const selectedId = intent.references.length === 1 ? availableIds[0] : undefined;
+
+  const keep = new Set([...bestFit.slice(0, 9), ...cheaper.slice(0, 9), ...ranked.needsVerification.slice(0, 6).map(p => p.externalId), ...ranked.unsuitable.slice(0, 10).map(p => p.externalId), ...availableIds]);
+  const client: ClientProduct[] = visibleProducts.filter(p => keep.has(p.externalId)).map(p => { const { description: _d, ...rest } = p; void _d; return { ...rest, rank: order.indexOf(p.externalId) }; });
 
   return {
     kind: 'results', message: null, links: [], state,
     profile: profile ? { id: profile.id, label: t(locale, `profile.${profileKey}` as never) || profile.label, sources: profile.sources, variantNote: profile.variant ? t(locale, `variant.${profileKey}` as never) || profile.variant.note : null, workflow: profile.id.startsWith('android_studio') ? state.androidWorkflow ?? null : undefined } : null,
     requirements: dedupeReqs(requirements).map(r => ({ field: r.field, level: r.level, origin: r.origin, why: r.why, source: r.source, label: r.field, required: fmtRequired(r) })),
     products: client,
-    bestFit: ranked.bestFit.slice(0, 9), cheapestAdequate: ranked.cheapestAdequate.slice(0, 9),
+    bestFit: bestFit.slice(0, 9), cheapestAdequate: cheaper.slice(0, 9),
     needsVerification: ranked.needsVerification.slice(0, 6).map(p => p.externalId), unsuitable: ranked.unsuitable.slice(0, 10).map(p => p.externalId),
     mode, picks: explain.picks, summary: explain.summary, followUp,
     budget: { budgetCents, currency: state.budget?.currency ?? null, raw: state.budget?.raw ?? null, usable: !!state.budget?.usable, ownFundsCents: own, priceCapCents: state.priceCapCents,
       cheapestAdequate: cheapest ? { externalId: cheapest.externalId, priceCents: cheapest.priceCents!, gapCents: own != null ? fundingGap(cheapest.priceCents!, own) : null } : null,
       noneWithinBudget, rejections, note },
-    compareIds, aiUsed: usedModel || explain.usedModel,
+    compareIds, selectedId, aiUsed: usedModel || explain.usedModel,
     dataSource: { provider: 'Channel3', fetchedAt, cached, queries: calls },
     safety: { flags: safety.flags, piiRedacted: safety.piiRedacted },
-    families: { primary: intent.primaryFamily, detected: d.families },
+    families: { primary: intent.primaryFamily, detected: [...new Set([...d.families, ...intent.secondaryFamilies])] },
     notices: noticeTexts(d, safety, locale),
     kit: d.kit && !prev ? { id: d.kit.id, title: t(locale, `kit.${d.kit.id}` as never), items: d.kit.items } : null,
     problem: d.problem && !prev ? d.problem : null,
