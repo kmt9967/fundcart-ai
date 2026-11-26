@@ -16,7 +16,7 @@ export default async function ModerationPage() {
   if (!mod) return <div className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="h-page">{t('admin.title')}</h1><p className="mt-3 text-mute" data-testid="forbidden">{t('admin.forbidden')}</p><Link className="btn btn-primary mt-6" href="/account">{t('auth.signInCta')}</Link></div>;
   const items = await moderationQueue(mod.profileId);
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <h1 className="h-page">{t('admin.title')}</h1>
       <p className="mt-2 text-sm text-ink-2">{t('admin.lead')}</p>
       {items.length === 0 ? <p className="mt-6 text-mute" data-testid="queue-empty">{t('admin.empty')}</p> : (
@@ -42,7 +42,7 @@ export default async function ModerationPage() {
                 <div><dt className="inline font-semibold">{t('mod.outcome')}: </dt><dd className="inline">{c.eligibility?.outcome || '—'}</dd></div>
                 <div><dt className="inline font-semibold">{t('mod.raised')}: </dt><dd className="inline"><bdi>{usd(c.raisedCents)}</bdi></dd></div>
               </dl>
-              <p className="mt-3 line-clamp-5 whitespace-pre-line text-ink-2" dir="auto">{c.story}</p>
+              <details className="mt-3 rounded-lg border border-line p-3"><summary className="cursor-pointer font-semibold text-brand">{t('b.story')}</summary><p className="mt-2 whitespace-pre-line wrap-anywhere text-ink-2" dir="auto">{c.story}</p></details>
               {flags.length > 0 && <p className="mt-2 text-xs" data-testid="mod-reasons"><b>{t('admin.reasons')}:</b> {flags.join(', ')}</p>}
               {c.reports.length > 0 && <div className="mt-2 text-xs"><b>{t('admin.reports')} ({c.reports.length}):</b><ul className="ms-4 list-disc">{c.reports.slice(0, 5).map((r, i) => <li key={i}>{r.reason}{r.details ? `: ${r.details}` : ''}</li>)}</ul></div>}
               {c.history.length > 0 && <div className="mt-2 text-xs text-mute"><b>{t('mod.history')}:</b><ul className="ms-4 list-disc">{c.history.map((h, i) => <li key={i}>{dateTime(h.createdAt)} — {h.body}</li>)}</ul></div>}

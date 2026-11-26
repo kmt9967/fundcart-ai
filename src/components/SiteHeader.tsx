@@ -44,7 +44,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:h-16 sm:px-6" aria-label={t('nav.main')}>
+      <nav className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6" aria-label={t('nav.main')}>
         <Logo />
         <div className="hidden items-center gap-1 text-sm font-semibold text-ink-2 md:flex">
           {nav.map(n => (
@@ -67,7 +67,7 @@ export function SiteHeader() {
       </nav>
       <div id="mobile-menu" ref={panelRef} hidden={!open}
         className="menu-panel absolute inset-x-0 top-full border-b border-line bg-white shadow-[var(--shadow-lift)] md:hidden">
-        <ul className="mx-auto max-w-6xl px-3 py-2">
+        <ul className="mx-auto max-w-[1440px] px-3 py-2">
           {nav.map(n => (
             <li key={n.href}>
               <Link href={n.href} onClick={() => setOpen(false)} aria-current={isActive(n.href) ? 'page' : undefined}

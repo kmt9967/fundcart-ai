@@ -59,6 +59,10 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
       <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
       <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0 [clip:rect(0,0,0,0)]" />
       {disclosures.length > 0 && <ul className="mt-3 list-disc space-y-0.5 rounded-xl bg-paper p-3 ps-6 text-xs text-ink-2" data-testid="disclosures">{disclosures.map(d => <li key={d}>{t(d as DictKey)}</li>)}</ul>}
+      <div className="mt-4 rounded-lg border border-line bg-brand-soft p-3">
+        <p className="text-xs font-semibold text-brand">PayPal Sandbox</p>
+        {cents != null && <p className="mt-1 flex flex-wrap justify-between gap-2 text-sm"><span>{t('contrib.amount')}</span><strong><bdi>{f.usd(cents)}</bdi></strong></p>}
+      </div>
       <div className="mt-4">
         {clientId ? (
           <PayPalCheckout clientId={clientId} disabled={!!invalid || emailInvalid}
