@@ -55,39 +55,47 @@ export default async function ProductDetails({ params, searchParams }: {
   const own = state?.ownFundsCents ?? null;
   const price = product.priceCents;
   const estimate = price != null && own != null ? campaignGap({ priceCents: price, bufferPct: 5, ownFundsCents: own }) : null;
+  const covered = price != null && price > 0 && own != null ? Math.min(100, Math.round(100 * own / price)) : null;
   const canFund = fundingOffer(policy).available && evaluation?.status === 'suitable' && price != null && (estimate == null || estimate.totalCents > 0);
   const resumeLink = state && s ? `/assistant?s=${encodeURIComponent(s)}` : '/assistant';
   const comparison = state && typeof compare === 'string' && compare.length <= 164
     ? [...new Set(compare.split(',').filter(id => validId.test(id)))].slice(0, 4) : [];
   const comparisonLink = comparison.length >= 2 ? `${resumeLink}&compare=${encodeURIComponent(comparison.join(','))}#compare` : resumeLink;
 
-  return <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+  return <div className="mx-auto max-w-6xl px-4 pb-32 pt-4 sm:px-8 sm:py-10">
     <Link href={resumeLink} className="tap text-sm font-semibold text-brand hover:underline">{t('co.back')}</Link>
     <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)] lg:gap-10">
-      <div className="card grid aspect-[4/3] place-items-center overflow-hidden bg-brand-soft">
+      <div className="card grid aspect-[4/3] place-items-center overflow-hidden bg-white sm:aspect-square">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {product.imageUrl ? <img src={product.imageUrl} alt={product.imageAlt || product.title} className="h-full w-full object-contain p-5" /> : <p className="text-sm text-mute">{t('assistant.noImage')}</p>}
       </div>
       <div className="min-w-0">
         <p className="text-sm text-mute" dir="auto">{[product.brand, product.merchantDomain].filter(Boolean).join(' · ') || t('assistant.notListed')}</p>
-        <h1 dir="auto" className="h-page mt-2 wrap-anywhere">{product.title}</h1>
+        <h1 dir="auto" className="mt-1 wrap-anywhere text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-4xl">{product.title}</h1>
         <p className="mt-3 text-3xl font-extrabold text-brand"><bdi>{usd(price)}</bdi></p>
         <p className="mt-2 text-xs text-mute">{t('co.priceRetrieved', { time: dateTime(product.fetchedAt) })}</p>
-        <section className="card mt-5 p-5">
+        {!!product.keyFeatures.length && <ul className="mt-3 flex flex-wrap gap-2">{product.keyFeatures.slice(0, 3).map((feature, index) => <li dir="auto" key={index} className="rounded-lg bg-brand-soft px-2 py-1 text-xs font-semibold text-brand">{feature}</li>)}</ul>}
+        <section className="mt-5 rounded-2xl border border-line bg-brand-soft/50 p-4 sm:p-5">
           <h2 className="font-bold">{t('assistant.row.gap')}</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between gap-3"><dt>{t('b.youHave')}</dt><dd dir="ltr">{own == null ? '—' : usd(own)}</dd></div>
+          <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
+            <div><dt className="text-mute">{t('assistant.row.price')}</dt><dd className="mt-1 font-bold"><bdi>{usd(price)}</bdi></dd></div>
+            <div><dt className="text-mute">{t('b.youHave')}</dt><dd className="mt-1 font-bold"><bdi>{own == null ? '—' : usd(own)}</bdi></dd></div>
+            <div><dt className="text-mute">{t('b.goal')}</dt><dd className="mt-1 font-bold text-brand"><bdi>{estimate ? usd(estimate.totalCents) : '—'}</bdi></dd></div>
+          </dl>
+          {covered != null && <progress className="mt-3 block h-2 w-full accent-brand" value={covered} max={100} aria-label={t('b.youHave')} />}
+          <dl className="mt-4 space-y-2 border-t border-line pt-3 text-sm">
             <div className="flex justify-between gap-3"><dt>{t('trust.gapShipping')}</dt><dd>{t('trust.gapUnquoted')}</dd></div>
             <div className="flex justify-between gap-3"><dt>{t('trust.gapTax')}</dt><dd>{t('trust.gapUnquoted')}</dd></div>
             {estimate && <>
               <div className="flex justify-between gap-3"><dt>{t('trust.gapBuffer', { pct: 5 })}</dt><dd dir="ltr">{usd(estimate.formula.buffer)}</dd></div>
-              <div className="flex justify-between gap-3 border-t border-line pt-2 font-bold"><dt>{t('b.goal')}</dt><dd dir="ltr">{usd(estimate.totalCents)}</dd></div>
             </>}
           </dl>
         </section>
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2 border-t border-line bg-white px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:static sm:mt-5 sm:flex sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0">
           {price != null && <Link className="btn btn-primary" href={`/checkout/${externalId}`}>{t('assistant.buy')}</Link>}
           {canFund && <Link className="btn btn-sun" href={`/campaigns/new?product=${externalId}&s=${s}${own != null ? `&own=${own / 100}` : ''}`}>{t('assistant.fund')}</Link>}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
           <SaveProduct externalId={externalId} />
           <Link href={comparisonLink} className="btn btn-ghost">{t('assistant.compareTitle')}</Link>
         </div>

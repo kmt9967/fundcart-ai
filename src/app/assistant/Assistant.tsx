@@ -509,14 +509,15 @@ function CompareTable({ products, onRemove, sessionId, ownCents, picks, t, f }: 
   ];
   const cols = products.length === 4 ? 'grid-cols-4' : products.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <section id="compare" className="card fade-up scroll-mt-20 p-4 sm:p-5" aria-label={t('assistant.compareAria')}>
-      <h2 className="font-bold">{t('assistant.compareTitle')}</h2>
-      <div className={`mt-4 grid gap-2 ${cols}`}>
-        {products.map(p => <div key={p.externalId} className="min-w-0 rounded-lg border border-line p-2">
+    <section id="compare" className="card fade-up scroll-mt-20 bg-white p-4 sm:p-5" aria-label={t('assistant.compareAria')}>
+      <h2 className="text-2xl font-extrabold tracking-tight text-brand">{t('assistant.compareTitle')}</h2>
+      <div className={`mt-4 grid auto-cols-[minmax(9rem,65%)] grid-flow-col gap-3 overflow-x-auto pb-2 sm:auto-cols-auto sm:grid-flow-row sm:overflow-visible ${products.length === 4 ? 'sm:grid-cols-4' : products.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        {products.map(p => <div key={p.externalId} className="min-w-0 rounded-2xl border border-line bg-white p-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {p.imageUrl && <img src={p.imageUrl} alt="" className="aspect-square w-full object-contain" loading="lazy" />}
+          {p.imageUrl && <img src={p.imageUrl} alt="" className="aspect-square w-full rounded-lg bg-brand-soft/50 object-contain" loading="lazy" />}
           <Link href={productHref(p.externalId, sessionId, products.map(product => product.externalId))} dir="auto" className="block wrap-anywhere text-xs font-bold text-brand hover:underline">{p.title}</Link>
-          <button type="button" className="mt-1 min-h-9 text-xs font-bold text-mute" aria-label={`${t('assistant.clear')} ${p.title}`} onClick={() => onRemove(p.externalId)}>×</button>
+          <p className="mt-1 text-sm font-extrabold text-brand"><bdi>{f.usd(p.priceCents)}</bdi></p>
+          <button type="button" className="mt-1 min-h-11 min-w-11 rounded-lg text-xs font-bold text-mute hover:bg-brand-soft" aria-label={`${t('assistant.clear')} ${p.title}`} onClick={() => onRemove(p.externalId)}>×</button>
         </div>)}
       </div>
       <div className="mt-3 sm:hidden">

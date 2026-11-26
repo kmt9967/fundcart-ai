@@ -56,12 +56,13 @@ test('Phase 2 sends a confirmed brief edit with the previous session', async ({ 
   for (const card of await page.locator('article').all()) await card.getByRole('checkbox', { name: 'Compare' }).check();
   await expect(page.locator('#compare').getByRole('link')).toHaveCount(4);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testInfo.outputPath('workspace-1440.png'), fullPage: true, animations: 'disabled' });
-  await page.setViewportSize({ width: 390, height: 900 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testInfo.outputPath('workspace-390.png'), fullPage: true, animations: 'disabled' });
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`workspace-${width}.png`), fullPage: true, animations: 'disabled' });
+    await page.locator('#compare').screenshot({ path: testInfo.outputPath(`comparison-${width}.png`), animations: 'disabled' });
+  }
 });
 
 
@@ -77,7 +78,12 @@ test('Phase 2 product details connect to affordability, draft and Sandbox checko
   await expect(page.getByText('Unquoted', { exact: true })).toHaveCount(2);
   await expect(page.getByText('$100.00', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-  await page.screenshot({ path: testInfo.outputPath('product-390.png'), fullPage: true, animations: 'disabled' });
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: testInfo.outputPath(`product-${width}.png`), fullPage: true, animations: 'disabled' });
+  }
+  await page.setViewportSize({ width: 390, height: 960 });
   await page.locator('a[href^="/campaigns/new"]').click();
   await expect(page.locator('#campaign-review')).toBeHidden();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -86,7 +92,6 @@ test('Phase 2 product details connect to affordability, draft and Sandbox checko
   await expect(page.locator('#campaign-product')).toBeVisible();
   await page.goBack();
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page.screenshot({ path: testInfo.outputPath('product-1440.png'), fullPage: true, animations: 'disabled' });
   await page.locator('a[href="/checkout/9kpreIm"]').click();
   await expect(page.getByRole('heading', { name: 'Vivobook 15 Laptop' })).toBeVisible();
 });
@@ -161,7 +166,12 @@ test('Phase 2 marketplace fixture filters real rendered campaign cards', async (
   await page.setViewportSize({ width: 390, height: 960 });
   await page.goto('/campaigns');
   await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('marketplace-390.png'), fullPage: true });
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 960 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: testInfo.outputPath(`marketplace-${width}.png`), fullPage: true, animations: 'disabled' });
+  }
+  await page.setViewportSize({ width: 390, height: 960 });
   await page.getByRole('searchbox', { name: 'Search needs' }).fill('headphones');
   await page.getByRole('searchbox', { name: 'Search needs' }).press('Enter');
   await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toHaveCount(0);

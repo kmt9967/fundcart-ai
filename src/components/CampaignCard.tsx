@@ -8,8 +8,8 @@ import { StatusChip } from './StatusChip';
 export async function CampaignCard({ c, editorial = false }: { c: CampaignSummary; editorial?: boolean }) {
   const { t, usd } = await getT();
   return (
-    <Link href={`/c/${c.slug}`} className="card group flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]">
-      <div className={`relative bg-white ${editorial ? 'aspect-square' : 'aspect-[16/10]'}`}>
+    <Link href={`/c/${c.slug}`} className={`card group flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] ${editorial ? "lg:p-4" : ""}`}>
+      <div className={`relative bg-white ${editorial ? 'aspect-square lg:aspect-[16/10] lg:overflow-hidden lg:rounded-lg' : 'aspect-[16/10]'}`}>
         {c.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.imageUrl} alt="" className={`size-full transition group-hover:scale-[1.02] ${editorial ? 'object-cover' : 'object-contain p-6'}`} loading="lazy" />
@@ -17,7 +17,7 @@ export async function CampaignCard({ c, editorial = false }: { c: CampaignSummar
         {editorial && <span className="chip absolute end-2 top-2 bg-white text-brand"><bdi>{c.percent}%</bdi></span>}
         <div className="absolute start-3 top-3 flex gap-1.5"><StatusChip status={c.status} />{c.isDemoSeed && <span className="chip bg-ink/80 text-white">{t('card.demo')}</span>}</div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col border-t border-line p-3 sm:p-5">
+      <div className={`flex min-w-0 flex-1 flex-col border-t border-line p-3 sm:p-5 ${editorial ? "lg:border-0 lg:px-0 lg:pb-0" : ""}`}>
         <p className="text-xs font-semibold text-mute" dir="auto">{c.creatorName}{c.category ? ` · ${c.category}` : ''}</p>
         <h3 className="mt-1 line-clamp-2 font-bold leading-snug" dir="auto">{c.title}</h3>
         <div className="mt-auto pt-4">

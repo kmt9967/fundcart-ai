@@ -12,6 +12,7 @@ test('public pages render with no console errors', async ({ page }) => {
 });
 
 test('assistant streams agent steps and returns real products', async ({ page }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE === '1', 'Requires an isolated catalog provider');
   await page.goto('/assistant');
   await page.getByLabel('Your request').fill('noise cancelling headphones under $200');
   await page.getByRole('button', { name: 'Find options' }).click();
@@ -22,6 +23,7 @@ test('assistant streams agent steps and returns real products', async ({ page })
 });
 
 test('server rejects tampered payment requests', async ({ request }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE === '1', 'Requires isolated Sandbox payment configuration');
   const r1 = await request.post('/api/paypal/orders', { data: { kind: 'contribution', slug: 'does-not-exist', amountCents: 500 } });
   expect(r1.status()).toBe(404);
   const r2 = await request.post('/api/paypal/orders', { data: { kind: 'contribution', slug: 'x', amountCents: 'lots' } });
