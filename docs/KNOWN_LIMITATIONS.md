@@ -16,8 +16,8 @@ safe disabled state, or depend on external approvals, credentials or licensed pr
   handled, but an end-to-end refund has not been exercised.
 - **Pakistan**: third-party sources report that PayPal does not support receiving payments in
   Pakistan; any real deployment there would need a different provider.
-- **Shipping and tax** are not provided by the catalog data; they are shown as $0 "not listed" in the
-  goal formula.
+- **Shipping and tax** are not provided by the catalog data; the campaign builder and public goal breakdown
+  show them as unquoted and exclude them from the estimate.
 - **Delivery confirmation** (OTP/photo) does not exist; FundCart never claims an item was delivered.
 
 ## Trust and verification

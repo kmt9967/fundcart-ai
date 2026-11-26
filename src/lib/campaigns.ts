@@ -11,7 +11,7 @@ export type CampaignRow = {
   deadline: string | null; is_demo_seed: boolean; created_at: string; updated_at: string;
   // Trust fields (migration 005; null/defaults on campaigns created before it).
   country?: string | null; need_category?: string | null; ranking_mode?: string; buffer_cents?: number; shipping_cents?: number; tax_cents?: number;
-  gap_formula?: { price: number; shipping: number; tax: number; buffer: number; bufferPct: number; ownFunds: number; basisPrice?: number; ownerPaysDifferenceCents?: number } | null;
+  gap_formula?: { price: number; shipping: number; tax: number; buffer: number; bufferPct: number; ownFunds: number; shippingListed?: boolean; taxListed?: boolean; basisPrice?: number; ownerPaysDifferenceCents?: number } | null;
   moderation_status?: 'auto_approved' | 'pending_review' | 'approved' | 'rejected' | 'hidden'; moderation_reasons?: string[];
   verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected'; live_price_cents?: number | null; price_rechecked_at?: string | null; policy_version?: string | null;
 };
