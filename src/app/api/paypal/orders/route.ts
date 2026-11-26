@@ -45,6 +45,7 @@ const Body = z.discriminatedUnion('kind', [Contribution, Purchase, Direct]);
 export async function POST(req: Request) {
   const ip = clientKey(req);
   const rl = await sharedRateLimit([['order_ip_min', ip, 8, 60], ['order_ip_hour', ip, 40, 3600]]);
+  if (!rl.shared) return Response.json({ error: 'Payment checks are temporarily unavailable.' }, { status: 503 });
   if (!rl.ok) { void recordSecurityEvent('rate_limited', 'warn', bucketId('ip', ip), { route: 'orders', rule: rl.rule }); return Response.json({ error: 'Too many payment attempts. Please wait a minute.' }, { status: 429 }); }
   const p = Body.safeParse(await req.json().catch(() => null));
   if (!p.success) return Response.json({ error: 'Invalid payment request.' }, { status: 400 });
@@ -63,14 +64,15 @@ export async function POST(req: Request) {
         referenceId: paymentOrderId, customId: snapshotId, description: `Sandbox purchase: ${product.title}`.slice(0, 127),
         itemName: product.title.slice(0, 120), amountCents: product.priceCents, payeeEmail: env.storePayeeEmail || undefined, brandName: 'FundCart Demo Store (Sandbox)',
       });
-      await db().from('purchase_approvals').insert({ campaign_id: null, user_id: userId, product_snapshot_id: snapshotId, amount_cents: product.priceCents, approved_text: 'I approve a PayPal Sandbox checkout for this item. No real product will be purchased.', payment_order_id: null });
       const ins = await db().from('payment_orders').insert({ id: paymentOrderId, kind: 'purchase', campaign_id: null, user_id: userId, paypal_order_id: order.id, amount_cents: product.priceCents, currency: 'USD', payee_email: env.storePayeeEmail || null, status: order.status });
       if (ins.error) throw new Error(ins.error.message);
+      const approved = await db().from('purchase_approvals').insert({ campaign_id: null, user_id: userId, product_snapshot_id: snapshotId, amount_cents: product.priceCents, approved_text: 'I approve a PayPal Sandbox checkout for this item. No real product will be purchased.', payment_order_id: paymentOrderId });
+      if (approved.error) throw new Error('Purchase approval could not be recorded.');
       await logPaymentEvent({ paymentOrderId, paypalOrderId: order.id, source: 'api', eventType: 'purchase.approved_by_user', status: order.status, summary: { amountCents: product.priceCents, snapshotId } });
       return Response.json({ orderId: order.id });
     } catch (e) {
       const err = e as PayPalError;
-      await logPaymentEvent({ source: 'api', eventType: 'order.create_failed', status: 'ERROR', summary: { message: err.message, issue: err.issue, debugId: err.debugId } }).catch(() => {});
+      await logPaymentEvent({ source: 'api', eventType: 'order.create_failed', status: 'ERROR', summary: { issue: err.issue, debugId: err.debugId } }).catch(() => {});
       return Response.json({ error: 'PayPal could not start this payment. Please try again.' }, { status: 502 });
     }
   }
@@ -93,6 +95,7 @@ export async function POST(req: Request) {
         return Response.json({ error: t(locale, allowed.messageKey as never), code: allowed.reason }, { status: 403 });
       }
       const vel = await sharedRateLimit([['contrib_user_campaign', `${userId}:${campaign.id}`, 3, 600], ['contrib_ip_campaign', `${ip}:${campaign.id}`, 5, 600], ['contrib_user_day', userId, 25, 86400]]);
+      if (!vel.shared) return Response.json({ error: 'Payment checks are temporarily unavailable.' }, { status: 503 });
       if (!vel.ok) { void recordSecurityEvent('rate_limited', 'warn', campaign.id, { route: 'contribution', rule: vel.rule }); return Response.json({ error: 'Too many contribution attempts for this campaign. Please wait a few minutes.' }, { status: 429 }); }
       // Duplicate guard: the same open order (same person, campaign and amount in the last 2 minutes) is reused, not created twice.
       const recent = await db().from('payment_orders').select('paypal_order_id').eq('user_id', userId).eq('campaign_id', campaign.id).eq('amount_cents', p.data.amountCents).eq('kind', 'contribution').in('status', ['CREATED', 'PAYER_ACTION_REQUIRED']).gte('created_at', new Date(Date.now() - 120_000).toISOString()).limit(1);
@@ -125,6 +128,7 @@ export async function POST(req: Request) {
     if (campaign.status !== 'goal_reached') return Response.json({ error: campaign.status === 'purchased' ? 'This purchase was already completed.' : 'The funding goal has not been reached with verified contributions yet.' }, { status: 409 });
     if (totals.raisedCents < campaign.target_cents) return Response.json({ error: 'Verified contributions are below the target.' }, { status: 409 });
     // Re-quote before purchase: the live price must still be covered (item price + the disclosed buffer).
+    if (!product?.external_id) return Response.json({ error: 'A current product quote is unavailable.' }, { status: 503 });
     let amount = campaign.item_price_cents;
     if (product?.external_id) {
       const live = await fetchLiveProduct(product.external_id);
@@ -145,6 +149,7 @@ export async function POST(req: Request) {
         await db().from('campaigns').update({ live_price_cents: live.product.priceCents, price_rechecked_at: new Date().toISOString() }).eq('id', campaign.id);
       } else {
         await logPaymentEvent({ source: 'system', eventType: 'purchase.price_recheck_unavailable', status: 'WARN', summary: { campaignId: campaign.id } });
+        return Response.json({ error: 'A current product quote is unavailable.' }, { status: 503 });
       }
     }
     const order = await createOrder({
@@ -153,21 +158,22 @@ export async function POST(req: Request) {
       itemName: (product?.title ?? campaign.title).slice(0, 120), amountCents: amount,
       payeeEmail: env.storePayeeEmail || undefined, brandName: 'FundCart Demo Store (Sandbox)',
     });
-    const approval = await db().from('purchase_approvals').insert({
-      campaign_id: campaign.id, user_id: userId, product_snapshot_id: campaign.product_snapshot_id, amount_cents: amount,
-      approved_text: 'I approve a separate PayPal Sandbox checkout for this item. No real product will be purchased.',
-    }).select('id').single();
     const ins = await db().from('payment_orders').insert({
       id: paymentOrderId, kind: 'purchase', campaign_id: campaign.id, user_id: userId, paypal_order_id: order.id,
       amount_cents: amount, currency: 'USD', payee_email: env.storePayeeEmail || null, status: order.status,
     });
     if (ins.error) throw new Error(ins.error.message);
-    if (approval.data) await db().from('purchase_approvals').update({ payment_order_id: paymentOrderId }).eq('id', approval.data.id);
+    const approval = await db().from('purchase_approvals').insert({
+      payment_order_id: paymentOrderId,
+      campaign_id: campaign.id, user_id: userId, product_snapshot_id: campaign.product_snapshot_id, amount_cents: amount,
+      approved_text: 'I approve a separate PayPal Sandbox checkout for this item. No real product will be purchased.',
+    });
+    if (approval.error) throw new Error('Purchase approval could not be recorded.');
     await logPaymentEvent({ paymentOrderId, paypalOrderId: order.id, source: 'api', eventType: 'purchase.approved_by_user', status: order.status, summary: { amountCents: amount, campaignId: campaign.id } });
     return Response.json({ orderId: order.id });
   } catch (e) {
     const err = e as PayPalError;
-    await logPaymentEvent({ paymentOrderId: null, source: 'api', eventType: 'order.create_failed', status: 'ERROR', summary: { message: err.message, issue: err.issue, debugId: err.debugId } }).catch(() => {});
+    await logPaymentEvent({ paymentOrderId: null, source: 'api', eventType: 'order.create_failed', status: 'ERROR', summary: { issue: err.issue, debugId: err.debugId } }).catch(() => {});
     return Response.json({ error: 'PayPal could not start this payment. Please try again.' }, { status: 502 });
   }
 }

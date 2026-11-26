@@ -34,6 +34,7 @@ export type RateRule = [string, string, number, number];
 
 export async function sharedRateLimit(rules: RateRule[]): Promise<RateResult> {
   let blocked: RateResult | null = null;
+  let allShared = true;
   for (const [scope, subject, limit, windowSec] of rules) {
     const local = rateLimit(`${scope}:${subject}`, limit, windowSec * 1000);
     let shared = true;
@@ -42,14 +43,15 @@ export async function sharedRateLimit(rules: RateRule[]): Promise<RateResult> {
       const r = await db().rpc('rate_limit_hit', { p_bucket: bucketId(scope, subject), p_window_seconds: windowSec, p_limit: limit });
       if (r.error) throw new Error(r.error.message);
       const row = Array.isArray(r.data) ? r.data[0] : r.data;
-      if (row && row.allowed === false) { ok = false; retry = Number(row.retry_after) || windowSec; }
+      if (!row || typeof row.allowed !== 'boolean') throw new Error('Invalid rate-limit response.');
+      if (row.allowed === false) { ok = false; retry = Number(row.retry_after) || windowSec; }
     } catch {
       // Database unavailable or migration not applied yet: this instance's memory decides.
-      shared = false; ok = local.ok; retry = local.retryAfterSec;
+      allShared = false; shared = false; ok = local.ok; retry = local.retryAfterSec;
     }
     if (!ok && !blocked) blocked = { ok: false, retryAfterSec: retry, shared, rule: scope };
   }
-  return blocked ?? { ok: true, retryAfterSec: 0, shared: true };
+  return blocked ? { ...blocked, shared: allShared } : { ok: true, retryAfterSec: 0, shared: allShared };
 }
 
 /** Coarse network of an IP (IPv4 /24, IPv6 /48) so one household or one cloud range counts once. */
