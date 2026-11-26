@@ -1,35 +1,58 @@
+import { z } from 'zod';
 import { verifyWebhook } from '@/lib/paypal';
 import { applyRefund, captureAndRecord, logPaymentEvent } from '@/lib/payments';
 import { toCents } from '@/lib/money';
 
 export const runtime = 'nodejs';
 
-// PayPal webhooks: verified with PayPal's verify-webhook-signature API, deduplicated by event id
-// (unique constraint on payment_events.paypal_event_id), then reconciled against the Orders API.
+const providerId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const envelope = z.object({
+  id: providerId,
+  event_type: z.string().max(100),
+  resource: z.object({
+    id: providerId.optional(),
+    status: z.string().max(50).optional(),
+    amount: z.object({ value: z.string(), currency_code: z.string().regex(/^[A-Z]{3}$/) }).optional(),
+    links: z.array(z.object({ rel: z.string(), href: z.string() })).max(20).optional(),
+    supplementary_data: z.object({ related_ids: z.object({ order_id: providerId.optional() }).optional() }).optional(),
+  }),
+});
+
+// Verify the original envelope before using any parsed fields.
 export async function POST(req: Request) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let event: any;
-  try { event = await req.json(); } catch { return new Response('bad json', { status: 400 }); }
-  const verified = await verifyWebhook(req.headers, event).catch(() => false);
+  const raw: unknown = await req.json().catch(() => null);
+  const parsed = envelope.safeParse(raw);
+  if (!parsed.success) return new Response('bad event', { status: 400 });
+  const verified = await verifyWebhook(req.headers, raw).catch(() => null);
+  if (verified === null) return new Response('verification temporarily unavailable', { status: 503 });
   if (!verified) return new Response('unverified', { status: 401 });
 
-  const type: string = event?.event_type || 'unknown';
-  const resource = event?.resource || {};
-  const orderId: string | undefined = type.startsWith('CHECKOUT.ORDER') ? resource.id : resource?.supplementary_data?.related_ids?.order_id;
-  const fresh = await logPaymentEvent({ paypalOrderId: orderId ?? null, source: 'webhook', eventType: type, paypalEventId: event.id, status: resource.status ?? null, summary: { resourceId: resource.id } });
-  if (!fresh) return Response.json({ duplicate: true }); // already processed
+  const { id, event_type: type, resource } = parsed.data;
+  const orderId = type.startsWith('CHECKOUT.ORDER') ? resource.id : resource.supplementary_data?.related_ids?.order_id;
+  try {
+    if (type === 'PAYMENT.CAPTURE.REFUNDED' || type === 'PAYMENT.CAPTURE.REVERSED') {
+      const reversed = type === 'PAYMENT.CAPTURE.REVERSED';
+      const up = resource.links?.find(link => link.rel === 'up')?.href;
+      const captureId = reversed ? resource.id : up?.match(/\/v2\/payments\/captures\/([A-Za-z0-9_-]{1,128})\/?$/)?.[1];
+      const amount = resource.amount;
+      if (!captureId || !resource.id || !amount || !/^\d{1,9}(\.\d{1,2})?$/.test(amount.value) || toCents(amount.value) === 0) {
+        return new Response('invalid adjustment', { status: 400 });
+      }
+      const outcome = await applyRefund({ eventId: id, resourceId: resource.id, captureId, currency: amount.currency_code, amountCents: toCents(amount.value), reversed });
+      if (outcome === 'missing') return new Response('capture reconciliation pending', { status: 503 });
+      if (outcome === 'mismatch') return new Response('adjustment mismatch', { status: 409 });
+      return Response.json({ ok: true, duplicate: outcome === 'duplicate', unsupported: outcome === 'unsupported' });
+    }
 
-  if (orderId && (type === 'CHECKOUT.ORDER.APPROVED' || type === 'PAYMENT.CAPTURE.COMPLETED')) {
-    await captureAndRecord(orderId, 'webhook');
+    if (type === 'CHECKOUT.ORDER.APPROVED' || type === 'PAYMENT.CAPTURE.COMPLETED') {
+      if (!orderId) return new Response('missing order reference', { status: 400 });
+      const outcome = await captureAndRecord(orderId, { source: 'webhook', reconcileOnly: type === 'PAYMENT.CAPTURE.COMPLETED' });
+      if (outcome.state === 'campaign_closed' || outcome.state === 'approval_required') return Response.json({ ok: true, captureBlocked: true });
+      if (outcome.state !== 'completed') return new Response('order reconciliation pending', { status: 503 });
+    }
+    const fresh = await logPaymentEvent({ paypalOrderId: orderId, source: 'webhook', eventType: type, paypalEventId: id, status: resource.status, summary: { resourceId: resource.id } });
+    return Response.json({ ok: true, duplicate: !fresh });
+  } catch {
+    return new Response('reconciliation temporarily unavailable', { status: 503 });
   }
-  if (type === 'PAYMENT.CAPTURE.REFUNDED' || type === 'PAYMENT.CAPTURE.REVERSED') {
-    // REFUNDED: resource is the refund; its "up" link points at the original capture.
-    // REVERSED: resource is the capture itself.
-    const up = resource?.links?.find((l: { rel: string; href: string }) => l.rel === 'up')?.href as string | undefined;
-    const captureId = type.endsWith('REFUNDED') ? (up?.split('/').pop() || '') : resource.id;
-    let cents = 0;
-    try { cents = toCents(resource?.amount?.value ?? '0'); } catch { cents = 0; }
-    if (captureId) await applyRefund(captureId, cents, type.endsWith('REFUNDED') ? 'REFUNDED' : 'REVERSED');
-  }
-  return Response.json({ ok: true });
 }

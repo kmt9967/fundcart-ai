@@ -8,7 +8,7 @@ people can review it. Everything below runs in PayPal Sandbox; no real money mov
 
 | Layer | What it does | Where |
 |---|---|---|
-| Shared rate limits | Fixed-window counters in Postgres shared by every server instance; buckets are HMAC-hashed (no raw IP, email or user id stored). Falls back to per-instance limits if the database is unreachable | `lib/ratelimit.ts`, `rate_limit_hit()` |
+| Shared rate limits | Fixed-window counters in Postgres shared by every server instance; buckets are HMAC-hashed (no raw IP, email or user id stored). Shopping can fall back to per-instance limits. Payment endpoints require shared limits | `lib/ratelimit.ts`, `rate_limit_hit()` |
 | Assistant quotas | Per-IP per minute and per hour; per-visitor and global daily AI allowance; request size limit | `api/assistant` |
 | Campaign velocity | Per IP (minute, day) and per creator (hour, day); at most three active campaigns per creator; repeated creation within 24 h adds risk | `api/campaigns` |
 | Contribution velocity | Per IP and per user per campaign (10 minutes), per user per day, per IP per hour | `api/paypal/orders` |
@@ -17,7 +17,7 @@ people can review it. Everything below runs in PayPal Sandbox; no real money mov
 | Duplicate-order reuse | The same person, campaign and amount within two minutes reuses the open PayPal order instead of creating another | `api/paypal/orders` |
 | Idempotent capture | PayPal-Request-Id on capture; unique capture id and payment order id; repeated captures reconcile from PayPal's state | `lib/payments.ts` |
 | Amount integrity | Captured amount and currency must equal the server-priced order, otherwise flagged | `lib/payments.ts` |
-| Webhook replay defence | Signature verified via PayPal; events deduplicated by event id | `api/paypal/webhook` |
+| Webhook replay defence | Signature verified via PayPal; refund adjustments deduplicated by event and refund references in the same transaction | `api/paypal/webhook` |
 | Refund/reversal accuracy | Refunds and reversals reduce the verified total; a campaign drops back below goal and purchase locks again | `lib/payments.ts` |
 | Decline-spike alert | Five or more failed captures platform-wide in ten minutes raise an alert event | `lib/payments.ts` |
 | Publication eligibility | Signed-in account required; purpose must fit the need category (otherwise the creator is asked to clarify, three attempts a day, then review); stated intent to deceive, invented story claims, charity/tax/guarantee/medical claims, links, redirects, duplicates, velocity, missing suitability evidence and unverified email all route to a moderator. Only the deterministic engine can publish automatically. Details: [Campaign publication](CAMPAIGN_PUBLICATION.md) | `lib/eligibility.ts`, `api/campaigns` |

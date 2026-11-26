@@ -29,6 +29,8 @@ export type Directive = {
   substituteOf: string | null;
   modelTokens: string[];
   compatTarget: string | null;
+  requiresFitVerification: boolean;
+  compatibilityQuery: string | null;
 };
 
 const KITS: Array<[RegExp, Kit]> = [
@@ -129,7 +131,8 @@ export function analyzeFamilies(raw: string, opts: { budgetCents?: number | null
   let askAlongside: Directive['askAlongside'] = null;
   if (compatTarget && !/\d/.test(compatTarget)) askFirst = 'compat_model';
   else if (compatTarget) notes.add('cap.fitCheck');
-  if (VEHICLE_PART.test(text) && !(/\b(19|20)\d{2}\b/.test(text) && /\b(corolla|civic|city|alto|cultus|swift|camry|accord|mehran|wagon ?r|yaris|sportage|tucson|[a-z]+ \d{3,4})\b/i.test(text))) askFirst = 'vehicle';
+  const vehiclePart = VEHICLE_PART.test(text);
+  if (vehiclePart && !(/\b(19|20)\d{2}\b/.test(text) && /\b(corolla|civic|city|alto|cultus|swift|camry|accord|mehran|wagon ?r|yaris|sportage|tucson|[a-z]+ \d{3,4})\b/i.test(text))) askFirst = 'vehicle';
   if (!askFirst && FIT_ITEMS.test(text) && !SIZE.test(text)) askAlongside = 'size';
 
   let contradiction: Directive['contradiction'] = null;
@@ -142,7 +145,7 @@ export function analyzeFamilies(raw: string, opts: { budgetCents?: number | null
   if (contradiction && !families.includes('contradictory')) families.push('contradictory');
 
   const rankBy: Directive['rankBy'] = families.includes('trend_social_proof') ? 'rating_count' : families.includes('deal_seeking') ? 'discount' : null;
-  return { families: [...new Set(families)], notes: [...notes], askFirst, askAlongside, rankBy, contradiction, kit, problem, comparison, substituteOf, modelTokens: modelTokens(compatTarget || text), compatTarget };
+  return { families: [...new Set(families)], notes: [...notes], askFirst, askAlongside, rankBy, contradiction, kit, problem, comparison, substituteOf, modelTokens: modelTokens(compatTarget || text), compatTarget, compatibilityQuery: compatTarget ? `${compat![1]} for ${compatTarget}` : null, requiresFitVerification: !!compatTarget || vehiclePart };
 }
 
 /** ESCI-style relevance label for a listing: exact model match, compatible fit, or an alternative. */

@@ -60,3 +60,47 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
     expect(overflow, path).toBeLessThanOrEqual(1);
   }
 });
+
+test('assistant shows an ordinal selection on desktop and in Urdu on mobile', async ({ page, baseURL }, testInfo) => {
+  const product = {
+    externalId: 'fixture-second', title: 'Fixture laptop — second result', brand: null, priceCents: 50000,
+    compareAtCents: null, merchantDomain: null, offerUrl: null, imageUrl: null, imageAlt: null,
+    keyFeatures: [], rating: null, ratingCount: null, fetchedAt: '2026-11-26T00:00:00Z',
+    specs: { kind: 'laptop', condition: null }, rank: 0,
+    evaluation: { status: 'suitable', tier: 'minimum', checks: [], unknownReasons: [], failReasons: [], withinBudget: true },
+  };
+  await page.route('**/api/assistant', async route => {
+    const { prompt, conversationId, previousMode } = route.request().postDataJSON();
+    const selection = prompt.includes('second');
+    if (selection) {
+      expect(conversationId).toBe('2f7ebf34-8b38-4d00-9a77-9b77aa20bcfb');
+      expect(previousMode).toBe('best_fit');
+    }
+    const result = {
+      kind: 'results', message: null, links: [], sessionId: '2f7ebf34-8b38-4d00-9a77-9b77aa20bcfb',
+      state: null, profile: null, requirements: [], products: [product], bestFit: [product.externalId],
+      cheapestAdequate: [product.externalId], needsVerification: [], unsuitable: [],
+      mode: 'best_fit', picks: [], summary: '', followUp: null,
+      budget: { usable: false, rejections: [], note: '' },
+      compareIds: [], selectedId: selection ? product.externalId : undefined,
+      dataSource: { provider: 'Channel3', fetchedAt: product.fetchedAt, cached: false, queries: 1 },
+      safety: { flags: [], piiRedacted: false }, funding: { available: false },
+    };
+    await route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'result', result }) + '\n' });
+  });
+
+  for (const mobile of [false, true]) {
+    await page.context().addCookies([{ name: 'fc_lang', value: mobile ? 'ur' : 'en', url: baseURL }]);
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1366, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/assistant?q=Find+a+laptop');
+    const refinement = page.locator('#refine');
+    await refinement.fill('Show the second one');
+    await refinement.press('Enter');
+    const selection = page.getByRole('region', { name: product.title });
+    await expect(selection).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('dir', mobile ? 'rtl' : 'ltr');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await selection.screenshot({ path: testInfo.outputPath(mobile ? 'assistant-ordinal-urdu.png' : 'assistant-ordinal-desktop.png') });
+  }
+});

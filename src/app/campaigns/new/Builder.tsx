@@ -170,6 +170,8 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
               <div className="flex justify-between"><dt className="text-mute">{t('b.livePrice')}</dt><dd className="font-bold">{formatUSD(product.priceCents)}</dd></div>
               <div className="flex justify-between"><dt className="text-mute">{t('b.youHave')}</dt><dd className="font-bold">{ownCents == null ? '—' : `−${formatUSD(ownCents)}`}</dd></div>
               <div className="flex justify-between"><dt className="text-mute">{t('gap.base')}</dt><dd className="font-bold" data-testid="base-gap">{baseGap == null ? '—' : formatUSD(baseGap)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-mute">{t('trust.gapShipping')}</dt><dd>{t('trust.gapUnquoted')}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-mute">{t('trust.gapTax')}</dt><dd>{t('trust.gapUnquoted')}</dd></div>
               {calc && calc.formula.buffer > 0 && <div className="flex justify-between"><dt className="text-mute">{t('trust.gapBuffer', { pct: bufferPct })}</dt><dd className="font-bold" data-testid="buffer">+{formatUSD(calc.formula.buffer)}</dd></div>}
               <div className="flex justify-between border-t border-line pt-2"><dt className="font-semibold">{t('b.goal')}</dt><dd className="text-lg font-extrabold text-sun" data-testid="goal">{gap == null ? '—' : formatUSD(gap)}</dd></div>
             </dl>

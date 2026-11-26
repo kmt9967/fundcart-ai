@@ -119,8 +119,8 @@ export default async function CampaignPage({ params, searchParams }: { params: P
                     {gf ? (
                       <dl className="mt-2 space-y-1">
                         <div className="flex justify-between gap-2"><dt>{t('trust.gapPrice')}</dt><dd><bdi>{usd(gf.basisPrice ?? gf.price)}</bdi></dd></div>
-                        <div className="flex justify-between gap-2"><dt>{t('trust.gapShipping')}</dt><dd><bdi>{usd(gf.shipping)}</bdi></dd></div>
-                        <div className="flex justify-between gap-2"><dt>{t('trust.gapTax')}</dt><dd><bdi>{usd(gf.tax)}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapShipping')}</dt><dd><bdi>{gf.shippingListed === true ? usd(gf.shipping) : t('trust.gapUnquoted')}</bdi></dd></div>
+                        <div className="flex justify-between gap-2"><dt>{t('trust.gapTax')}</dt><dd><bdi>{gf.taxListed === true ? usd(gf.tax) : t('trust.gapUnquoted')}</bdi></dd></div>
                         <div className="flex justify-between gap-2"><dt>{t('trust.gapBuffer', { pct: gf.bufferPct })}</dt><dd><bdi>+{usd(gf.buffer)}</bdi></dd></div>
                         <div className="flex justify-between gap-2"><dt>{t('trust.gapOwn')}</dt><dd><bdi>−{usd(gf.ownFunds)}</bdi></dd></div>
                         <div className="flex justify-between gap-2 border-t border-line pt-1 font-bold"><dt>{t('trust.gapTotal')}</dt><dd><bdi>{usd(c.target_cents)}</bdi></dd></div>

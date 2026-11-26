@@ -1,8 +1,9 @@
 // Deterministic intent parser used when the model is unavailable, and to cross-check the model.
 // Covers English, Urdu (Arabic script), Roman Urdu, Spanish and French shopping vocabulary.
 
-import { INTENT_VERSION, type Constraint, type IntentV2 } from './types';
-import { asciiDigits } from './money-parse';
+import { INTENT_VERSION, type Constraint, type Family, type IntentV2 } from './types';
+import { analyzeFamilies } from './families';
+import { asciiDigits, parseBudget } from './money-parse';
 import { GPU_MIN_VRAM } from './specs';
 
 const CATEGORY_WORDS: Array<[string, RegExp]> = [
@@ -188,11 +189,20 @@ export function parseIntentFallback(raw: string, hasPrior: boolean): IntentV2 {
   // Without a known category the rules cannot name the product, but a message that names one ("Dell Inspiron
   // charger", "fridge for a 70cm space") is still a search, not a vague request. Only genuinely open requests ask.
   const vague = !category && (VAGUE.test(text) || cleaned.split(' ').filter(w => w.length > 2).length < 1);
-  const family: IntentV2['primaryFamily'] = isRefinement ? 'refinement' : compare ? 'comparison' : software.length ? 'use_case' : stated.length ? 'spec_constrained' : CHEAP.test(text) ? 'budget_led' : vague ? 'vague_exploratory' : 'category_browse';
+  const detected = analyzeFamilies(text).families;
+  const moneyConstraint = CHEAP.test(text) || !!parseBudget(text);
+  const language = detectLanguage(text);
+  const family: IntentV2['primaryFamily'] = isRefinement ? 'refinement' : compare ? 'comparison' : software.length ? 'use_case' : stated.length ? 'spec_constrained' : moneyConstraint ? 'budget_led' : detected[0] ?? (vague ? 'vague_exploratory' : 'category_browse');
+  const secondary = new Set<Family>(detected);
+  if (moneyConstraint) secondary.add('budget_led');
+  if (stated.length) secondary.add('spec_constrained');
+  if (software.length) secondary.add('use_case');
+  if (language === 'roman_ur' || language === 'mixed') secondary.add('slang_mixed_language');
+  secondary.delete(family);
   return {
     version: INTENT_VERSION,
     primaryFamily: family,
-    secondaryFamilies: [],
+    secondaryFamilies: [...secondary].slice(0, 3),
     category: category || (software.length ? 'laptop' : 'unknown'),
     productKind: category || software.length ? 'physical' : 'unknown',
     searchQuery: searchQuery.slice(0, 100),
@@ -215,7 +225,7 @@ export function parseIntentFallback(raw: string, hasPrior: boolean): IntentV2 {
     references: refs,
     rankingMode: CHEAPEST.test(text) ? 'cheapest_adequate' : null,
     noEmulator: parseAndroidTesting(text),
-    language: detectLanguage(text),
+    language,
     requestedAction: compare && refs.length >= 2 ? 'compare' : isRefinement ? 'refine' : vague && !software.length ? 'ask_clarifying' : 'find_options',
     missingCritical: [],
     followUpQuestion: null,

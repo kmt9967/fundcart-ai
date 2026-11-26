@@ -2,15 +2,14 @@
 
 FundCart's assistant starts from the job the person needs done, not from a product keyword. It
 works out what a product must be able to do, checks real listings against those requirements and
-explains the result. Code makes every factual and financial decision; the model interprets and
-explains.
+explains the result. Code makes every factual and financial decision; the model interprets the request. Localized templates explain evaluated picks.
 
 ## What the model does and does not do
 
 | Model (Gemini, JSON schema) | Code |
 |---|---|
 | Extract intent: category, use cases, software, skill level, recipient, stated constraints, budget text exactly as written, references ("the second one"), language | Validate the intent; drop unknown fields; cross-check with rule-based parsing (rules win for anything literally in the text) |
-| Write short explanations of products already verified by code | Parse money ("1.2 lac", "80k", "dhai hazar") into integer cents; resolve currency or ask |
+| Interpret a shopper’s stated preferences | Parse money ("1.2 lac", "80k", "dhai hazar") into integer cents; resolve currency or ask |
 | Suggest one follow-up question | Decide when to ask (act-or-clarify rules), apply requirements, rank, compute gaps |
 
 If the model is unavailable, rate-limited or the daily allowance is used up, the same pipeline runs

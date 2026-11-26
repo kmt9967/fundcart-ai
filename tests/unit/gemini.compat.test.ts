@@ -50,8 +50,8 @@ describe.skipIf(!RUN)('Gemini model compatibility (bounded)', () => {
       const ctx = { requirements, allowedKinds: ['laptop'], categoryNoun: 'laptop', brandsExclude: [], brandsInclude: [], colors: [], budgetCents: 70000, priceCapCents: null, wantsPremium: false, usedOk: null };
       const ranked = rankEvaluated(laptops.map((p: never) => evaluateProduct(p, ctx as never)), ctx as never);
       const top = ranked.bestFit.slice(0, 3).map(id => ranked.suitable.find(p => p.externalId === id)!);
-      const ex = await explainPicks(top, state, 'Android Studio', ranked.cheapestAdequateId, 'es');
-      out.explain = { usedModel: ex.usedModel, picks: ex.picks.length, summaryChars: ex.summary.length, idsGrounded: ex.picks.every(p => top.some(t => t.externalId === p.externalId)) };
+      const ex = explainPicks(top, ranked.cheapestAdequateId, 'es');
+      out.explain = { picks: ex.picks.length, summaryChars: ex.summary.length, idsGrounded: ex.picks.every(p => top.some(t => t.externalId === p.externalId)) };
       out.diagnostics = llmDiagnostics().perModel[model];
       out.fallbackReasons = llmDiagnostics().fallbackReasons;
       report[model] = out;
@@ -63,7 +63,6 @@ describe.skipIf(!RUN)('Gemini model compatibility (bounded)', () => {
       expect(a.intent.noEmulator).toBe(true);
       expect(b.usedModel, `${model}: Urdu intent`).toBe(true);
       expect(['ur', 'mixed']).toContain(b.intent.language);
-      expect(ex.usedModel, `${model}: explanation`).toBe(true);
       expect(ex.picks.length).toBeGreaterThan(0);
       expect(ex.picks.every(p => top.some(t => t.externalId === p.externalId))).toBe(true); // only real, evaluated products
       verified.push(model);

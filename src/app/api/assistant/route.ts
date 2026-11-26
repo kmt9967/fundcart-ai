@@ -20,6 +20,7 @@ const Body = z.object({
   /** Previous turn's session id: continues the conversation (server-side memory, owner-checked). */
   conversationId: z.string().uuid().optional().nullable(),
   locale: z.string().optional().nullable(),
+  previousMode: z.enum(['best_fit', 'cheapest_adequate']).optional(),
   mode: z.enum(['best_fit', 'cheapest_adequate']).optional().nullable(),
 });
 
@@ -52,20 +53,26 @@ export async function POST(req: Request) {
 
   // Safety gate first. Card numbers are redacted before the text is stored, logged or sent to a model.
   const safety = screenMessage(parsed.data.prompt);
+  const privateTurn = safety.notices.includes('sensitive_purchase');
 
   // Conversation memory: only the same (signed) guest identity can continue its own session.
   let prev: SessionState | null = null;
-  if (parsed.data.conversationId) {
+  if (!privateTurn && parsed.data.conversationId) {
     const row = await db().from('ai_sessions').select('intent, user_id').eq('id', parsed.data.conversationId).maybeSingle();
     const st = row.data?.intent as SessionState | undefined;
-    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) prev = st;
+    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) {
+      const lastOrder = parsed.data.previousMode && st.lastOrders?.[parsed.data.previousMode];
+      prev = lastOrder ? { ...st, lastProductIds: lastOrder } : st;
+    }
   }
 
-  // Sensitive purchases are never stored in readable history; flags and policy version are kept for audit.
-  const storedPrompt = safety.notices.includes('sensitive_purchase') ? '[sensitive purchase: not stored]' : safety.redacted;
-  const session = await db().from('ai_sessions').insert({ user_id: userId, prompt: storedPrompt, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted }, policy_version: POLICY_VERSION }).select('id').single();
+  // Sensitive turns are ephemeral, including derived shopping state and diagnostic steps.
+  const session = privateTurn ? null : await db().from('ai_sessions').insert({
+    user_id: userId, prompt: safety.redacted, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted },
+    policy_version: POLICY_VERSION,
+  }).select('id').single();
   if (safety.block) void recordSecurityEvent(safety.flags.some(f => ['injection', 'fake_authority', 'fake_verification'].includes(f)) ? 'injection_flag' : 'safety_block', 'info', bucketId('user', userId), { flags: safety.flags });
-  const sessionId = session.data?.id as string | undefined;
+  const sessionId = session?.data?.id as string | undefined;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -85,7 +92,7 @@ export async function POST(req: Request) {
           return;
         }
         if (safety.piiRedacted) emit({ agent: 'Safety', step: 'Removed a card number from the message before processing' });
-        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: budget.ok, funding: fundingOffer(policy) });
+        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: !privateTurn && budget.ok && budget.shared === true, funding: fundingOffer(policy) });
         if (result.listingFlags.length) void recordSecurityEvent('injection_flag', 'info', 'listing', { count: result.listingFlags.length });
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
@@ -94,8 +101,8 @@ export async function POST(req: Request) {
           model: result.aiUsed ? 'gemini' : 'rules',
         }).eq('id', sessionId);
         send({ type: 'result', result: { ...result, sessionId } });
-      } catch (e) {
-        send({ type: 'error', error: e instanceof Error ? e.message : t(locale, 'assistant.somethingWrong') });
+      } catch {
+        send({ type: 'error', error: t(locale, 'assistant.somethingWrong') });
       } finally {
         controller.close();
       }
