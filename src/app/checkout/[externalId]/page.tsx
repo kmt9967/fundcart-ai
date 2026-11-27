@@ -28,7 +28,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ exter
             <p className="mt-3 text-xs text-mute">{t('co.priceRetrieved', { time: dateTime(product.fetchedAt) })}</p>
           </div>
         </div>
-        <DirectCheckout externalId={product.externalId} priceCents={product.priceCents} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} />
+        <DirectCheckout externalId={product.externalId} priceCents={product.priceCents} merchantDomain={product.merchantDomain} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} />
       </div>
     </div>
   );

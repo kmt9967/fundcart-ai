@@ -7,7 +7,8 @@ import { createOrder, PayPalError } from '@/lib/paypal';
 import { logPaymentEvent } from '@/lib/payments';
 import { getCampaignBySlug } from '@/lib/campaigns';
 import { validateContribution, formatUSD } from '@/lib/money';
-import { cleanText, findRecentProduct, saveSnapshot, fetchLiveProduct } from '@/lib/channel3';
+import { cleanText, saveSnapshot, fetchLiveProduct } from '@/lib/channel3';
+import { checkApprovedOffer } from '@/lib/commerce-quote';
 import { sharedRateLimit, clientKey, bucketId } from '@/lib/ratelimit';
 import { canContribute, requestCountry, POLICY_VERSION } from '@/lib/policy';
 import { recordSecurityEvent } from '@/lib/security-events';
@@ -34,11 +35,14 @@ const Purchase = z.object({
   kind: z.literal('purchase'),
   slug: z.string().min(3).max(60),
   confirm: z.literal(true),
+  approvedCents: z.number().int().positive(),
 });
 const Direct = z.object({
   kind: z.literal('direct'),
-  externalId: z.string().min(3).max(40),
+  externalId: z.string().regex(/^[A-Za-z0-9_-]{3,40}$/),
+  merchantDomain: z.string().min(1).max(80),
   confirm: z.literal(true),
+  approvedCents: z.number().int().positive(),
 });
 const Body = z.discriminatedUnion('kind', [Contribution, Purchase, Direct]);
 
@@ -55,9 +59,13 @@ export async function POST(req: Request) {
   // Direct purchase (Journey A): user approves a sandbox checkout for a product without a campaign.
   if (p.data.kind === 'direct') {
     try {
+      const live = await fetchLiveProduct(p.data.externalId);
+      if (live.state === 'unavailable') return Response.json({ error: 'A current product quote is unavailable.' }, { status: 503 });
+      if (live.state === 'gone') return Response.json({ error: 'This item is no longer available.' }, { status: 409 });
+      const product = live.product;
+      const approval = checkApprovedOffer(product, { amountCents: p.data.approvedCents, merchantDomain: p.data.merchantDomain });
+      if (approval !== 'matched' || product.priceCents == null) return Response.json({ error: 'The current offer is unavailable or differs from your approval. Review the item again.', code: 'offer_changed' }, { status: 409 });
       const userId = await ensureUser();
-      const product = await findRecentProduct(p.data.externalId);
-      if (!product || product.priceCents == null) return Response.json({ error: 'This product has no live price.' }, { status: 422 });
       if (product.priceCents > 1_000_000) return Response.json({ error: 'Sandbox demo checkout is limited to $10,000.' }, { status: 422 });
       const snapshotId = await saveSnapshot(product);
       const order = await createOrder({
@@ -129,7 +137,8 @@ export async function POST(req: Request) {
     if (totals.raisedCents < campaign.target_cents) return Response.json({ error: 'Verified contributions are below the target.' }, { status: 409 });
     // Re-quote before purchase: the live price must still be covered (item price + the disclosed buffer).
     if (!product?.external_id) return Response.json({ error: 'A current product quote is unavailable.' }, { status: 503 });
-    let amount = campaign.item_price_cents;
+    const amount = campaign.item_price_cents;
+    if (p.data.approvedCents !== amount) return Response.json({ error: 'Review the current campaign amount before approving checkout.', code: 'offer_changed' }, { status: 409 });
     if (product?.external_id) {
       const live = await fetchLiveProduct(product.external_id);
       const covered = campaign.item_price_cents + Number(campaign.buffer_cents ?? 0);
@@ -145,7 +154,9 @@ export async function POST(req: Request) {
         return Response.json({ error: t(locale, 'trust.priceChanged', { old: formatUSD(campaign.item_price_cents), now: formatUSD(live.product.priceCents) }), code: 'price_changed' }, { status: 409 });
       }
       if (live.state === 'ok') {
-        amount = Math.min(live.product.priceCents!, covered);
+        if (checkApprovedOffer(live.product, { amountCents: amount, merchantDomain: product.merchant_domain }) !== 'matched') {
+          return Response.json({ error: 'The current offer is unavailable or differs from the campaign approval. Review a new quote before buying.', code: 'offer_changed' }, { status: 409 });
+        }
         await db().from('campaigns').update({ live_price_cents: live.product.priceCents, price_rechecked_at: new Date().toISOString() }).eq('id', campaign.id);
       } else {
         await logPaymentEvent({ source: 'system', eventType: 'purchase.price_recheck_unavailable', status: 'WARN', summary: { campaignId: campaign.id } });

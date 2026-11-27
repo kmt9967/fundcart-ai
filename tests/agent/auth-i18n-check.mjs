@@ -48,7 +48,7 @@ if (slug) {
   ok('a forged account cookie is ignored', td.text.includes('Only the campaign’s creator can open its dashboard'), `status ${td.status}`);
   const act = await req(stranger, `/api/campaigns/${slug}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify({ action: 'cancel' }) });
   ok('a stranger cannot cancel the campaign (API)', act.status === 403, `status ${act.status}`);
-  const buy = await req(stranger, '/api/paypal/orders', { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify({ kind: 'purchase', slug, confirm: true }) });
+  const buy = await req(stranger, '/api/paypal/orders', { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify({ kind: 'purchase', slug, confirm: true, approvedCents: 50000 }) });
   ok('a stranger cannot approve the purchase (API)', buy.status === 403, `status ${buy.status}`);
   const upd = await req(stranger, `/api/campaigns/${slug}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify({ action: 'post_update', body: 'not my campaign update' }) });
   ok('a stranger cannot post an update (API)', upd.status === 403, `status ${upd.status}`);

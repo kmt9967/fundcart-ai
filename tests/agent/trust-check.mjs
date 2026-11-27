@@ -186,7 +186,7 @@ if (slug) {
   ok('a signed-in creator cannot open another account’s dashboard', mg.status === 200 && !mg.text.includes('data-testid="ledger"') && mg.text.includes('/account'), `status ${mg.status}`);
   const me = await req(clean, '/me');
   ok('“My FundCart” lists only the signed-in account’s campaigns', me.status === 200 && !me.text.includes(slug));
-  const buyOther = await post(clean, '/api/paypal/orders', { kind: 'purchase', slug, confirm: true }, US);
+  const buyOther = await post(clean, '/api/paypal/orders', { kind: 'purchase', slug, confirm: true, approvedCents: 50000 }, US);
   ok('a signed-in creator cannot start the purchase for another account’s campaign', buyOther.status === 403, `status ${buyOther.status}`);
 }
 
@@ -201,7 +201,7 @@ ok('demo session is not an account: publishing is refused', (await post(demo, '/
 ok('demo session gets no moderator access', (await req(demo, '/api/admin/moderation')).status === 403);
 if (slug) {
   ok('demo session cannot change a real campaign', (await post(demo, `/api/campaigns/${slug}`, { action: 'cancel' })).status === 403);
-  ok('demo session cannot approve another creator’s purchase', (await post(demo, '/api/paypal/orders', { kind: 'purchase', slug, confirm: true }, US)).status === 403);
+  ok('demo session cannot approve another creator’s purchase', (await post(demo, '/api/paypal/orders', { kind: 'purchase', slug, confirm: true, approvedCents: 50000 }, US)).status === 403);
 }
 const fakeDemo = new Jar(`198.51.100.${octet + 5}`); fakeDemo.c.set('fc_demo', `${Math.floor(Date.now() / 1000) + 3600}.abcdefghijkl.${'y'.repeat(43)}`);
 ok('a forged demo cookie does not open the dashboard', !(await req(fakeDemo, '/demo')).text.includes('data-testid="demo-dashboard"'));

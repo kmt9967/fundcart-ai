@@ -52,7 +52,7 @@ export function PurchasePanel(p: { slug: string; status: string; clientId: strin
         <span><Rich text={t('pu.agree', { amount: formatUSD(p.itemPriceCents) })} /></span></label>
       <div className="mt-4">
         <PayPalCheckout clientId={p.clientId} disabled={!agree} label="checkout"
-          body={() => (agree ? { kind: 'purchase', slug: p.slug, confirm: true } : null)}
+          body={() => (agree ? { kind: 'purchase', slug: p.slug, confirm: true, approvedCents: p.itemPriceCents } : null)}
           onResult={r => { setDone(r); router.refresh(); }} />
       </div>
     </div>

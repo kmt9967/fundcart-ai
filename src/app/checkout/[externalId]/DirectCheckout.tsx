@@ -5,15 +5,15 @@ import { PayPalCheckout, type CaptureResult } from '@/components/PayPalCheckout'
 import { useFormat, useT } from '@/i18n/client';
 import { Rich } from '@/components/Rich';
 
-export function DirectCheckout({ externalId, priceCents, clientId }: { externalId: string; priceCents: number; clientId: string }) {
+export function DirectCheckout({ externalId, priceCents, merchantDomain, clientId }: { externalId: string; priceCents: number; merchantDomain: string | null; clientId: string }) {
   const t = useT(); const { usd: formatUSD } = useFormat();
   const [agree, setAgree] = useState(false);
   const [done, setDone] = useState<CaptureResult | null>(null);
   if (done) {
     return (
       <div className="card fade-up border-ok/30 p-4 text-sm sm:p-5" role="status">
-        <p className="text-lg font-extrabold text-ok">{t('dc.verified')}</p>
-        <p className="mt-1 text-ink-2">{t('dc.verifiedBody')}</p>
+        <p className="text-lg font-extrabold">{done.state === 'completed' ? t('dc.verified') : t('contrib.status')}</p>
+        <p className="mt-1 text-ink-2">{done.state === 'completed' ? t('dc.verifiedBody') : t('contrib.confirmedPending')}</p>
         <a className="btn btn-ghost mt-4 w-full" href={`/receipt/${done.orderId}`}>{t('contrib.receipt')}</a>
       </div>
     );
@@ -27,7 +27,7 @@ export function DirectCheckout({ externalId, priceCents, clientId }: { externalI
       </dl>
       <label className="check mt-3"><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
         <span><Rich text={t('dc.agree', { amount: formatUSD(priceCents) })} /></span></label>
-      <div className="mt-4"><PayPalCheckout clientId={clientId} disabled={!agree} label="checkout" body={() => (agree ? { kind: 'direct', externalId, confirm: true } : null)} onResult={setDone} /></div>
+      <div className="mt-4"><PayPalCheckout clientId={clientId} disabled={!agree || !merchantDomain} label="checkout" body={() => (agree && merchantDomain ? { kind: 'direct', externalId, confirm: true, approvedCents: priceCents, merchantDomain } : null)} onResult={setDone} /></div>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export type SearchParams = {
   includeUsed?: boolean;
 };
 
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h — conserves Channel3 credits
+const CACHE_TTL_MS = 15 * 60 * 1000; // Limit stale catalog prices in shopping results
 
 /** Strip control characters / markup and clamp length: product text is untrusted third-party data. */
 export function cleanText(s: unknown, max = 400): string {
@@ -64,7 +64,7 @@ export function normalize(p: any, fetchedAt: string): Product | null {
   const best = usable.find(o => o.availability === 'InStock') || usable[0] || offers[0] || null;
   let priceCents: number | null = null; let compareAtCents: number | null = null;
   try { if (best?.price?.price != null && best.price.currency === 'USD') priceCents = toCents(best.price.price); } catch { priceCents = null; }
-  try { if (best?.price?.compare_at_price) compareAtCents = toCents(best.price.compare_at_price); } catch { compareAtCents = null; }
+  try { if (best?.price?.currency === 'USD' && best.price.compare_at_price) compareAtCents = toCents(best.price.compare_at_price); } catch { compareAtCents = null; }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const img = (Array.isArray(p.images) ? p.images : []).find((i: any) => i?.is_main_image) || p.images?.[0];
   const imageUrl = typeof (img?.cleaned_url || img?.url) === 'string' && /^https:\/\//.test(img.cleaned_url || img.url) ? (img.cleaned_url || img.url) : null;
@@ -106,7 +106,7 @@ function cleanAttributes(a: unknown): Record<string, string[]> {
   return out;
 }
 
-/** Search Channel3 (with a 6h DB cache). Returns normalized products and whether the result came from cache. */
+/** Search Channel3 (with a short-lived DB cache). Returns normalized products and whether the result came from cache. */
 export async function searchProducts(params: SearchParams): Promise<{ products: Product[]; cached: boolean; fetchedAt: string }> {
   const query = cleanText(params.query, 120);
   if (!query) return { products: [], cached: false, fetchedAt: new Date().toISOString() };
@@ -147,6 +147,7 @@ export async function searchProducts(params: SearchParams): Promise<{ products: 
   if (res.status === 429) throw new Error('Product search is rate limited. Please retry in a few seconds.');
   if (!res.ok) throw new Error(`Product search failed (${res.status}).`);
   const json = await res.json();
+  if (!Array.isArray(json?.products)) throw new Error('Product search returned an invalid catalog response.');
   const fetchedAt = new Date().toISOString();
   if (!params.skipCache) await db().from('search_cache').upsert({ cache_key: cacheKey, response: { products: json.products ?? [] }, created_at: fetchedAt });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -176,17 +177,14 @@ export async function findRecentProduct(externalId: string): Promise<Product | n
     const hit = ((r.response as any).products || []).find((p: any) => p?.id === externalId);
     if (hit) return normalize(hit, r.created_at as string);
   }
-  // Fall back to the free product-detail endpoint.
-  const res = await fetch(`https://api.trychannel3.com/v1/products/${encodeURIComponent(externalId)}?country=US&currency=USD`, {
-    headers: { 'x-api-key': env.channel3Key }, signal: AbortSignal.timeout(15000), cache: 'no-store',
-  });
-  if (!res.ok) return null;
-  return normalize(await res.json(), new Date().toISOString());
+  // Fall back to a current product lookup.
+  const live = await fetchLiveProduct(externalId);
+  return live.state === 'ok' ? live.product : null;
 }
 
 /**
  * Live re-check of one product (free product-detail endpoint), used before a campaign purchase so a
- * stale snapshot price is never charged silently. 'gone' = the retailer listing no longer exists.
+ * stale snapshot price is never charged silently. 'gone' = no merchant offer in the requested market.
  */
 export async function fetchLiveProduct(externalId: string): Promise<{ state: 'ok'; product: Product } | { state: 'gone' } | { state: 'unavailable' }> {
   try {
@@ -195,7 +193,7 @@ export async function fetchLiveProduct(externalId: string): Promise<{ state: 'ok
     });
     if (res.status === 404) return { state: 'gone' };
     if (!res.ok) return { state: 'unavailable' };
-    const p = normalize(await res.json(), new Date().toISOString());
-    return p ? { state: 'ok', product: p } : { state: 'unavailable' };
+    const product = normalize(await res.json(), new Date().toISOString());
+    return product?.externalId === externalId ? { state: 'ok', product } : { state: 'unavailable' };
   } catch { return { state: 'unavailable' }; }
 }
