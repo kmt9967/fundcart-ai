@@ -85,6 +85,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 export async function generateJson<T>(opts: {
   system: string;
   prompt: string;
+  image?: { mimeType: 'image/jpeg'; data: string };
   schema: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
@@ -122,7 +123,7 @@ export async function generateJson<T>(opts: {
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key.key },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: opts.system }] },
-            contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
+            contents: [{ role: 'user', parts: [{ text: opts.prompt }, ...(opts.image ? [{ inlineData: opts.image }] : [])] }],
             generationConfig: {
               temperature: opts.temperature ?? 0.3, maxOutputTokens: opts.maxOutputTokens ?? 4096, responseMimeType: 'application/json', responseSchema: opts.schema,
               ...(thinkingLevel() && !noThinking.has(model) ? { thinkingConfig: { thinkingLevel: thinkingLevel() } } : {}),

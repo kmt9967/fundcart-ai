@@ -361,3 +361,67 @@ test('Phase 2 account shopping persists across independent contexts and is priva
     await Promise.all([source.close(), reopened.close(), unrelated.close()]);
   }
 });
+
+
+test('local voice input fills the editable prompt without sending a request', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      processLocally = false;
+      lang = '';
+      onresult?: (event: { results: { transcript: string }[][] }) => void;
+      onend?: () => void;
+      start() {
+        if (!this.processLocally || this.lang !== 'en-US') throw new Error('Wrong voice mode');
+        setTimeout(() => {
+          this.onresult?.({ results: [[{ transcript: 'Find a laptop under $700' }]] });
+          this.onend?.();
+        }, 1);
+      }
+      abort() {}
+    }
+    Object.defineProperty(window, 'SpeechRecognition', { value: FakeRecognition });
+  });
+  let requests = 0;
+  await page.route('**/api/assistant', async route => {
+    requests++;
+    await route.fulfill({ json: {} });
+  });
+  const response = await page.goto('/assistant');
+  expect(response?.headers()['permissions-policy']).toContain('microphone=(self)');
+  await page.getByRole('button', { name: 'Dictate locally' }).click();
+  await expect(page.getByLabel('Your request')).toHaveValue('Find a laptop under $700');
+  expect(requests).toBe(0);
+});
+
+
+test('image-assisted shopping requires an account and leaves the suggestion editable', async ({ page, baseURL }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback account fixture');
+  const api = '/api/assistant/image';
+  expect((await page.request.post(api, { data: 'not an image' })).status()).toBe(401);
+  const payload = `10000000-0000-4000-8000-000000000001.20000000-0000-4000-8000-000000000001.${Math.floor(Date.now() / 1000) + 600}`;
+  const signature = createHmac('sha256', 'phase-two-local-fixture').update(`acct:${payload}`).digest('base64url');
+  await page.context().addCookies([{ name: 'fc_acct', value: `${payload}.${signature}`, url: baseURL }]);
+  expect((await page.request.post(api, { data: 'not an image' })).status()).toBe(415);
+  let imageRequests = 0;
+  let searchRequests = 0;
+  await page.route('**/api/assistant', async route => {
+    searchRequests++;
+    await route.fulfill({ json: {} });
+  });
+  await page.route('**/api/assistant/image', async route => {
+    imageRequests++;
+    expect(route.request().headers()['content-type']).toBe('image/jpeg');
+    const bytes = route.request().postDataBuffer();
+    expect(bytes?.subarray(0, 3).toString('hex')).toBe('ffd8ff');
+    await route.fulfill({ json: { query: 'compact mechanical keyboard' } });
+  });
+  await page.goto('/assistant');
+  const png = await page.evaluate(() => document.createElement('canvas').toDataURL('image/png').split(',')[1]);
+  await page.getByText('Search with a product photo', { exact: true }).click();
+  await page.getByLabel('Search with a product photo').setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  expect(imageRequests).toBe(0);
+  await page.getByRole('button', { name: 'Suggest search terms' }).click();
+  await expect(page.getByLabel('Your request')).toHaveValue('compact mechanical keyboard');
+  expect(imageRequests).toBe(1);
+  expect(searchRequests).toBe(0);
+});

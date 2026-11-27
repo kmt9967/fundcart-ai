@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormat, useLocale, useT } from '@/i18n/client';
 import { HistoryAction } from './HistoryAction';
+import { ImageInput } from './ImageInput';
+import { VoiceInput } from './VoiceInput';
 import { BundlePlanner } from './BundlePlanner';
 import { ShoppingBrief } from './ShoppingBrief';
 import type { BriefPatch } from '@/lib/shopping/brief';
@@ -139,6 +141,7 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
         <input id="refine" dir="auto" className="input min-w-0 flex-1" value={refineText} onChange={e => setRefineText(e.target.value)} placeholder={t('assistant.refinePlaceholder')} maxLength={300} enterKeyHint="send" />
         <button className="btn btn-primary min-h-11 shrink-0 px-4" disabled={loading || refineText.trim().length < 2}>{loading ? '…' : t('assistant.refine')}</button>
       </div>
+      <VoiceInput disabled={loading} onText={text => setRefineText(text.slice(0, 300))} />
     </form>
   );
 
@@ -156,6 +159,8 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
           <label htmlFor="prompt" className="label">{t('assistant.requestLabel')}</label>
           <textarea id="prompt" dir="auto" className="input min-h-24 resize-y" placeholder={t('assistant.placeholder')} value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={600} enterKeyHint="search"
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void run(prompt); } }} />
+          <VoiceInput disabled={loading} onText={text => setPrompt(text.slice(0, 600))} />
+          {canSaveHistory && <ImageInput disabled={loading} onText={setPrompt} />}
           <div className="mt-3 grid grid-cols-[minmax(0,10rem)_1fr] items-end gap-3 sm:flex sm:flex-wrap">
             <div className="sm:w-44">
               <label htmlFor="own" className="label">{t('assistant.haveLabel')}</label>
