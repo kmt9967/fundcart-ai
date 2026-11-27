@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { runTurn, blockedTurn, type AgentEvent } from '@/lib/shopping/pipeline';
 import { screenMessage } from '@/lib/shopping/safety';
+import { ShoppingBriefPatch } from '@/lib/shopping/brief';
 import { INTENT_VERSION, type SessionState } from '@/lib/shopping/types';
 import { db } from '@/lib/db';
 import { ensureUser } from '@/lib/identity';
@@ -15,6 +16,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const Body = z.object({
+  brief: ShoppingBriefPatch.optional(),
   prompt: z.string().trim().min(2).max(600),
   ownFunds: z.union([z.number(), z.string()]).optional().nullable(),
   /** Previous turn's session id: continues the conversation (server-side memory, owner-checked). */
@@ -58,17 +60,21 @@ export async function POST(req: Request) {
   // Conversation memory: only the same (signed) guest identity can continue its own session.
   let prev: SessionState | null = null;
   if (!privateTurn && parsed.data.conversationId) {
-    const row = await db().from('ai_sessions').select('intent, user_id').eq('id', parsed.data.conversationId).maybeSingle();
+    const row = await db().from('ai_sessions').select('intent, user_id, prompt, safety').eq('id', parsed.data.conversationId).maybeSingle();
     const st = row.data?.intent as SessionState | undefined;
-    if (row.data && row.data.user_id === userId && st && st.version === INTENT_VERSION) {
+    if (row.data && row.data.user_id === userId && row.data.prompt !== '[sensitive purchase: not stored]' && !row.data.safety?.notices?.includes('sensitive_purchase') && st && st.version === INTENT_VERSION) {
       const lastOrder = parsed.data.previousMode && st.lastOrders?.[parsed.data.previousMode];
       prev = lastOrder ? { ...st, lastProductIds: lastOrder } : st;
     }
   }
 
+  if (parsed.data.brief && (!prev || prev.pendingFitRequest)) return Response.json({ error: 'An active shopping session is required.' }, { status: 409 });
+
+  const parent = prev ? parsed.data.conversationId : null;
+
   // Sensitive turns are ephemeral, including derived shopping state and diagnostic steps.
   const session = privateTurn ? null : await db().from('ai_sessions').insert({
-    user_id: userId, prompt: safety.redacted, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted },
+    user_id: userId, prompt: safety.redacted, result: { kind: 'pending', parent }, safety: { flags: safety.flags, notices: safety.notices, piiRedacted: safety.piiRedacted },
     policy_version: POLICY_VERSION,
   }).select('id').single();
   if (safety.block) void recordSecurityEvent(safety.flags.some(f => ['injection', 'fake_authority', 'fake_verification'].includes(f)) ? 'injection_flag' : 'safety_block', 'info', bucketId('user', userId), { flags: safety.flags });
@@ -87,19 +93,25 @@ export async function POST(req: Request) {
         if (safety.block) {
           emit({ agent: 'Safety', step: `Request stopped by the safety check (${safety.flags.join(', ')}); no products searched` });
           const result = blockedTurn(safety, locale);
-          if (sessionId) await db().from('ai_sessions').update({ intent: prev, result: { kind: 'blocked', flags: safety.flags }, model: 'rules' }).eq('id', sessionId);
+          if (sessionId) await db().from('ai_sessions').update({ intent: prev, result: { kind: 'blocked', flags: safety.flags, parent }, model: 'rules' }).eq('id', sessionId).eq('result->>kind', 'pending');
           send({ type: 'result', result: { ...result, state: prev, sessionId: prev ? sessionId : null } });
           return;
         }
         if (safety.piiRedacted) emit({ agent: 'Safety', step: 'Removed a card number from the message before processing' });
-        const result = await runTurn({ raw: safety.redacted, prev, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: !privateTurn && budget.ok && budget.shared === true, funding: fundingOffer(policy) });
+        const result = await runTurn({ raw: safety.redacted, prev, brief: parsed.data.brief, ownOverrideCents: ownOverride, locale, modeOverride: parsed.data.mode ?? null, safety, emit, allowModel: !privateTurn && budget.ok && budget.shared === true, funding: fundingOffer(policy) });
         if (result.listingFlags.length) void recordSecurityEvent('injection_flag', 'info', 'listing', { count: result.listingFlags.length });
         emit({ agent: 'Orchestrator', step: t(locale, 'assistant.doneStep') });
         if (sessionId) await db().from('ai_sessions').update({
           intent: result.state,
-          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, picks: result.picks.map(p => p.externalId), parent: prev ? parsed.data.conversationId : null },
+          result: { kind: result.kind, bestFit: result.bestFit, cheapestAdequate: result.cheapestAdequate, comparable: result.products.map(p => p.externalId), picks: result.picks.map(p => p.externalId), parent,
+            shownAt: new Date().toISOString(),
+            offers: result.products.map(product => ({
+              id: product.externalId, title: product.title, merchant: product.merchantDomain,
+              priceCents: product.priceCents, currency: product.currency, fetchedAt: product.fetchedAt,
+              features: product.keyFeatures, status: product.evaluation.status,
+            })) },
           model: result.aiUsed ? 'gemini' : 'rules',
-        }).eq('id', sessionId);
+        }).eq('id', sessionId).eq('result->>kind', 'pending');
         send({ type: 'result', result: { ...result, sessionId } });
       } catch {
         send({ type: 'error', error: t(locale, 'assistant.somethingWrong') });

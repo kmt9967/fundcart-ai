@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useFormat, useLocale, useT } from '@/i18n/client';
+import { HistoryAction } from './HistoryAction';
+import { BundlePlanner } from './BundlePlanner';
+import { ShoppingBrief } from './ShoppingBrief';
+import type { BriefPatch } from '@/lib/shopping/brief';
+import type { SessionState } from '@/lib/shopping/types';
 import type { DictKey } from '@/i18n';
 
 type AgentEvent = { agent: string; step: string; detail?: Record<string, unknown>; at: string };
@@ -17,7 +22,7 @@ type Pick = { externalId: string; label: string; reason: string; tradeoff: strin
 type Req = { field: string; level: 'minimum' | 'recommended' | 'premium'; origin: 'stated' | 'official' | 'derived' | 'ai'; why: string; source?: { title: string; url: string }; required: string };
 type Result = {
   kind: 'results' | 'clarify' | 'blocked' | 'support'; message: string | null; links: Array<{ href: string; label: string }>; sessionId?: string | null;
-  state: { turn: number; brandsExclude: string[]; budget: { maxCents: number | null; usable: boolean; raw: string | null } | null; priceCapCents: number | null } | null;
+  state: SessionState | null;
   profile: { id: string; label: string; sources: Array<{ title: string; url: string }>; variantNote: string | null; workflow?: 'device' | 'emulator' | null } | null;
   requirements: Req[]; products: Product[]; bestFit: string[]; cheapestAdequate: string[]; needsVerification: string[]; unsuitable: string[];
   mode: 'best_fit' | 'cheapest_adequate'; picks: Pick[]; summary: string; followUp: string | null;
@@ -29,8 +34,12 @@ type Result = {
   families?: { primary: string | null; detected: string[] };
 };
 
-export function Assistant({ initialQuery }: { initialQuery: string }) {
+type Historical = { shownAt: string; offers: { id: string; title: string; merchant: string | null; priceCents: number | null; currency: string; fetchedAt: string; features: string[]; status: string }[] };
+
+export function Assistant({ initialQuery, resumeId, initialComparison = [], canSaveHistory = false, historical }: { initialQuery: string; resumeId?: string; initialComparison?: string[]; canSaveHistory?: boolean; historical?: Historical }) {
   const t = useT(); const locale = useLocale(); const f = useFormat();
+  const [editRequest, setEditRequest] = useState(false);
+  const [editBrief, setEditBrief] = useState(false);
   const [prompt, setPrompt] = useState(initialQuery);
   const [refineText, setRefineText] = useState('');
   const [own, setOwn] = useState('');
@@ -45,15 +54,16 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
   const ran = useRef(false);
   const activityRef = useRef<HTMLDivElement>(null);
 
-  async function run(text: string, refine = false) {
+  async function run(text: string, refine = false, brief?: BriefPatch, resume?: string) {
     if (text.trim().length < 2 || loading) return;
     (document.activeElement as HTMLElement | null)?.blur?.(); // closes the on-screen keyboard on phones
     requestAnimationFrame(() => activityRef.current?.scrollIntoView({ block: 'start' }));
-    const conversationId = refine ? result?.sessionId ?? null : null;
+    const conversationId = resume ?? (refine ? result?.sessionId ?? null : null);
+    setEditRequest(false); setEditBrief(false);
     setLoading(true); setError(null); setEvents([]);
     if (!refine) { setResult(null); setHistory([text]); setCompare([]); } else setHistory(h => [...h, text]);
     try {
-      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, ownFunds: own || null, conversationId, locale, previousMode: refine ? mode : undefined, mode: refine && mode !== result?.mode ? mode : null }) });
+      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, brief, ownFunds: own || null, conversationId, locale, previousMode: refine ? mode : undefined, mode: refine && mode !== result?.mode ? mode : null }) });
       if (!res.ok || !res.body) { const j = await res.json().catch(() => ({})); throw new Error(j.error || t('assistant.searchFailed')); }
       const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
       for (;;) {
@@ -68,7 +78,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
             const r = msg.result as Result;
             // A blocked/support reply keeps the previous results on screen and the conversation alive.
             if ((r.kind === 'blocked' || r.kind === 'support') && refine && result) setResult({ ...result, message: r.message, links: r.links, safety: r.safety, sessionId: r.sessionId ?? result.sessionId });
-            else { setResult(r); if (r.kind === 'results') { setMode(r.mode); if (r.compareIds.length >= 2) setCompare(r.compareIds.slice(0, 3)); } }
+            else { setResult(r); if (r.kind === 'results') { setMode(r.mode); if (r.compareIds.length >= 2) setCompare(r.compareIds.slice(0, 4)); else if (resume) setCompare(initialComparison.filter(id => r.products.some(p => p.externalId === id))); } }
           } else if (msg.type === 'error') setError(msg.error);
         }
       }
@@ -77,12 +87,30 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
     finally { setLoading(false); }
   }
 
-  useEffect(() => { if (initialQuery && !ran.current) { ran.current = true; void run(initialQuery); } }, [initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!initialQuery && !resumeId) return;
+    const request = requestAnimationFrame(() => {
+      if (ran.current) return;
+      ran.current = true;
+      if (resumeId) void run(t('assistant.refineLabel'), false, {}, resumeId);
+      else void run(initialQuery);
+    });
+    return () => cancelAnimationFrame(request);
+  }, [initialQuery, resumeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save(id: string) {
     setSaved(s => ({ ...s, [id]: 'saving' }));
-    const r = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ externalId: id }) });
-    setSaved(s => ({ ...s, [id]: r.ok ? 'saved' : undefined as unknown as 'saved' }));
+    const r = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ externalId: id }) }).catch(() => null);
+    if (!r?.ok) {
+      setSaved(current => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      setError(t('assistant.somethingWrong'));
+      return;
+    }
+    setSaved(current => ({ ...current, [id]: 'saved' }));
   }
 
   const byId = useMemo(() => new Map(result?.products.map(p => [p.externalId, p]) || []), [result]);
@@ -99,6 +127,11 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
 
   const cardProps = { t, f, picks, ownCents, cheapest, compare, setCompare, saved, save, sessionId: result?.sessionId ?? null, fundingAvailable: result?.funding?.available !== false, matchTypes: result?.matchTypes ?? {}, listingFlags: result?.listingFlags ?? [] };
 
+  const brief = result?.sessionId && result.kind === 'results' && result.state && (
+    <ShoppingBrief key={result.sessionId} state={result.state} busy={loading}
+      onApply={patch => void run(t('assistant.refineLabel'), true, patch)} />
+  );
+
   const refinementForm = (
     <form className="mt-4 border-t border-line pt-4" onSubmit={e => { e.preventDefault(); void run(refineText, true); }}>
       <label htmlFor="refine" className="label">{t('assistant.refineLabel')}</label>
@@ -110,9 +143,16 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
   );
 
   return (
-    <div className={`mt-6 grid gap-6 sm:mt-8 lg:grid-cols-[1fr_320px] ${compare.length && result ? 'pb-20 lg:pb-0' : ''}`}>
-      <div className="min-w-0 space-y-5 sm:space-y-6">
-        <form className="card p-4 sm:p-5" onSubmit={e => { e.preventDefault(); void run(prompt); }}>
+    <div className={`mt-6 grid gap-6 sm:mt-8 lg:grid-cols-[minmax(0,1fr)_300px] ${brief ? 'xl:grid-cols-[260px_minmax(0,1fr)_300px]' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} ${compare.length && result ? 'pb-20 lg:pb-0' : ''}`}>
+      {brief && <aside className="min-w-0 lg:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-1">
+        <button type="button" className="btn btn-ghost w-full justify-start lg:hidden" aria-expanded={editBrief} aria-controls="workspace-brief" onClick={() => setEditBrief(value => !value)}>
+          {{ en: 'Shopping Brief', ur: 'خریداری کی ضروریات', es: 'Ficha de compra', fr: 'Critères d’achat' }[locale]}
+        </button>
+        <div id="workspace-brief" className={editBrief ? 'mt-2 lg:mt-0' : 'hidden lg:block'}>{brief}</div>
+      </aside>}
+      <div className={`min-w-0 space-y-5 sm:space-y-6 ${brief ? 'xl:col-start-2 xl:row-start-1' : ''}`}>
+        {result?.kind === 'results' && <button type="button" className="btn btn-ghost w-full justify-start lg:hidden" aria-expanded={editRequest} aria-controls="workspace-request" onClick={() => setEditRequest(value => !value)}>{t('assistant.requestLabel')}</button>}
+        <form id="workspace-request" className={`card p-4 sm:p-5 ${result?.kind === 'results' && !editRequest ? 'hidden lg:block' : ''}`} onSubmit={e => { e.preventDefault(); void run(prompt); }}>
           <label htmlFor="prompt" className="label">{t('assistant.requestLabel')}</label>
           <textarea id="prompt" dir="auto" className="input min-h-24 resize-y" placeholder={t('assistant.placeholder')} value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={600} enterKeyHint="search"
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void run(prompt); } }} />
@@ -186,7 +226,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
                   <ul className="mt-1 list-disc space-y-0.5 ps-4">{result.notices.map(n => <li key={n} dir="auto">{n}</li>)}</ul>
                 </div>
               )}
-              {(result.kit || result.problem) && (
+              {result.problem && (
                 <div className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm" data-testid="kit">
                   <p className="font-semibold">{result.kit ? result.kit.title : t('assistant.solutions')}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -235,9 +275,11 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
             <div>
               <h2 className="h-section text-lg">{t('assistant.suitableTitle', { n: suitable.length })}</h2>
               {suitable.length === 0 ? <div className="card mt-3 p-6 text-center text-sm text-mute">{t('assistant.noSuitable')}</div> : (
-                <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{suitable.map((p, i) => <ProductCard key={p.externalId} p={p} i={i} {...cardProps} />)}</div>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">{suitable.map((p, i) => <ProductCard key={p.externalId} p={p} i={i} {...cardProps} />)}</div>
               )}
             </div>
+
+            {result.kit && <BundlePlanner key={result.kit.id} kit={result.kit} accountSaving={canSaveHistory} budgetCents={result.budget.budgetCents} />}
 
             {verify.length > 0 && (
               <details className="card group p-4 sm:p-5" open={suitable.length === 0}>
@@ -273,7 +315,20 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
           </section>
         )}
 
-        {compared.length >= 2 && <CompareTable products={compared} ownCents={ownCents} picks={picks} t={t} f={f} />}
+        {historical && <section className="card p-5" aria-label="Historical offers">
+          <h2 className="font-bold">Historical offers</h2>
+          <p className="mt-2 text-sm text-mute">{f.date(historical.shownAt)} · Channel3 · Displayed prices are historical, not checkout quotes.</p>
+          <ul className="mt-3 divide-y divide-line">{historical.offers.map(offer => {
+            const refreshed = byId.get(offer.id);
+            return <li key={offer.id} className="py-3 text-sm">
+              <p className="font-semibold" dir="auto">{offer.title}{offer.merchant ? ` · ${offer.merchant}` : ''}</p>
+              <p className="text-mute">Saved <bdi>{f.usd(offer.priceCents)}</bdi> · Current {loading ? '…' : refreshed ? <bdi>{f.usd(refreshed.priceCents)}</bdi> : 'Not in refreshed results'}</p>
+              {!!offer.features.length && <details className="mt-1"><summary>{t('assistant.row.features')}</summary><ul className="mt-1 list-disc ps-5">{offer.features.map((feature, index) => <li key={index} dir="auto">{feature}</li>)}</ul></details>}
+            </li>;
+          })}</ul>
+        </section>}
+        {canSaveHistory && result?.kind === 'results' && result.sessionId && <HistoryAction key={result.sessionId} id={result.sessionId} compare={compare} />}
+        {compared.length >= 2 && <CompareTable products={compared} onRemove={id => setCompare(ids => ids.filter(value => value !== id))} sessionId={result?.sessionId} ownCents={ownCents} picks={picks} t={t} f={f} />}
       </div>
 
       {result && compare.length > 0 && (
@@ -287,7 +342,7 @@ export function Assistant({ initialQuery }: { initialQuery: string }) {
         </div>
       )}
 
-      <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+      <aside className={`hidden min-w-0 lg:sticky lg:top-24 lg:block lg:self-start ${brief ? 'xl:col-start-3 xl:row-start-1' : ''}`}>
         <div className="card p-5">
           <h2 className="text-sm font-bold">{t('assistant.activity')}</h2>
           <p className="text-xs text-mute">{t('assistant.activityHint')}</p>
@@ -377,7 +432,7 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
             {cond && cond !== 'new' && <span className="chip bg-paper px-2 py-0.5 text-xs text-ink-2">{t(cond === 'refurbished' ? 'assistant.condition.refurbished' : 'assistant.condition.used')}</span>}
           </div>
           <p className="truncate text-xs font-semibold text-mute" dir="auto">{p.brand || t('assistant.unknownBrand')}{p.merchantDomain ? ` · ${p.merchantDomain}` : ''}</p>
-          <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug" dir="auto">{p.title}</h3>
+          <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug" dir="auto"><Link className="hover:underline" href={productHref(p.externalId, sessionId)}>{p.title}</Link></h3>
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
             <bdi className="text-xl font-extrabold">{f.usd(p.priceCents)}</bdi>
             {p.compareAtCents && p.priceCents && p.compareAtCents > p.priceCents && <bdi className="text-xs text-mute line-through">{f.usd(p.compareAtCents)}</bdi>}
@@ -412,7 +467,7 @@ function ProductCard({ p, i, t, f, picks, ownCents, cheapest, compare, setCompar
           {fundingAvailable && p.priceCents != null && e.status === 'suitable' && (gap == null || gap > 0) && <Link className="btn btn-sun min-h-11 px-3 text-sm" href={`/campaigns/new?product=${encodeURIComponent(p.externalId)}${ownCents != null ? `&own=${ownCents / 100}` : ''}${sessionId ? `&s=${sessionId}` : ''}`}>{t('assistant.fund')}</Link>}
           {p.priceCents != null && <Link className={`btn btn-ghost min-h-11 px-3 text-sm ${gap === 0 || e.status !== 'suitable' || !fundingAvailable ? 'col-span-2' : ''}`} href={`/checkout/${encodeURIComponent(p.externalId)}`}>{t('assistant.buy')}</Link>}
           <label className={`btn btn-ghost min-h-11 px-3 text-sm ${compare.includes(p.externalId) ? 'border-brand/50 bg-brand-soft text-brand' : ''}`}>
-            <input type="checkbox" className="size-4 accent-brand" checked={compare.includes(p.externalId)} onChange={ev => setCompare(c => ev.target.checked ? [...c, p.externalId].slice(-3) : c.filter(x => x !== p.externalId))} /> {t('assistant.compare')}</label>
+            <input type="checkbox" className="size-4 accent-brand" checked={compare.includes(p.externalId)} disabled={compare.length >= 4 && !compare.includes(p.externalId)} onChange={ev => setCompare(c => ev.target.checked ? [...c, p.externalId].slice(0, 4) : c.filter(x => x !== p.externalId))} /> {t('assistant.compare')}</label>
           <button className="btn btn-ghost min-h-11 px-3 text-sm" onClick={() => save(p.externalId)} disabled={!!saved[p.externalId]} aria-label={saved[p.externalId] === 'saved' ? t('assistant.savedAria', { title: p.title }) : t('assistant.saveAria', { title: p.title })}>{saved[p.externalId] === 'saved' ? t('assistant.saved') : t('assistant.save')}</button>
         </div>
         {e.status === 'suitable' && cheapest && !isCheapest && p.priceCents != null && p.priceCents > cheapest.priceCents * 1.15 && (gap == null || gap > 0) && <p className="mt-1.5 text-xs text-mute">{t('assistant.fundCheaperNote', { price: f.usd(cheapest.priceCents) })}</p>}
@@ -436,22 +491,54 @@ function ActivityList({ events, loading, working }: { events: AgentEvent[]; load
   );
 }
 
-function CompareTable({ products, ownCents, picks, t, f }: { products: Product[]; ownCents: number | null; picks: Map<string, Pick>; t: T; f: F }) {
-  const keyFields = [...new Set(products.flatMap(p => p.evaluation.checks.filter(c => c.level === 'minimum').map(c => c.field)))].slice(0, 6);
+function productHref(id: string, sessionId?: string | null, comparison?: string[]) {
+  const params = new URLSearchParams();
+  if (sessionId) params.set('s', sessionId);
+  if (sessionId && comparison?.length) params.set('compare', comparison.join(','));
+  return `/products/${encodeURIComponent(id)}${params.size ? `?${params}` : ''}`;
+}
+
+function CompareTable({ products, onRemove, sessionId, ownCents, picks, t, f }: { products: Product[]; onRemove: (id: string) => void; sessionId?: string | null; ownCents: number | null; picks: Map<string, Pick>; t: T; f: F }) {
+  const keyFields = [...new Set(products.flatMap(p => p.evaluation.checks.map(c => c.field)))].slice(0, 12);
+  const differences = new Set(keyFields.filter(field => new Set(products.map(p => p.evaluation.checks.find(c => c.field === field)?.actual ?? '')).size > 1));
   const rows: Array<[string, (p: Product) => React.ReactNode]> = [
     [t('assistant.row.price'), p => <bdi className="font-bold">{f.usd(p.priceCents)}</bdi>],
     [t('assistant.row.suitability'), p => p.evaluation.status === 'suitable' ? `✓ ${t(`assistant.tier.${p.evaluation.tier || 'minimum'}` as DictKey)}` : p.evaluation.status === 'needs_verification' ? `? ${t('assistant.status.verify')}` : `✗ ${t('assistant.status.unsuitable')}`],
-    ...keyFields.map(field => [t(`field.${field}` as DictKey), (p: Product) => { const c = p.evaluation.checks.find(x => x.field === field && x.level === 'minimum'); return c ? <span className={c.status === 'met' ? 'text-ok' : c.status === 'unmet' ? 'text-bad' : 'text-warn'}><bdi>{c.actual}</bdi></span> : '—'; }] as [string, (p: Product) => React.ReactNode]),
+    ...keyFields.map(field => [t(`field.${field}` as DictKey), (p: Product) => {
+      const c = p.evaluation.checks.find(x => x.field === field);
+      if (!c || c.status === 'unknown') return <span className="text-warn">{t('assistant.notListed')}</span>;
+      return <span className={`inline-block rounded px-1 ${differences.has(field) ? 'bg-brand-soft' : ''} ${c.status === 'met' ? 'text-ok' : 'text-bad'}`}>
+        <bdi>{c.actual}</bdi> <span className="text-mute">· {t(`assistant.tier.${c.level}` as DictKey)}</span>
+      </span>;
+    }] as [string, (p: Product) => React.ReactNode]),
     [t('assistant.row.budget'), p => p.evaluation.withinBudget == null ? '—' : p.evaluation.withinBudget ? t('assistant.yes') : t('assistant.no')],
     [t('assistant.row.gap'), p => ownCents == null || p.priceCents == null ? '—' : <bdi>{f.usd(Math.max(0, p.priceCents - ownCents))}</bdi>],
     [t('assistant.row.retailer'), p => p.merchantDomain || '—'],
     [t('assistant.row.rating'), p => p.rating ? `★ ${p.rating.toFixed(1)}` : t('assistant.notListed')],
-    [t('assistant.row.pick'), p => picks.get(p.externalId)?.label || '—'],
+    [t('assistant.row.pick'), p => picks.get(p.externalId)?.reason || '—'],
   ];
-  const cols = products.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const active = products.find(product => product.externalId === activeId) ?? products[0];
+  const cols = products.length === 4 ? 'grid-cols-4' : products.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <section id="compare" className="card fade-up scroll-mt-20 p-4 sm:p-5" aria-label={t('assistant.compareAria')}>
-      <h2 className="font-bold">{t('assistant.compareTitle')}</h2>
+    <section id="compare" className="card fade-up scroll-mt-20 bg-white p-4 sm:p-5" aria-label={t('assistant.compareAria')}>
+      <h2 className="text-2xl font-extrabold tracking-tight text-brand">{t('assistant.compareTitle')}</h2>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:hidden" role="group" aria-label={t('assistant.compareTitle')}>
+        {products.map((product, index) => <button className={`btn shrink-0 ${active?.externalId === product.externalId ? 'btn-primary' : 'btn-ghost'}`}
+          key={product.externalId} type="button" aria-pressed={active?.externalId === product.externalId} onClick={() => {
+            setActiveId(product.externalId);
+            document.getElementById(`comparison-${index}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }}>{product.title}</button>)}
+      </div>
+      <div className={`mt-4 grid auto-cols-[minmax(9rem,65%)] grid-flow-col gap-3 overflow-x-auto pb-2 sm:auto-cols-auto sm:grid-flow-row sm:overflow-visible ${products.length === 4 ? 'sm:grid-cols-4' : products.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        {products.map((p, index) => <div id={`comparison-${index}`} key={p.externalId} className={`min-w-0 rounded-2xl border bg-white p-3 ${p.externalId === active?.externalId ? "border-brand" : "border-line"}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {p.imageUrl && <img src={p.imageUrl} alt="" className="aspect-square w-full rounded-lg bg-brand-soft/50 object-contain" loading="lazy" />}
+          <Link href={productHref(p.externalId, sessionId, products.map(product => product.externalId))} dir="auto" className="block wrap-anywhere text-xs font-bold text-brand hover:underline">{p.title}</Link>
+          <p className="mt-1 text-sm font-extrabold text-brand"><bdi>{f.usd(p.priceCents)}</bdi></p>
+          <button type="button" className="mt-1 min-h-11 min-w-11 rounded-lg text-xs font-bold text-mute hover:bg-brand-soft" aria-label={`${t('assistant.clear')} ${p.title}`} onClick={() => onRemove(p.externalId)}>×</button>
+        </div>)}
+      </div>
       <div className="mt-3 sm:hidden">
         <div className={`sticky top-14 z-10 grid ${cols} gap-2 border-b border-line bg-white py-2`}>
           {products.map((p, i) => <p key={p.externalId} className="line-clamp-3 text-xs font-bold leading-snug" dir="auto"><span className="me-1 inline-grid size-5 place-items-center rounded-full bg-brand-soft text-xs text-brand">{i + 1}</span>{p.title}</p>)}

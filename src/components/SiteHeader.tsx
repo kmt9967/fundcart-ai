@@ -1,12 +1,13 @@
 'use client';
 
+import { Compass, Search, HeartHandshake, CircleUserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Logo } from './Logo';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Rich } from './Rich';
-import { useT } from '@/i18n/client';
+import { useLocale, useT } from '@/i18n/client';
 import type { DictKey } from '@/i18n';
 
 const nav: Array<{ href: string; label: DictKey; hint: DictKey }> = [
@@ -18,6 +19,8 @@ const nav: Array<{ href: string; label: DictKey; hint: DictKey }> = [
 
 export function SiteHeader() {
   const t = useT();
+  const locale = useLocale();
+  const discovery = { en: 'Discover', ur: 'دریافت', es: 'Descubrir', fr: 'Découvrir' }[locale];
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
@@ -43,19 +46,19 @@ export function SiteHeader() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
+    <>
     <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:h-16 sm:px-6" aria-label={t('nav.main')}>
+      <nav className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6" aria-label={t('nav.main')}>
         <Logo />
-        <div className="hidden items-center gap-1 text-sm font-semibold text-ink-2 md:flex">
+        <div className="lg:absolute start-1/2 hidden -translate-x-1/2 items-center gap-1 text-sm font-semibold text-ink-2 lg:flex rtl:translate-x-1/2">
           {nav.map(n => (
             <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? 'page' : undefined}
               className={`whitespace-nowrap rounded-lg px-2.5 py-2 hover:bg-brand-soft hover:text-brand lg:px-3 ${isActive(n.href) ? 'text-brand' : ''}`}>{t(n.label)}</Link>
           ))}
-          <LanguageSwitcher className="ms-1" />
-          <Link className="btn btn-primary ms-1 hidden whitespace-nowrap lg:inline-flex" href="/assistant">{t('nav.start')}</Link>
         </div>
-        <div className="flex items-center gap-2 md:hidden">
-          <Link className="btn btn-primary min-h-10 px-3.5 text-sm" href="/assistant">{t('nav.shop')}</Link>
+        <div className="hidden items-center gap-2 lg:flex"><LanguageSwitcher /><Link href="/me" className="grid size-11 place-items-center rounded-full bg-brand text-white" aria-label={t('nav.me')}><CircleUserRound className="size-5" aria-hidden /></Link></div>
+        <div className="flex items-center gap-2 lg:hidden">
+          <Link className="grid size-11 place-items-center rounded-lg text-brand hover:bg-brand-soft" href="/assistant" aria-label={t('nav.shop')}><Search className="size-5" aria-hidden /></Link>
           <button ref={btnRef} type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls="mobile-menu"
             aria-label={open ? t('nav.closeMenu') : t('nav.openMenu')}
             className="grid size-11 place-items-center rounded-xl border border-line bg-white text-ink transition hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-brand">
@@ -66,8 +69,8 @@ export function SiteHeader() {
         </div>
       </nav>
       <div id="mobile-menu" ref={panelRef} hidden={!open}
-        className="menu-panel absolute inset-x-0 top-full border-b border-line bg-white shadow-[var(--shadow-lift)] md:hidden">
-        <ul className="mx-auto max-w-6xl px-3 py-2">
+        className="menu-panel absolute inset-x-0 top-full border-b border-line bg-white shadow-[var(--shadow-lift)] lg:hidden">
+        <ul className="mx-auto max-w-[1440px] px-3 py-2">
           {nav.map(n => (
             <li key={n.href}>
               <Link href={n.href} onClick={() => setOpen(false)} aria-current={isActive(n.href) ? 'page' : undefined}
@@ -84,5 +87,17 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+    {pathname === '/' && <nav id="discovery-dock" aria-label={discovery} className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
+      {[
+        { href: '/', label: discovery, icon: Compass },
+        { href: '/assistant', label: t('nav.shop'), icon: Search },
+        { href: '/campaigns', label: t('nav.campaigns'), icon: HeartHandshake },
+        { href: '/me', label: t('nav.me'), icon: CircleUserRound },
+      ].map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={href === '/' ? 'page' : undefined}
+        className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold ${href === '/' ? 'bg-brand-soft/60 text-brand' : 'text-ink-2'}`}>
+        <Icon className="size-5" aria-hidden />{label}
+      </Link>)}
+    </nav>}
+    </>
   );
 }

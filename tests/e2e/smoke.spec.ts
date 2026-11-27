@@ -12,6 +12,7 @@ test('public pages render with no console errors', async ({ page }) => {
 });
 
 test('assistant streams agent steps and returns real products', async ({ page }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE === '1', 'Requires an isolated catalog provider');
   await page.goto('/assistant');
   await page.getByLabel('Your request').fill('noise cancelling headphones under $200');
   await page.getByRole('button', { name: 'Find options' }).click();
@@ -22,6 +23,7 @@ test('assistant streams agent steps and returns real products', async ({ page })
 });
 
 test('server rejects tampered payment requests', async ({ request }) => {
+  test.skip(process.env.E2E_PHASE2_FIXTURE === '1', 'Requires isolated Sandbox payment configuration');
   const r1 = await request.post('/api/paypal/orders', { data: { kind: 'contribution', slug: 'does-not-exist', amountCents: 500 } });
   expect(r1.status()).toBe(404);
   const r2 = await request.post('/api/paypal/orders', { data: { kind: 'contribution', slug: 'x', amountCents: 'lots' } });
@@ -30,7 +32,7 @@ test('server rejects tampered payment requests', async ({ request }) => {
   expect(r3.status()).toBe(400);
   const r3b = await request.post('/api/paypal/orders/ABCDEFGHIJ123/capture');
   expect(r3b.status()).toBe(404); // unknown order ids are never captured
-  const r4 = await request.post('/api/paypal/webhook', { data: { event_type: 'PAYMENT.CAPTURE.COMPLETED' } });
+  const r4 = await request.post('/api/paypal/webhook', { data: { id: 'UNSIGNED-FIXTURE', event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAPTURE-FIXTURE' } } });
   expect(r4.status()).toBe(401); // unverified webhooks are rejected
 });
 

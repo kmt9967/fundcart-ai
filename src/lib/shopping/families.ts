@@ -44,6 +44,10 @@ const KITS: Array<[RegExp, Kit]> = [
   [/(gaming )?pc build|build (a|my) (gaming )?pc/i, { id: 'pc_build', items: ['CPU processor', 'motherboard', 'graphics card', 'RAM 16GB', 'power supply'] }],
 ];
 
+export function bundleById(id: string): Kit | undefined {
+  return KITS.find(([, kit]) => kit.id === id)?.[1];
+}
+
 const PROBLEMS: Array<[RegExp, { id: string; solutions: string[] }]> = [
   [/(too hot|garmi|heat).{0,60}(load ?shedding|power cuts?|bijli)|(load ?shedding|power cuts?|bijli (nahi|jati)).{0,60}(hot|garmi|heat)/i, { id: 'heat_power', solutions: ['rechargeable fan', 'UPS inverter', 'solar fan'] }],
   [/back pain|sitting all day.{0,30}(pain|hurts)|kamar (dard|mein dard)/i, { id: 'posture', solutions: ['ergonomic office chair', 'lumbar support pillow', 'standing desk'] }],

@@ -9,7 +9,7 @@ import type { DictKey } from '@/i18n';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
 
-export function Contribute({ slug, clientId, remainingCents, suggested, receiptsEnabled = false, disclosures = [] }: { slug: string; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean; disclosures?: string[] }) {
+export function Contribute({ slug, campaignTitle, campaignImage, clientId, remainingCents, suggested, receiptsEnabled = false, disclosures = [] }: { slug: string; campaignTitle: string; campaignImage: string | null; clientId: string; remainingCents: number; suggested: number[]; receiptsEnabled?: boolean; disclosures?: string[] }) {
   const router = useRouter(); const t = useT(); const f = useFormat(); const locale = useLocale();
   const [amount, setAmount] = useState(suggested[0] ? String(suggested[0] / 100) : '10');
   const [name, setName] = useState('');
@@ -25,8 +25,8 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
 
   if (done) {
     return (
-      <div className="card fade-up border-ok/30 p-4 sm:p-5" role="status">
-        <p className="text-lg font-extrabold text-ok">{t('contrib.thanks')}</p>
+      <div className={`card fade-up p-4 sm:p-5 ${done.state === "completed" ? "border-ok/30" : "border-warn/30"}`} role="status">
+        <p className="text-lg font-extrabold text-brand">{done.state === "completed" ? t('contrib.thanks') : t('contrib.status')}</p>
         <p className="mt-1 text-sm text-ink-2">{done.state === 'completed' ? t('contrib.confirmed', { amount: f.usd(done.amountCents) }) : t('contrib.confirmedPending')}</p>
         {done.state === 'completed' && email.trim() && !emailInvalid && <p className="mt-1 text-sm text-mute">{t('contrib.emailQueued')}</p>}
         <dl className="mt-3 space-y-1 rounded-xl bg-paper p-3 text-xs">
@@ -40,12 +40,20 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
   }
 
   return (
-    <div id="support" className="card scroll-mt-20 p-4 sm:p-5">
-      <h2 className="font-bold">{t('contrib.title')}</h2>
+    <div id="support" className="card scroll-mt-20 border-brand/20 p-4 sm:p-5">
+      <span className="chip mb-2 bg-sun-soft text-brand">PayPal Sandbox</span>
+      <h2 className="text-xl font-extrabold text-brand">{t('contrib.title')}</h2>
       <p className="mt-1 text-sm text-mute">{t('contrib.lead')}</p>
-      <p className="mt-1 text-xs text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
-      <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
-        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-xl border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
+      <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-brand-soft/40 p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {campaignImage && <img src={campaignImage} alt="" className="size-14 shrink-0 rounded-lg object-cover" />}
+        <div className="min-w-0">
+          <p className="wrap-anywhere text-sm font-semibold" dir="auto">{campaignTitle}</p>
+          <p className="text-xs text-mute"><bdi>{f.usd(remainingCents)}</bdi> · {t('camp.toGo')}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(4rem,1fr))] gap-2" role="group" aria-label={t('contrib.suggested')}>
+        {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-lg border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
       </div>
       <div className="mt-3"><label className="label" htmlFor="amt">{t('contrib.amount')}</label>
         <div className="relative" dir="ltr"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-mute">$</span><input id="amt" className="input pl-7 text-lg font-bold sm:text-lg" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} aria-invalid={!!invalid} aria-describedby={invalid ? 'amt-err' : undefined} /></div>
@@ -58,7 +66,12 @@ export function Contribute({ slug, clientId, remainingCents, suggested, receipts
         <p id="semail-hint" className={`mt-1 text-xs ${emailInvalid ? 'text-bad' : 'text-mute'}`} role={emailInvalid ? 'alert' : undefined}>{emailInvalid ? t('contrib.emailErr') : t('contrib.emailHint')}</p></div>}
       <label className="check mt-2 text-sm"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} /> {t('contrib.anon')}</label>
       <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0 [clip:rect(0,0,0,0)]" />
+      <p className="mt-3 rounded-lg border border-line p-3 text-xs leading-relaxed text-mute" data-testid="payee-disclosure">{t('pay.routing')}</p>
       {disclosures.length > 0 && <ul className="mt-3 list-disc space-y-0.5 rounded-xl bg-paper p-3 ps-6 text-xs text-ink-2" data-testid="disclosures">{disclosures.map(d => <li key={d}>{t(d as DictKey)}</li>)}</ul>}
+      <div className="mt-4 rounded-lg border border-line bg-brand-soft p-3">
+        <p className="text-xs font-semibold text-brand">PayPal Sandbox</p>
+        {cents != null && <p className="mt-1 flex flex-wrap justify-between gap-2 text-sm"><span>{t('contrib.amount')}</span><strong><bdi>{f.usd(cents)}</bdi></strong></p>}
+      </div>
       <div className="mt-4">
         {clientId ? (
           <PayPalCheckout clientId={clientId} disabled={!!invalid || emailInvalid}

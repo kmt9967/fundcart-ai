@@ -47,13 +47,13 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       {created && isOwner && <ShareBox url={`${await siteOrigin()}/c/${c.slug}`} title={c.title} />}
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-x-8">
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-x-8">
+        <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-1">
           <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} /><span className="chip bg-white text-mute" title={t('trust.unverifiedHelp')} data-testid="verification">{c.verification_status === 'verified' ? '✓' : t('trust.unverified')}</span>{c.is_demo_seed && <span className="chip bg-ink text-white">{t('card.demo')}</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
           <h1 className="h-page mt-3 [overflow-wrap:anywhere]" dir="auto">{c.title}</h1>
-          <p className="mt-2 text-sm text-mute">{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</p>
+          <p className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2 text-sm text-mute"><span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand">{c.creator_name.slice(0, 1)}</span><span>{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</span></p>
 
-          <div className="card mt-4 overflow-hidden sm:mt-6">
+          <div className="card -order-1 mb-4 overflow-hidden lg:order-none lg:mb-0 lg:mt-6">
             {c.image_url
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={c.image_url} alt={product?.title || c.title} className="aspect-[16/10] w-full bg-white object-contain p-4 sm:aspect-[16/9] sm:p-8" decoding="async" />
@@ -61,23 +61,27 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </div>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-          <div className="card p-4 sm:p-5">
+        <aside className="contents lg:block lg:space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+          <div className="card border-brand/15 p-4 sm:p-5">
             <p className="text-3xl font-extrabold" data-testid="raised"><bdi>{usd(totals.raisedCents)}</bdi></p>
             <p className="text-sm text-mute">{t('camp.raisedOf', { goal: usd(c.target_cents) })}</p>
             <div className="mt-4"><ProgressBar percent={totals.percent} size="lg" /></div>
-            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-sm">
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-center text-sm wrap-anywhere">
               <div><p className="font-extrabold">{totals.percent}%</p><p className="text-xs text-mute">{t('camp.funded')}</p></div>
               <div><p className="font-extrabold">{totals.supporterCount}</p><p className="text-xs text-mute">{t('camp.supporters')}</p></div>
               <div><p className="font-extrabold"><bdi>{usd(totals.remainingCents)}</bdi></p><p className="text-xs text-mute">{t('camp.toGo')}</p></div>
             </div>
+            <dl className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3 text-sm">
+              <div><dt className="text-xs text-mute">{t('camp.creatorHas')}</dt><dd className="font-bold"><bdi>{usd(c.own_funds_cents)}</bdi></dd></div>
+              <div><dt className="text-xs text-mute">{t('camp.raisedOf', { goal: usd(c.target_cents) })}</dt><dd className="font-bold text-brand"><bdi>{usd(totals.raisedCents)}</bdi></dd></div>
+            </dl>
             {isOwner && <Link href={`/c/${c.slug}/manage`} className="btn btn-ghost mt-4 w-full">{t('camp.dashboard')}</Link>}
           </div>
 
           {!publicActive && <div className="card border-warn/40 bg-sun-soft p-4 text-sm" role="status" data-testid="moderation-banner">{c.moderation_status === 'pending_review' ? t('trust.pending') : t('trust.unavailable')}{isOwner && c.moderation_status === 'pending_review' && <p className="mt-2" data-testid="owner-review-note">{t('elig.ownerPending')}</p>}</div>}
           {c.status === 'active' && publicActive && !contributionGate.allowed && <div className="card p-4 text-sm" role="status" data-testid="policy-gate">{t(contributionGate.messageKey as DictKey)}</div>}
           {c.status === 'active' && publicActive && contributionGate.allowed ? (
-            <Contribute disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} />
+            <div className="max-lg:order-1"><Contribute campaignTitle={c.title} campaignImage={c.image_url} disclosures={[...policyFor(c.country ?? viewerCountry).requiredDisclosures]} receiptsEnabled={!!process.env.RESEND_API_KEY && !!process.env.RECEIPT_FROM} slug={c.slug} clientId={process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''} remainingCents={totals.remainingCents} suggested={c.suggested_amounts_cents.filter(a => a <= totals.remainingCents || c.allow_overfunding)} /></div>
           ) : c.status === 'active' ? null : (
             <div className="card p-5 text-sm">
               {c.status === 'goal_reached' && <p><b className="text-ok">{t('camp.goalReachedT')}</b> {t('camp.goalReachedB')}</p>}
@@ -86,7 +90,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
             </div>
           )}
 
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 max-lg:order-2">
             <h2 className="text-sm font-bold">{t('camp.supportersTitle')}</h2>
             {supporters.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.beFirst')}</p> : (
               <ul className="mt-3 space-y-3">{supporters.slice(0, 12).map((s, i) => (
@@ -97,7 +101,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </div>
         </aside>
         <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-          <section className="mt-2 lg:mt-2"><h2 className="text-lg font-bold">{t('camp.story')}</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-ink-2" dir="auto">{c.story}</p></section>
+          <section className="card p-4 sm:p-6"><h2 className="text-lg font-bold">{t('camp.story')}</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-ink-2" dir="auto">{c.story}</p></section>
 
           {product && (
             <section className="card mt-6 p-4 sm:mt-8 sm:p-5">
@@ -139,7 +143,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <section className="mt-6 sm:mt-8">
             <h2 className="text-lg font-bold">{t('camp.updates')}</h2>
             {updates.length === 0 ? <p className="mt-2 text-sm text-mute">{t('camp.noUpdates')}</p> : (
-              <ol className="mt-3 space-y-3">{updates.map(u => (
+              <ol className="mt-3 space-y-3 border-s-2 border-brand-soft ps-4">{updates.map(u => (
                 <li key={u.id} className="card p-4 text-sm"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span className="font-semibold uppercase tracking-wide">{(['update', 'thank_you', 'goal_reached', 'purchase', 'refund', 'price_change', 'moderation'].includes(u.kind) ? t(`upd.${u.kind}` as DictKey) : u.kind.replace('_', ' '))}{u.ai_generated ? ` · ${t('camp.aiAssisted')}` : ''}</span><span>{ago(u.created_at)}</span></div><p className="mt-1.5 leading-relaxed text-ink-2" dir="auto">{u.body}</p></li>
               ))}</ol>
             )}

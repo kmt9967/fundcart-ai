@@ -123,7 +123,8 @@ if (slug) {
   const qi = queue.json?.items?.find(i => i.slug === slug);
   ok('moderator queue lists the pending campaign with purpose, risk and goal breakdown', queue.status === 200 && !!qi && qi.creatorPurpose === purpose && !!qi.eligibility?.risk && qi.itemPriceCents > 0 && qi.ownFundsCents === 10000, `status ${queue.status}`);
   const modPage = await req(modJar, '/admin/moderation');
-  ok('moderation page renders queue items with decision controls', modPage.status === 200 && modPage.text.includes('data-testid="queue-item"') && modPage.text.includes('data-testid="mod-approve"'));
+  const reviewPage = await req(modJar, `/admin/moderation/${slug}`);
+  ok('moderation queue links to authorized decision controls', modPage.status === 200 && modPage.text.includes(`href="/admin/moderation/${slug}"`) && reviewPage.status === 200 && reviewPage.text.includes('data-testid="mod-approve"'));
   const noNote = await post(modJar, '/api/admin/moderation', { campaignId: campId, decision: 'reject' });
   ok('rejecting without a reason is refused', noNote.status === 400 && noNote.json?.code === 'note_required', `status ${noNote.status}`);
   const clar = await post(modJar, '/api/admin/moderation', { campaignId: campId, decision: 'clarify', note: 'Which course is this laptop for?' });

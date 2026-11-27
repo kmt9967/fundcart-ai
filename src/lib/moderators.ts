@@ -24,9 +24,13 @@ const COLS = 'id, slug, title, story, creator_name, moderation_status, moderatio
 
 // Pending campaigns plus any campaign with open reports. Risk details come from the server-side
 // eligibility record written at creation; nothing here trusts client input.
-export async function moderationQueue(viewerProfileId?: string): Promise<QueueItem[]> {
-  const pending = await db().from('campaigns').select(COLS).eq('moderation_status', 'pending_review').order('created_at', { ascending: true }).limit(50);
-  const reported = await db().from('campaign_reports').select('campaign_id, reason, details, created_at').eq('status', 'open').limit(200);
+export async function moderationQueue(viewerProfileId?: string, slug?: string): Promise<QueueItem[]> {
+  const campaigns = db().from('campaigns').select(COLS);
+  const pending = await (slug ? campaigns.eq('slug', slug).limit(1)
+    : campaigns.eq('moderation_status', 'pending_review').order('created_at', { ascending: true }).limit(50));
+  const reports = db().from('campaign_reports').select('campaign_id, reason, details, created_at').eq('status', 'open');
+  if (slug && !pending.data?.length) return [];
+  const reported = await (slug ? reports.eq('campaign_id', pending.data![0].id) : reports).limit(200);
   const reportMap = new Map<string, QueueItem['reports']>();
   for (const r of reported.data || []) {
     const list = reportMap.get(r.campaign_id) || [];
@@ -43,7 +47,7 @@ export async function moderationQueue(viewerProfileId?: string): Promise<QueueIt
     db().from('profiles').select('id, auth_user_id, email_verified').in('id', [...new Set(rows.map(c => c.owner_id))]),
     db().from('product_snapshots').select('id, title, merchant_domain').in('id', rows.map(c => c.product_snapshot_id).filter(Boolean)),
     db().from('agent_events').select('campaign_id, detail, created_at').in('campaign_id', campaignIds).eq('agent', 'Campaign Assistant').order('created_at', { ascending: true }),
-    db().from('contributions').select('campaign_id, amount_cents').in('campaign_id', campaignIds),
+    db().from('campaign_totals').select('campaign_id, raised_cents').in('campaign_id', campaignIds),
     db().from('campaign_updates').select('campaign_id, body, created_at').in('campaign_id', campaignIds).eq('kind', 'moderation').order('created_at', { ascending: false }),
   ]);
   const ownerMap = new Map((owners.data || []).map(o => [o.id, o]));
@@ -51,7 +55,7 @@ export async function moderationQueue(viewerProfileId?: string): Promise<QueueIt
   const evMap = new Map<string, Record<string, unknown>>();
   for (const e of events.data || []) if (!evMap.has(e.campaign_id)) evMap.set(e.campaign_id, (e.detail || {}) as Record<string, unknown>);
   const raised = new Map<string, number>();
-  for (const k of contribs.data || []) raised.set(k.campaign_id, (raised.get(k.campaign_id) || 0) + Number(k.amount_cents));
+  for (const k of contribs.data || []) raised.set(k.campaign_id, Number(k.raised_cents));
   const hist = new Map<string, QueueItem['history']>();
   for (const u of updates.data || []) { const l = hist.get(u.campaign_id) || []; if (l.length < 3) l.push({ body: u.body, createdAt: u.created_at }); hist.set(u.campaign_id, l); }
   return rows.map(c => {

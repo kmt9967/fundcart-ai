@@ -17,18 +17,32 @@ export default async function Me() {
   const account = await currentAccount();
   const mine = uid ? await listPublicCampaigns(24, uid) : [];
   const payments = uid ? (await db().from('payment_orders').select('paypal_order_id, kind, amount_cents, capture_status, status, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(20)).data || [] : [];
+  const campaignTotals = mine.reduce((total, campaign) => ({
+    raised: total.raised + campaign.raisedCents,
+    backers: total.backers + campaign.supporterCount,
+  }), { raised: 0, backers: 0 });
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <p className="eyebrow">{t('me.eyebrow')}</p>
+      <header className="card border-brand/15 bg-brand-soft/40 p-5 sm:p-8"><p className="eyebrow">{t('me.eyebrow')}</p>
       <h1 className="h-page mt-2">{t('me.title')}</h1>
       <p className="mt-2 max-w-2xl text-sm text-ink-2">{account?.email ? t('me.accountLead', { email: account.email }) : t('me.guestLead')}</p>
-      <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link>
+      <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link></header>
 
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.campaigns')}</h2>
-        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <CampaignCard key={c.slug} c={c} />)}</div>
+        {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <div key={c.slug} className="card grid min-w-0 gap-3 p-3">
+          <CampaignCard c={c} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link className="btn btn-ghost" href={`/c/${c.slug}/manage`}>{t('mg.title')}</Link>
+            {account && <Link className="btn btn-primary" href={`/c/${c.slug}/status`}>{t('contrib.status')}</Link>}
+          </div>
+        </div>)}</div>
           : <p className="mt-2 text-sm text-mute">{t('me.none')} <Link className="tap font-semibold text-brand" href="/assistant">{t('me.findCta')}</Link></p>}</section>
 
-      <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.wishlist')}</h2><Wishlist /></section>
+      {!!mine.length && <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+        {[[t('me.campaigns'), mine.length], [t('mg.raised'), formatUSD(campaignTotals.raised)], [t('mg.supporters'), campaignTotals.backers]].map(([label, value]) =>
+          <div className="card min-w-0 border-brand/10 p-2.5 sm:p-4" key={label}><dt className="text-xs text-mute sm:text-sm">{label}</dt><dd className="mt-1 wrap-anywhere text-base font-bold sm:text-2xl"><bdi>{value}</bdi></dd></div>)}
+      </dl>}
+      <section className="mt-8 sm:mt-10"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold">{t('me.wishlist')}</h2>{account && <Link href="/assistant" className="btn btn-ghost">{t('nav.assistant')}</Link>}</div><Wishlist /></section>
 
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.payments')}</h2>
         {payments.length ? (
