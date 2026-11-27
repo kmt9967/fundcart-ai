@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const { locale, t } = await getT();
   return (
     <html lang={locale} dir={dirOf(locale)} className={`${jakarta.variable} ${urdu.variable}`}>
-      <body className="min-h-dvh">
+      <body className="group/site min-h-dvh">
         <I18nProvider locale={locale}>
           <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">{t('nav.skip')}</a>
           <div className="bg-ink px-4 py-1.5 text-center text-xs font-medium text-white/85">
@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </div>
           <SiteHeader />
           <main id="main">{children}</main>
-          <footer className="mt-16 border-t border-line bg-white pb-[env(safe-area-inset-bottom)] sm:mt-24">
+          <footer className="mt-16 border-t border-line bg-white pb-[env(safe-area-inset-bottom)] group-has-[#discovery-dock]/site:max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:mt-24">
             <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm text-mute sm:grid-cols-3 sm:px-6">
               <div><Logo /><p className="mt-3">{t('footer.tagline')}</p></div>
               <nav aria-label={t('footer.nav')} className="-mx-2 flex flex-col">

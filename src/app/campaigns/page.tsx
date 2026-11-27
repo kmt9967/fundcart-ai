@@ -24,36 +24,36 @@ export default async function Campaigns({ searchParams }: { searchParams: Promis
   const label = { en: 'Campaigns shown', ur: 'دکھائی گئی مہمات', es: 'Campañas mostradas', fr: 'Campagnes affichées' }[locale];
   const [all, search] = { en: ['All', 'Search needs'], ur: ['سب', 'ضروریات تلاش کریں'], es: ['Todas', 'Buscar necesidades'], fr: ['Toutes', 'Rechercher des besoins'] }[locale];
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="eyebrow">{t('camps.eyebrow')}</p><h1 className="h-page mt-2">{locale === 'en' ? 'Community Needs Marketplace' : t('camps.title')}</h1><p className="mt-2 text-sm text-ink-2 sm:text-base">{t('camps.lead')}</p></div>
-        {!!list.length && <aside aria-label={label} className="card flex w-full items-center gap-5 p-4 sm:w-auto sm:min-w-56">
-          <div className="min-w-0 flex-1">
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-10">
+      <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-4">
+        <div><p className="eyebrow">{t('camps.eyebrow')}</p><h1 className="h-page mt-1 max-sm:text-2xl sm:mt-2">{locale === 'en' ? 'Community Needs Marketplace' : t('camps.title')}</h1><p className="mt-1 text-xs text-ink-2 sm:mt-2 sm:text-base">{t('camps.lead')}</p></div>
+        {!!list.length && <aside aria-label={label} className="card flex w-full items-center gap-3 px-3 py-2 sm:w-auto sm:min-w-56 sm:gap-5 sm:p-4">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 sm:block">
             <p className="eyebrow">{label}</p>
-            <p className="mt-1 text-lg font-extrabold text-brand"><bdi>{usd(totals.raised)}</bdi></p>
+            <p className="text-sm font-extrabold sm:mt-1 sm:text-lg text-brand"><bdi>{usd(totals.raised)}</bdi></p>
             <p className="text-xs text-mute"><bdi>{list.length}</bdi> · <bdi>{percent}%</bdi></p>
           </div>
           <div className="w-16 shrink-0"><ProgressBar percent={percent} /></div>
         </aside>}
       </div>
-      <form className="mt-5 flex gap-2" action="/campaigns">
+      <form className="mt-3 flex gap-2 sm:mt-5" action="/campaigns">
         <label className="sr-only" htmlFor="needs-search">{search}</label>
         <input id="needs-search" name="q" type="search" className="input max-w-md" maxLength={100} placeholder={search} defaultValue={query} />
         {!!selected && <input type="hidden" name="category" value={selected} />}
         <button className="btn btn-primary" type="submit">{t('assistant.search')}</button>
       </form>
-      {!!categories.length && <nav aria-label={t('need.label')} className="mt-3 flex flex-wrap gap-2 border-b border-line pb-4">
+      {!!categories.length && <nav aria-label={t('need.label')} className="mt-2 flex gap-2 overflow-x-auto border-b border-line pb-2 sm:mt-3 sm:flex-wrap sm:pb-4">
         {['', ...categories].map(value => {
           const params = new URLSearchParams();
           if (query) params.set('q', query);
           if (value) params.set('category', value);
           return <Link aria-current={selected === value ? 'true' : undefined} key={value} href={`/campaigns${params.size ? `?${params}` : ''}`}
-            className={`btn min-h-9 rounded-full ${selected === value ? 'btn-primary' : 'btn-ghost'}`}>{value || all}</Link>;
+            className={`btn min-h-11 shrink-0 rounded-full whitespace-nowrap ${selected === value ? 'btn-primary' : 'btn-ghost'}`}>{value || all}</Link>;
         })}
       </nav>}
-      <Link href="/assistant" className="tap mt-2 text-sm font-semibold text-brand hover:underline">{t('camps.start')}</Link>
-      {list.length ? <div className="mt-6 grid grid-cols-2 gap-2 sm:mt-8 sm:gap-5 lg:grid-cols-3">{list.map(c => <CampaignCard key={c.slug} c={c} editorial />)}</div>
+      {list.length ? <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-8 sm:gap-5 lg:grid-cols-3">{list.map(c => <CampaignCard key={c.slug} c={c} editorial />)}</div>
         : <div className="card mt-8 p-10 text-center text-mute">{t('camps.none')}</div>}
+      <Link href="/assistant" className="tap mt-3 text-sm font-semibold text-brand hover:underline">{t('camps.start')}</Link>
     </div>
   );
 }

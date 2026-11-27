@@ -44,7 +44,7 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
       <span className="chip mb-2 bg-sun-soft text-brand">PayPal Sandbox</span>
       <h2 className="text-xl font-extrabold text-brand">{t('contrib.title')}</h2>
       <p className="mt-1 text-sm text-mute">{t('contrib.lead')}</p>
-      <div className="mt-4 flex items-center gap-3 rounded-xl border border-line p-3">
+      <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-brand-soft/40 p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {campaignImage && <img src={campaignImage} alt="" className="size-14 shrink-0 rounded-lg object-cover" />}
         <div className="min-w-0">
@@ -52,7 +52,7 @@ export function Contribute({ slug, campaignTitle, campaignImage, clientId, remai
           <p className="text-xs text-mute"><bdi>{f.usd(remainingCents)}</bdi> · {t('camp.toGo')}</p>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label={t('contrib.suggested')}>
+      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(4rem,1fr))] gap-2" role="group" aria-label={t('contrib.suggested')}>
         {suggested.map(s => <button key={s} type="button" aria-pressed={cents === s} onClick={() => setAmount(String(s / 100))} className={`min-h-11 rounded-lg border px-2 text-sm font-bold transition ${cents === s ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-brand/40'}`}><bdi>{f.usd(s)}</bdi></button>)}
       </div>
       <div className="mt-3"><label className="label" htmlFor="amt">{t('contrib.amount')}</label>

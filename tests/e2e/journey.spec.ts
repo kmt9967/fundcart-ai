@@ -86,7 +86,10 @@ test('end-to-end: shop → fund → contribute → goal → approve purchase', a
     const item = mp.locator(`[data-testid="queue-item"][data-slug="${slug}"]`);
     await expect(item).toBeVisible({ timeout: 30_000 });
     await mp.screenshot({ path: `${evidence}/02b-moderation-queue.png`, fullPage: true });
-    await item.getByTestId('mod-approve').click();
+    await item.locator('a').first().click();
+    await mp.getByTestId('mod-approve').click();
+    await expect(mp.getByRole('status')).toBeVisible();
+    await mp.goto('/admin/moderation');
     await expect(item).toHaveCount(0, { timeout: 30_000 });
     await modCtx.close();
   } else {

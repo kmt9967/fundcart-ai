@@ -51,13 +51,13 @@ export default async function Manage({ params }: { params: Promise<{ slug: strin
       </section>
 
       <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-5 sm:space-y-6">
-          <section data-testid="ledger-rows" className="card p-4 sm:p-5">
+        <div className="card min-w-0 divide-y divide-line">
+          <section data-testid="ledger-rows" className="p-4 sm:p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h2 className="font-bold">{t('mg.ledger')}</h2><span className="text-xs text-mute">{t('mg.ledgerHint')}</span></div>
             <LedgerGrid rows={rows} />
             <p className="mt-2 text-xs text-mute">{t('mg.ledgerNote')}</p>
           </section>
-          <section className="card p-4 sm:p-5">
+          <section className="p-4 sm:p-5">
             <h2 className="font-bold">{t('mg.audit')}</h2>
             <p className="text-xs text-mute">{t('mg.auditHint')}</p>
             {history.events.length === 0 ? <p className="mt-3 text-sm text-mute">{t('mg.noActivity')}</p> : (

@@ -38,6 +38,8 @@ type Historical = { shownAt: string; offers: { id: string; title: string; mercha
 
 export function Assistant({ initialQuery, resumeId, initialComparison = [], canSaveHistory = false, historical }: { initialQuery: string; resumeId?: string; initialComparison?: string[]; canSaveHistory?: boolean; historical?: Historical }) {
   const t = useT(); const locale = useLocale(); const f = useFormat();
+  const [editRequest, setEditRequest] = useState(false);
+  const [editBrief, setEditBrief] = useState(false);
   const [prompt, setPrompt] = useState(initialQuery);
   const [refineText, setRefineText] = useState('');
   const [own, setOwn] = useState('');
@@ -57,6 +59,7 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
     (document.activeElement as HTMLElement | null)?.blur?.(); // closes the on-screen keyboard on phones
     requestAnimationFrame(() => activityRef.current?.scrollIntoView({ block: 'start' }));
     const conversationId = resume ?? (refine ? result?.sessionId ?? null : null);
+    setEditRequest(false); setEditBrief(false);
     setLoading(true); setError(null); setEvents([]);
     if (!refine) { setResult(null); setHistory([text]); setCompare([]); } else setHistory(h => [...h, text]);
     try {
@@ -141,9 +144,15 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
 
   return (
     <div className={`mt-6 grid gap-6 sm:mt-8 lg:grid-cols-[minmax(0,1fr)_300px] ${brief ? 'xl:grid-cols-[260px_minmax(0,1fr)_300px]' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} ${compare.length && result ? 'pb-20 lg:pb-0' : ''}`}>
-      {brief && <aside className="min-w-0 lg:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-1">{brief}</aside>}
+      {brief && <aside className="min-w-0 lg:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-1">
+        <button type="button" className="btn btn-ghost w-full justify-start lg:hidden" aria-expanded={editBrief} aria-controls="workspace-brief" onClick={() => setEditBrief(value => !value)}>
+          {{ en: 'Shopping Brief', ur: 'خریداری کی ضروریات', es: 'Ficha de compra', fr: 'Critères d’achat' }[locale]}
+        </button>
+        <div id="workspace-brief" className={editBrief ? 'mt-2 lg:mt-0' : 'hidden lg:block'}>{brief}</div>
+      </aside>}
       <div className={`min-w-0 space-y-5 sm:space-y-6 ${brief ? 'xl:col-start-2 xl:row-start-1' : ''}`}>
-        <form className="card p-4 sm:p-5" onSubmit={e => { e.preventDefault(); void run(prompt); }}>
+        {result?.kind === 'results' && <button type="button" className="btn btn-ghost w-full justify-start lg:hidden" aria-expanded={editRequest} aria-controls="workspace-request" onClick={() => setEditRequest(value => !value)}>{t('assistant.requestLabel')}</button>}
+        <form id="workspace-request" className={`card p-4 sm:p-5 ${result?.kind === 'results' && !editRequest ? 'hidden lg:block' : ''}`} onSubmit={e => { e.preventDefault(); void run(prompt); }}>
           <label htmlFor="prompt" className="label">{t('assistant.requestLabel')}</label>
           <textarea id="prompt" dir="auto" className="input min-h-24 resize-y" placeholder={t('assistant.placeholder')} value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={600} enterKeyHint="search"
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void run(prompt); } }} />
@@ -243,7 +252,6 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
               {refinementForm}
             </div>
 
-            {result.kit && <BundlePlanner key={result.kit.id} kit={result.kit} accountSaving={canSaveHistory} budgetCents={result.budget.budgetCents} />}
             {result.requirements.length > 0 && <Requirements result={result} t={t} />}
 
             {suitable.length > 0 && (
@@ -270,6 +278,8 @@ export function Assistant({ initialQuery, resumeId, initialComparison = [], canS
                 <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">{suitable.map((p, i) => <ProductCard key={p.externalId} p={p} i={i} {...cardProps} />)}</div>
               )}
             </div>
+
+            {result.kit && <BundlePlanner key={result.kit.id} kit={result.kit} accountSaving={canSaveHistory} budgetCents={result.budget.budgetCents} />}
 
             {verify.length > 0 && (
               <details className="card group p-4 sm:p-5" open={suitable.length === 0}>
@@ -507,12 +517,21 @@ function CompareTable({ products, onRemove, sessionId, ownCents, picks, t, f }: 
     [t('assistant.row.rating'), p => p.rating ? `★ ${p.rating.toFixed(1)}` : t('assistant.notListed')],
     [t('assistant.row.pick'), p => picks.get(p.externalId)?.reason || '—'],
   ];
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const active = products.find(product => product.externalId === activeId) ?? products[0];
   const cols = products.length === 4 ? 'grid-cols-4' : products.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
   return (
     <section id="compare" className="card fade-up scroll-mt-20 bg-white p-4 sm:p-5" aria-label={t('assistant.compareAria')}>
       <h2 className="text-2xl font-extrabold tracking-tight text-brand">{t('assistant.compareTitle')}</h2>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:hidden" role="group" aria-label={t('assistant.compareTitle')}>
+        {products.map((product, index) => <button className={`btn shrink-0 ${active?.externalId === product.externalId ? 'btn-primary' : 'btn-ghost'}`}
+          key={product.externalId} type="button" aria-pressed={active?.externalId === product.externalId} onClick={() => {
+            setActiveId(product.externalId);
+            document.getElementById(`comparison-${index}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }}>{product.title}</button>)}
+      </div>
       <div className={`mt-4 grid auto-cols-[minmax(9rem,65%)] grid-flow-col gap-3 overflow-x-auto pb-2 sm:auto-cols-auto sm:grid-flow-row sm:overflow-visible ${products.length === 4 ? 'sm:grid-cols-4' : products.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-        {products.map(p => <div key={p.externalId} className="min-w-0 rounded-2xl border border-line bg-white p-3">
+        {products.map((p, index) => <div id={`comparison-${index}`} key={p.externalId} className={`min-w-0 rounded-2xl border bg-white p-3 ${p.externalId === active?.externalId ? "border-brand" : "border-line"}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {p.imageUrl && <img src={p.imageUrl} alt="" className="aspect-square w-full rounded-lg bg-brand-soft/50 object-contain" loading="lazy" />}
           <Link href={productHref(p.externalId, sessionId, products.map(product => product.externalId))} dir="auto" className="block wrap-anywhere text-xs font-bold text-brand hover:underline">{p.title}</Link>

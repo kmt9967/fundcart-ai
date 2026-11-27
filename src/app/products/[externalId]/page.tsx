@@ -68,7 +68,7 @@ export default async function ProductDetails({ params, searchParams }: {
     <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)] lg:gap-10">
       <div className="card grid aspect-[4/3] place-items-center overflow-hidden bg-white sm:aspect-square">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {product.imageUrl ? <img src={product.imageUrl} alt={product.imageAlt || product.title} className="h-full w-full object-contain p-5" /> : <p className="text-sm text-mute">{t('assistant.noImage')}</p>}
+        {product.imageUrl ? <img src={product.imageUrl} alt={product.imageAlt || product.title} className="h-full w-full object-contain p-3 sm:p-6" /> : <p className="rounded-lg border border-line bg-brand-soft/40 px-4 py-3 text-sm text-mute">{t('assistant.noImage')}</p>}
       </div>
       <div className="min-w-0">
         <p className="text-sm text-mute" dir="auto">{[product.brand, product.merchantDomain].filter(Boolean).join(' · ') || t('assistant.notListed')}</p>

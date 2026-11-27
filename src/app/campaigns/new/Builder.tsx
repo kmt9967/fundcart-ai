@@ -124,7 +124,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
               <li key={id}><button type="button" aria-current={activeStep === index ? 'step' : undefined} disabled={index > maxStep || busy !== null} onClick={() => advance(index)} className={`btn w-full ${activeStep === index ? 'btn-primary' : 'btn-ghost'}`}><bdi className="inline-grid size-6 shrink-0 place-items-center rounded-full bg-white/90 text-xs font-bold text-brand">{index + 1}</bdi> <span className="min-w-0 text-start">{t(label)}</span></button></li>)}
           </ol>
         </nav>
-        {activeStep === 0 && <section className="card p-5"><h2 className="font-bold" dir="auto">{product.title}</h2><p className="mt-2 text-lg font-bold">{formatUSD(product.priceCents)}</p><button type="button" className="btn btn-primary mt-4" disabled={maxStep === 0} onClick={() => advance(1)}>{nextLabel}</button></section>}
+        {activeStep === 0 && <section className="card p-5"><h2 className="font-bold" dir="auto">{product.title}</h2><p className="mt-2 text-lg font-bold">{formatUSD(product.priceCents)}</p><div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-white px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0"><button type="button" className="btn btn-primary max-sm:w-full" disabled={maxStep === 0} onClick={() => advance(1)}>{nextLabel}</button></div></section>}
         <section hidden={activeStep !== 1} id="campaign-need" className="card p-4 sm:p-6">
           <h2 className="font-bold">{t('b.step1')}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -142,8 +142,8 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
           <div className="mt-4"><label className="label" htmlFor="purpose">{t('b.why')}</label>
             <textarea id="purpose" className="input min-h-24" value={purpose} onChange={e => setPurpose(e.target.value)} maxLength={400} placeholder={t('b.whyPh')} dir="auto" aria-describedby="purpose-hint" />
             <p id="purpose-hint" className="mt-1 text-xs text-mute">{t('elig.purposeHint')}</p></div>
-          <button className="btn btn-primary mt-4 w-full sm:w-auto" onClick={draft} disabled={!needReady || busy !== null}>{busy === 'draft' ? t('b.drafting') : t('b.draft')}</button>
-          <button type="button" className="btn btn-ghost mt-3" disabled={!needReady || busy !== null} onClick={() => advance(2)}>{nextLabel}</button>
+          <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-white px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0"><button className="btn btn-ghost flex-1 sm:flex-none" onClick={draft} disabled={!needReady || busy !== null}>{busy === 'draft' ? t('b.drafting') : t('b.draft')}</button>
+          <button type="button" className="btn btn-primary flex-1 sm:flex-none" disabled={!needReady || busy !== null} onClick={() => advance(2)}>{nextLabel}</button></div>
           {activeStep === 1 && error && <p role="alert" className="mt-2 text-sm text-bad">{error}</p>}
           {gap === 0 && <p className="mt-2 text-sm text-ok">{t('b.noNeed')}</p>}
         </section>
@@ -158,7 +158,7 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
             <div><label className="label" htmlFor="ty">{t('b.thanks')}</label><input id="ty" dir="auto" className="input" value={thankYou} onChange={e => setThankYou(e.target.value)} maxLength={300} /></div>
             <div className="sm:w-56"><label className="label" htmlFor="deadline">{t('b.deadline')}</label><input id="deadline" type="date" className="input" value={deadline} onChange={e => setDeadline(e.target.value)} /></div>
           </div>
-          <button type="button" className="btn btn-primary mt-4" disabled={!storyReady || busy !== null} onClick={() => advance(3)}>{nextLabel}</button>
+          <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-white px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0"><button type="button" className="btn btn-primary max-sm:w-full" disabled={!storyReady || busy !== null} onClick={() => advance(3)}>{nextLabel}</button></div>
         </section>
         <section hidden={activeStep !== 3} id="campaign-review" className="card p-4 sm:p-6">
           <h2 className="font-bold">{t('b.goal')} <bdi>{gap == null ? '—' : formatUSD(gap)}</bdi></h2>
@@ -179,9 +179,9 @@ export function Builder({ product, initialOwn, sessionId = null, fundraisingAvai
               </div>
             </div>
           )}
-          {needLogin
-            ? <Link href={loginHref} className="btn btn-sun mt-4 w-full px-5 sm:w-auto" data-testid="login-to-publish">{t('elig.loginToPublish')}</Link>
-            : <button className="btn btn-sun mt-4 w-full px-5 sm:w-auto" onClick={() => publish(false)} disabled={!needReady || !storyReady || busy !== null}>{busy === 'publish' ? t('b.publishing') : emailVerified ? t('b.publish') : t('elig.submitReview')}</button>}
+          <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-white px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0">{needLogin
+            ? <Link href={loginHref} className="btn btn-primary w-full px-5 sm:w-auto" data-testid="login-to-publish">{t('elig.loginToPublish')}</Link>
+            : <button className="btn btn-primary w-full px-5 sm:w-auto" onClick={() => publish(false)} disabled={!needReady || !storyReady || busy !== null}>{busy === 'publish' ? t('b.publishing') : emailVerified ? t('b.publish') : t('elig.submitReview')}</button>}</div>
           {error && <p role="alert" className="mt-3 text-sm text-bad" data-testid="publish-error">{error}</p>}
           {questions.length > 0 && <ul className="mt-2 list-disc space-y-1 ps-5 text-sm" data-testid="clarify-questions">{questions.map(q => <li key={q}>{q}</li>)}</ul>}
         </section>

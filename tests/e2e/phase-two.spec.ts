@@ -8,6 +8,7 @@ test('Phase 2 public layouts fit the requested widths', async ({ page }, testInf
       expect((await page.goto(path))?.status()).toBe(200);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${path} at ${width}px`).toBeLessThanOrEqual(1);
       if (path === '/') {
+        if (width < 1024) await expect(page.getByRole('link', { name: 'Discover', exact: true })).toHaveAttribute('aria-current', 'page');
         if (process.env.E2E_PHASE2_FIXTURE === '1') {
           const campaign = page.getByRole('listitem').filter({ hasText: 'Study laptop fixture' });
           await expect(campaign.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '37');
@@ -82,6 +83,16 @@ test('Phase 2 sends a confirmed brief edit with the previous session', async ({ 
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`workspace-${width}.png`), fullPage: true, animations: 'disabled' });
+    if (width === 390) {
+      const briefToggle = page.getByRole('button', { name: 'Shopping Brief', exact: true });
+      await expect(briefToggle).toHaveAttribute('aria-expanded', 'false');
+      await briefToggle.click();
+      await expect(brief.getByLabel('Maximum budget')).toHaveValue(/^600(?:\.00)?$/);
+      await briefToggle.click();
+      const candidate = page.locator('#compare').getByRole('button', { name: 'Fixture laptop B', exact: true });
+      await candidate.click();
+      await expect(candidate).toHaveAttribute('aria-pressed', 'true');
+    }
     await page.locator('#compare').screenshot({ path: testInfo.outputPath(`comparison-${width}.png`), animations: 'disabled' });
   }
   for (const [lang, label] of [['ur', 'حسب ضرورت جزو'], ['es', 'Componente personalizado'], ['fr', 'Composant personnalisé']]) {
@@ -205,7 +216,8 @@ test('Phase 2 owner status and staff review enforce separate roles', async ({ pa
   await page.getByRole('link', { name: 'Pending review 1' }).click();
   await expect(page.getByTestId('queue-item')).toHaveCount(1);
   await captureWidths(page, testInfo, 'moderator-queue');
-  await page.goto('/admin/moderation/fixture-campaign');
+  await page.getByTestId('queue-item').getByRole('link', { name: 'Fixture study laptop', exact: true }).click();
+  await expect(page.getByTestId('mod-approve')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Fixture study laptop' })).toBeVisible();
   await expect(page.getByText('A local fixture campaign for a study laptop.')).toBeVisible();
   for (const width of [390, 768, 1024, 1440]) {
@@ -226,17 +238,20 @@ test('Phase 2 authenticated wizard fixture validates, restores and submits its d
     await route.fulfill({ json: { slug: 'fixture-campaign' } });
   });
   await page.goto('/campaigns/new?product=9kpreIm&own=100');
+  await captureWidths(page, testInfo, 'wizard-product');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   const need = page.locator('#campaign-need');
   await expect(need.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   await need.locator('#name').fill('Fixture creator');
   await need.locator('#need').selectOption('education');
   await need.locator('#purpose').fill('I need a laptop for a local education fixture.');
+  await captureWidths(page, testInfo, 'wizard-funding');
   await need.getByRole('button', { name: 'Continue', exact: true }).click();
   const story = page.locator('#campaign-story');
   await expect(story.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   await story.locator('#title').fill('Fixture study laptop');
   await story.locator('#story').fill('A local fixture campaign for a study laptop.');
+  await captureWidths(page, testInfo, 'wizard-story');
   await story.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.reload();
   await expect(page.getByTestId('draft-restored')).toBeVisible();
@@ -250,7 +265,7 @@ test('Phase 2 marketplace fixture filters real rendered campaign cards', async (
   test.skip(process.env.E2E_PHASE2_FIXTURE !== '1', 'Requires the loopback Phase 2 fixture');
   await page.setViewportSize({ width: 390, height: 960 });
   await page.goto('/campaigns');
-  await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Study laptop fixture' })).toBeInViewport();
   await expect(page.getByRole('complementary', { name: 'Campaigns shown' })).toContainText('$943.00');
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 960 });

@@ -24,7 +24,7 @@ export function ModerationActions({ campaignId, approved }: { campaignId: string
       <label className="block text-xs text-mute">{t('mod.note')}
         <input className="input mt-1 w-full" maxLength={300} value={note} onChange={e => setNote(e.target.value)} data-testid="mod-note" dir="auto" />
       </label>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-t border-line bg-white px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0">
         <button className="btn btn-primary min-h-11 px-4 text-sm" disabled={busy} onClick={() => decide('approve')} data-testid="mod-approve">{t('admin.approve')}</button>
         <button className="btn btn-ghost min-h-11 px-4 text-sm" disabled={busy} onClick={() => decide('clarify')} data-testid="mod-clarify">{t('mod.clarify')}</button>
         {approved && <button className="btn btn-ghost min-h-11 px-4 text-sm" disabled={busy} onClick={() => decide('pause')} data-testid="mod-pause">{t('mod.pause')}</button>}

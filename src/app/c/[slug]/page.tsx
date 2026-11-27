@@ -51,7 +51,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-1">
           <div className="flex flex-wrap items-center gap-2"><StatusChip status={c.status} /><span className="chip bg-white text-mute" title={t('trust.unverifiedHelp')} data-testid="verification">{c.verification_status === 'verified' ? '✓' : t('trust.unverified')}</span>{c.is_demo_seed && <span className="chip bg-ink text-white">{t('card.demo')}</span>}{c.category && <span className="chip bg-white text-ink-2">{c.category}</span>}</div>
           <h1 className="h-page mt-3 [overflow-wrap:anywhere]" dir="auto">{c.title}</h1>
-          <p className="mt-3 rounded-lg bg-brand-soft/50 px-3 py-2 text-sm text-mute">{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</p>
+          <p className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2 text-sm text-mute"><span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand">{c.creator_name.slice(0, 1)}</span><span>{t('camp.createdBy', { name: c.creator_name })} · {date(c.created_at)}{c.deadline ? ` · ${t('camp.target', { date: date(c.deadline) })}` : ''}</span></p>
 
           <div className="card -order-1 mb-4 overflow-hidden lg:order-none lg:mb-0 lg:mt-6">
             {c.image_url

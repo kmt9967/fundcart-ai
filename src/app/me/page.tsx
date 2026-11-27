@@ -28,10 +28,6 @@ export default async function Me() {
       <p className="mt-2 max-w-2xl text-sm text-ink-2">{account?.email ? t('me.accountLead', { email: account.email }) : t('me.guestLead')}</p>
       <Link href="/account" className="btn btn-ghost mt-3 min-h-11 px-4 text-sm">{account ? t('auth.logout') + ' / ' + t('auth.title') : t('auth.signInCta')}</Link></header>
 
-      {!!mine.length && <dl className="mt-5 grid gap-3 sm:grid-cols-3">
-        {[[t('me.campaigns'), mine.length], [t('mg.raised'), formatUSD(campaignTotals.raised)], [t('mg.supporters'), campaignTotals.backers]].map(([label, value]) =>
-          <div className="card min-w-0 border-brand/10 p-4" key={label}><dt className="text-sm text-mute">{label}</dt><dd className="mt-1 wrap-anywhere text-2xl font-bold"><bdi>{value}</bdi></dd></div>)}
-      </dl>}
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.campaigns')}</h2>
         {mine.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{mine.map(c => <div key={c.slug} className="card grid min-w-0 gap-3 p-3">
           <CampaignCard c={c} />
@@ -42,6 +38,10 @@ export default async function Me() {
         </div>)}</div>
           : <p className="mt-2 text-sm text-mute">{t('me.none')} <Link className="tap font-semibold text-brand" href="/assistant">{t('me.findCta')}</Link></p>}</section>
 
+      {!!mine.length && <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+        {[[t('me.campaigns'), mine.length], [t('mg.raised'), formatUSD(campaignTotals.raised)], [t('mg.supporters'), campaignTotals.backers]].map(([label, value]) =>
+          <div className="card min-w-0 border-brand/10 p-2.5 sm:p-4" key={label}><dt className="text-xs text-mute sm:text-sm">{label}</dt><dd className="mt-1 wrap-anywhere text-base font-bold sm:text-2xl"><bdi>{value}</bdi></dd></div>)}
+      </dl>}
       <section className="mt-8 sm:mt-10"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold">{t('me.wishlist')}</h2>{account && <Link href="/assistant" className="btn btn-ghost">{t('nav.assistant')}</Link>}</div><Wishlist /></section>
 
       <section className="mt-8 sm:mt-10"><h2 className="text-lg font-bold">{t('me.payments')}</h2>

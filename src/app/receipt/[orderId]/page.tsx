@@ -31,14 +31,14 @@ export default async function Receipt({ params }: { params: Promise<{ orderId: s
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="card overflow-hidden">
-        <header className="border-b border-line p-5 text-center sm:p-8">
+        <header className="border-b border-line bg-brand-soft/30 p-5 text-center sm:p-8">
         <span aria-hidden="true" className={`mx-auto mb-4 grid size-14 place-items-center rounded-full text-2xl ${tone}`}>{failed || adjusted ? '!' : verified ? '✓' : '…'}</span>
         <div className="flex flex-wrap items-center justify-center gap-2"><p className="eyebrow">{t('rc.eyebrow')}</p><span className={`chip ${tone}`}>{contribution.data && contribution.data.status !== 'COMPLETED' ? contribution.data.status : verified ? t('rc.verified') : o.data.capture_status || o.data.status}</span></div>
         <h1 className="mt-3 text-3xl font-extrabold"><bdi>{formatUSD(Number(o.data.amount_cents))}</bdi></h1>
         <p className="text-sm text-mute">{o.data.kind === 'contribution' ? t('rc.contribution') : t('rc.purchase')}{camp.data ? <> · <Link className="inline-block py-1 text-brand hover:underline" href={`/c/${camp.data.slug}`}>{camp.data.title}</Link></> : ''}</p>
         </header>
         <div className="p-5 sm:p-8">
-        <dl className="grid gap-3 rounded-xl border border-line p-4 text-sm sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-xl border border-line bg-white p-4 text-sm sm:grid-cols-2">
           <div><dt className="text-xs text-mute">{t('rc.orderId')}</dt><dd className="break-all font-mono" dir="ltr">{o.data.paypal_order_id}</dd></div>
           <div><dt className="text-xs text-mute">{t('rc.captureId')}</dt><dd className="break-all font-mono" dir="ltr">{o.data.capture_id || '—'}</dd></div>
           <div><dt className="text-xs text-mute">{t('rc.captureStatus')}</dt><dd>{o.data.capture_status || '—'}</dd></div>
